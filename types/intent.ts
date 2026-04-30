@@ -60,6 +60,13 @@ export interface CrewImageIntentSpec {
   styleKeywords: string[];
   styleDirection: string;
   wardrobeDirection: string;
+  portraitDirection?: string;
+  portraitAestheticSystem?: string;
+  portraitTemperamentFrame?: string;
+  portraitFacialStructure?: string;
+  portraitWorldWardrobeSpec?: string;
+  portraitNegativeConstraints?: string[];
+  portraitGenerationPlan?: string;
   roleAura: string;
   echoVariance: string;
   negativeHints: string[];

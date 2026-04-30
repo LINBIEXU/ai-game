@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { getCrewDirectiveSummary } from "@/lib/mock-generators";
+import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
 import type { AIOperationState } from "@/types/ai";
-import type { CrewMember } from "@/types/game";
+import type { ClassroomImageAsset, CrewMember } from "@/types/game";
 
 import { CrewPortrait } from "@/components/game/CrewPortrait";
 import { GenerationStatus } from "@/components/game/GenerationStatus";
+import { ImageImportControl } from "@/components/game/ImageImportControl";
 
 interface CrewBayPanelProps {
   crewRoster: CrewMember[];
@@ -16,6 +18,7 @@ interface CrewBayPanelProps {
   onRecruit: () => void;
   imageOperation: AIOperationState;
   onRegeneratePortrait: (crewId: string) => void;
+  onImportCrewImage: (crewId: string, file: File) => Promise<ClassroomImageAsset | void>;
   onUpdateImagePromptHint: (crewId: string, prompt: string) => void;
   onSelectEcho: (crewId: string, revision: number) => void;
   onOpenChat: (crewId: string) => void;
@@ -28,6 +31,7 @@ export function CrewBayPanel({
   onRecruit,
   imageOperation,
   onRegeneratePortrait,
+  onImportCrewImage,
   onUpdateImagePromptHint,
   onSelectEcho,
   onOpenChat
@@ -40,7 +44,10 @@ export function CrewBayPanel({
   }, [activeCrew?.id, activeCrew?.imagePromptHint]);
 
   return (
-    <section className="scene-reveal space-y-5">
+    <section className="scene-reveal ship-secondary-stage">
+      <div className="ship-secondary-stage__bg" style={{ backgroundImage: `url(${shipSecondarySceneAssets.vaultGallery})` }} />
+      <div className="ship-secondary-stage__overlay" />
+      <div className="ship-secondary-stage__content space-y-5">
       <div className="fleet-broadcast panel-surface rounded-full px-4 py-2">
         <div className="fleet-broadcast-track">
           {[
@@ -58,7 +65,7 @@ export function CrewBayPanel({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
-      <aside className="panel-surface rounded-[32px] p-5">
+      <aside className="panel-surface ship-secondary-panel rounded-[32px] p-5">
         <div className="soft-label text-[11px] text-white/42">船员名册</div>
         <div className="mt-4 space-y-3">
           {crewRoster.length === 0 && (
@@ -97,7 +104,7 @@ export function CrewBayPanel({
         </button>
       </aside>
 
-      <div className="panel-surface rounded-[32px] p-6 md:p-8">
+      <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 md:p-8">
         {activeCrew ? (
           <>
             <div className="soft-label text-[11px] text-white/42">船员档案</div>
@@ -111,16 +118,14 @@ export function CrewBayPanel({
                   alt={`${activeCrew.name} 的档案形象`}
                 />
                 <GenerationStatus title="宇宙回响接收" operation={imageOperation} onRetry={() => onRegeneratePortrait(activeCrew.id)} />
-                <button
-                  type="button"
-                  onClick={() => onRegeneratePortrait(activeCrew.id)}
-                  disabled={imageOperation.status === "loading"}
-                  className="w-full rounded-full border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white/82 transition hover:border-white/24 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  接收另一条宇宙回响
-                </button>
+                <ImageImportControl
+                  label="角色图"
+                  hasImage={Boolean(activeCrew.portraitAsset)}
+                  emptyLabel="已完成角色设定，等待导入角色图。"
+                  onImport={(file) => onImportCrewImage(activeCrew.id, file)}
+                />
                 <p className="text-xs leading-6 text-white/46">
-                  主舰只会捕捉同一名船员在别的宇宙分支里的外形投影。名字、职责和能力倾向都不会被改写。
+                  老师可以用外部工具生成高质量角色图，再导入这里；名字、职责和能力倾向都不会被改写。
                 </p>
                 <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
                   <div className="text-xs tracking-[0.18em] text-white/38">外形提示补充</div>
@@ -231,6 +236,7 @@ export function CrewBayPanel({
         ) : (
           <div className="text-sm text-white/58">还没有可查看的船员。</div>
         )}
+      </div>
       </div>
       </div>
     </section>

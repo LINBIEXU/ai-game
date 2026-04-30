@@ -77,9 +77,9 @@ export function getServerImageConfig(): ServerImageConfig {
     providerId,
     allowMockFallback: normalizeBoolean(process.env.AI_ALLOW_MOCK_FALLBACK, true),
     polling: {
-      maxAttempts: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_MAX_ATTEMPTS, 24),
-      initialDelayMs: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_INITIAL_DELAY_MS, 1800),
-      intervalMs: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_INTERVAL_MS, 2200)
+      maxAttempts: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_MAX_ATTEMPTS, 48),
+      initialDelayMs: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_INITIAL_DELAY_MS, 2500),
+      intervalMs: normalizeNumber(process.env.DASHSCOPE_IMAGE_POLL_INTERVAL_MS, 3000)
     },
     dashscope: {
       apiKey: process.env.DASHSCOPE_API_KEY ?? null,

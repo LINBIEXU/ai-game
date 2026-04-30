@@ -34,6 +34,7 @@ export function CrewPortrait({ formType, role, seed = 0, size = "lg", imageUrl =
   const ringClass = roleRingMap[role];
   const tilt = seed % 8;
   const pulseDelay = `${(seed % 5) * 180}ms`;
+  const glowClass = isLarge ? "inset-6 blur-2xl opacity-100" : "inset-4 blur-lg opacity-55";
 
   useEffect(() => {
     setImageFailed(false);
@@ -42,10 +43,10 @@ export function CrewPortrait({ formType, role, seed = 0, size = "lg", imageUrl =
   return (
     <div
       className={`relative flex items-center justify-center rounded-[28px] border border-white/10 bg-slate-950/60 ${
-        isLarge ? "aspect-[4/5] min-h-[29rem] w-full overflow-hidden" : "h-24 w-24 overflow-hidden"
+        isLarge ? "aspect-[4/5] min-h-[29rem] w-full overflow-hidden" : "h-16 w-16 overflow-hidden rounded-[22px]"
       } overflow-hidden`}
     >
-      <div className={`absolute inset-6 rounded-full bg-gradient-to-br ${orbitalClass} blur-2xl`} />
+      <div className={`pointer-events-none absolute ${glowClass} rounded-full bg-gradient-to-br ${orbitalClass}`} />
       {isLarge && <div className="absolute inset-3 rounded-[24px] border border-white/8 bg-white/[0.02]" />}
       {imageUrl && !imageFailed && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -53,13 +54,13 @@ export function CrewPortrait({ formType, role, seed = 0, size = "lg", imageUrl =
           src={imageUrl}
           alt={alt}
           className={`absolute rounded-[24px] object-contain object-center ${
-            isLarge ? "inset-4 h-[calc(100%-32px)] w-[calc(100%-32px)]" : "inset-2 h-[calc(100%-16px)] w-[calc(100%-16px)]"
+            isLarge ? "inset-4 h-[calc(100%-32px)] w-[calc(100%-32px)]" : "inset-1.5 h-[calc(100%-12px)] w-[calc(100%-12px)]"
           }`}
           onError={() => setImageFailed(true)}
         />
       )}
       <div
-        className={`absolute ${isLarge ? "h-48 w-48" : "h-16 w-16"} rounded-full border ${ringClass} opacity-70`}
+        className={`pointer-events-none absolute ${isLarge ? "h-48 w-48" : "h-12 w-12"} rounded-full border ${ringClass} opacity-70`}
         style={{ transform: `rotate(${tilt * 6}deg) scale(${isLarge ? 1 : 0.92})`, animationDelay: pulseDelay }}
       />
 

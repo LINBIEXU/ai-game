@@ -45,7 +45,7 @@ export function BridgeScene({
         <h2 className="mt-4 text-3xl font-semibold text-white">主舱已重连，但还不完整。</h2>
         <p className="mt-4 max-w-2xl text-base leading-7 text-white/68">
           {!crewOnboard && "一个船员位空着，第一颗航星仍在黑暗里。"}
-          {crewOnboard && !missionComplete && "第一位船员已到位，你们刚好能处理那段失落信号。"}
+          {crewOnboard && !missionComplete && "第一位船员已到位，你们刚好能重建第一颗星球模型。"}
           {missionComplete && "船员在岗，第一颗航星已经亮起，新的待探索坐标正在主舱回响。"}
         </p>
 

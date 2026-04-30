@@ -19,7 +19,7 @@ import { labelMap } from "@/lib/game-constants";
 import { crewDossierPrompt } from "@/lib/prompts/crew-dossier";
 import { crewDialoguePrompt } from "@/lib/prompts/crew-dialogue";
 import { crewGenerationPrompt } from "@/lib/prompts/crew-generation";
-import { crewImagePrompt } from "@/lib/prompts/crew-image";
+import { buildCrewImageNegativePrompt, crewImagePrompt } from "@/lib/prompts/crew-image";
 import { missionAnalysisPrompt } from "@/lib/prompts/mission-analysis";
 import { missionRefinementPrompt } from "@/lib/prompts/mission-refinement";
 import { shipLogPrompt } from "@/lib/prompts/ship-log";
@@ -34,60 +34,6 @@ function composePrompt<TInput>(blueprint: PromptBlueprint<TInput>, input: TInput
     developer: [worldRulesPrompt.developer, blueprint.developer].join("\n\n"),
     user: blueprint.buildUserPrompt(input)
   };
-}
-
-function buildCrewImageNegativePrompt(input: {
-  visualSubject: string;
-  negativeHints?: string[];
-  styleDirection?: string;
-}) {
-  const styleText = input.styleDirection ?? "";
-  const prefersAnime = /动漫|动画|二次元|赛璐璐/i.test(styleText);
-  const negatives = [
-    ...(!prefersAnime
-      ? ["anime", "manga", "cel shading", "重二次元脸", "夸张动漫眼睛", "美少女卡牌立绘", "偶像立绘感", "廉价手游角色卡", "日系热血动画角色"]
-      : []),
-    "成人化身材比例",
-    "成人写真棚拍",
-    "性感写真",
-    "恐怖元素",
-    "血腥",
-    "名字文字",
-    "任何文字",
-    "任何字母",
-    "任何数字",
-    "字幕",
-    "标题排版",
-    "背景招牌",
-    "铭牌",
-    "路牌文字",
-    "徽章字样",
-    "logo",
-    "watermark",
-    "不相关主体",
-    "与招募描述不符的人类脸",
-    "兽人",
-    "拟人动物的人类身体",
-    "狮身人面像",
-    "神像感混种生物",
-    "博物馆雕像质感",
-    "默认宇航服",
-    "默认科技制服",
-    "默认机械装甲",
-    "外骨骼战甲",
-    "主体被裁切到只剩局部",
-    "低龄化幼态脸"
-  ];
-
-  if (input.visualSubject.includes("人类")) {
-    negatives.push("猫耳", "狐耳", "兽耳", "尾巴", "兽尾", "角", "翅膀", "鳞片");
-  }
-
-  if (input.negativeHints?.length) {
-    negatives.push(...input.negativeHints);
-  }
-
-  return Array.from(new Set(negatives)).join("，");
 }
 
 function stripImageIPReferences(text: string) {
@@ -188,20 +134,7 @@ export const providerPromptBindings: ProviderPromptBindings = {
       .filter(Boolean)
       .slice(0, 5);
     const bundle = composePrompt(crewImagePrompt, {
-      playerDescription: interpreted
-        ? [
-            sanitizedSignal ? `角色原始设定：${sanitizedSignal}` : null,
-            `主体锁定：${interpreted.visualSubject}`,
-            `画风要求：${interpreted.styleDirection}`,
-            `服装要求：${interpreted.wardrobeDirection}`,
-            `角色气质：${interpreted.roleAura}`,
-            sanitizedHint ? `补充外形要求：${sanitizedHint}` : null
-          ]
-            .filter(Boolean)
-            .join("；")
-        : [sanitizedSignal, sanitizedHint]
-            .filter(Boolean)
-            .join("；补充外形要求："),
+      playerDescription: [sanitizedSignal, sanitizedHint].filter(Boolean).join("\n"),
       crewName: "",
       crewTitle: "",
       abilityTag: "",
@@ -213,6 +146,13 @@ export const providerPromptBindings: ProviderPromptBindings = {
         interpreted?.styleDirection ?? "高质量游戏角色设定插画，重视主体与服装，不默认二次元，也不默认写实写真",
       wardrobeDirection:
         interpreted?.wardrobeDirection ?? "服装按玩家描述和角色身份自然推断，不默认宇航服、机甲或机械装甲",
+      portraitDirection: interpreted?.portraitDirection,
+      portraitAestheticSystem: interpreted?.portraitAestheticSystem,
+      portraitTemperamentFrame: interpreted?.portraitTemperamentFrame,
+      portraitFacialStructure: interpreted?.portraitFacialStructure,
+      portraitWorldWardrobeSpec: interpreted?.portraitWorldWardrobeSpec,
+      portraitNegativeConstraints: interpreted?.portraitNegativeConstraints,
+      portraitGenerationPlan: interpreted?.portraitGenerationPlan,
       parallelEchoNote:
         request.mode === "refresh"
           ? interpreted?.echoVariance ??
@@ -223,11 +163,7 @@ export const providerPromptBindings: ProviderPromptBindings = {
 
     return {
       ...bundle,
-      negative: buildCrewImageNegativePrompt({
-        visualSubject: interpreted?.visualSubject ?? request.crew.visualSubject,
-        negativeHints: interpreted?.negativeHints,
-        styleDirection: interpreted?.styleDirection
-      })
+      negative: buildCrewImageNegativePrompt()
     };
   },
 

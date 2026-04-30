@@ -1,10 +1,12 @@
 export type Scene =
   | "awakening"
   | "hub"
+  | "archive"
   | "hub-briefing"
   | "chapter-two-portal"
   | "chapter-two-mission"
   | "chapter-two-result"
+  | "home-planet-hub"
   | "recruit"
   | "crew-result"
   | "crew-bay"
@@ -13,7 +15,11 @@ export type Scene =
   | "task-board"
   | "task-result"
   | "signal-mission"
+  | "trial-bridge"
   | "signal-review"
+  | "experience-result"
+  | "trial-result"
+  | "parent-summary"
   | "signal-aftermath"
   | "chapter-complete";
 
@@ -26,6 +32,21 @@ export type ChapterTwoFocus = "身份线索" | "坐标结构" | "异常语气";
 export type ChapterTwoRefinement = "补发讯人细节" | "切换主分析员" | "强化区域描述";
 export type ChapterTwoFinalChoice = "深入追踪" | "记录后返航" | "激活隐藏模块";
 export type ChapterTwoDuty = "前线解析" | "后方稳定" | "环境扫描" | "记录还原";
+export type ChapterTwoSceneState =
+  | "ship_bridge"
+  | "launch_sequence"
+  | "warp_travel"
+  | "sector_view"
+  | "planet_preview"
+  | "planet_descent"
+  | "planet_surface"
+  | "location_focus"
+  | "blackbox_unlock"
+  | "memory_archive"
+  | "boss_trial"
+  | "chapter_reward";
+export type ChapterTwoPlanetId = "mother" | "language";
+export type ChapterTwoLocationId = "archive-tower" | "letter-port" | "engraved-valley" | "paper-corridor" | "blackbox-vault";
 
 export type CrewFormType = "mechanical" | "biological" | "energy" | "hybrid";
 export type CrewRole = "scout" | "repair" | "record" | "pilot";
@@ -84,6 +105,96 @@ export interface CrewPortraitAsset {
   echoNote?: string;
   updatedAt: number;
   revision: number;
+}
+
+export interface ClassroomImageAsset {
+  imageUrl: string;
+  fileName: string;
+  kind: "crew" | "planet" | "chapter";
+  ownerId: string;
+  updatedAt: number;
+}
+
+export interface ClassroomArtifact {
+  id: string;
+  type: "crew" | "planet" | "chapter";
+  ownerId: string;
+  title: string;
+  imageAsset: ClassroomImageAsset;
+  notes?: string;
+  updatedAt: number;
+}
+
+export type HomePlanetFeatureId =
+  | "civilization-gallery"
+  | "planet-workshop"
+  | "commission-board"
+  | "character-dialogue-room"
+  | "animation-studio"
+  | "civilization-archive"
+  | "crew-dormitory"
+  | "expedition-planning";
+
+export type HomePlanetStructureId = "archive-hall" | "creation-house" | "observatory" | "energy-core" | "memory-garden";
+
+export interface HomePlanetResources {
+  water: number;
+  minerals: number;
+  energy: number;
+  fragments: number;
+  techPoints: number;
+}
+
+export interface HomePlanetCommissionWork {
+  id: string;
+  taskId: string;
+  title: string;
+  ability: string;
+  output: string;
+  createdAt: number;
+}
+
+export interface HomePlanetDialogueCard {
+  id: string;
+  character: string;
+  theme: string;
+  question: string;
+  takeaway: string;
+  createdAt: number;
+}
+
+export interface HomePlanetStoryboardAct {
+  id: "opening" | "turn" | "ending";
+  label: string;
+  text: string;
+  imageAsset?: ClassroomImageAsset | null;
+}
+
+export interface HomePlanetStoryboardProject {
+  id: string;
+  title: string;
+  acts: HomePlanetStoryboardAct[];
+  createdAt: number;
+}
+
+export interface HomePlanetGalleryItem {
+  id: string;
+  type: "commission" | "dialogue" | "storyboard";
+  title: string;
+  summary: string;
+  sourceId: string;
+  createdAt: number;
+}
+
+export interface HomePlanetHubState {
+  resources: HomePlanetResources;
+  unlockedFeatures: HomePlanetFeatureId[];
+  activeFeatures: HomePlanetFeatureId[];
+  builtStructures: HomePlanetStructureId[];
+  dialogueCards: HomePlanetDialogueCard[];
+  storyboardProjects: HomePlanetStoryboardProject[];
+  commissionWorks: HomePlanetCommissionWork[];
+  galleryItems: HomePlanetGalleryItem[];
 }
 
 export interface CrewBackstory {
@@ -277,6 +388,7 @@ export interface PlanetModel {
   coordinateLabel: string;
   summary: string;
   environmentTrait: string;
+  landmarkFeature: string;
   mood: PlanetMood;
   tags: string[];
   dangerLevel: number;
@@ -285,6 +397,7 @@ export interface PlanetModel {
   production: PlanetProductionProfile;
   explorationHooks: string[];
   recordNote: string;
+  imageAsset?: ClassroomImageAsset | null;
 }
 
 export interface PlanetModelState {
@@ -341,6 +454,7 @@ export interface FaultRunHistoryEntry {
   principle: string;
   delta: FaultChoiceEffect;
   crewSupport: string | null;
+  seedInteraction: string | null;
   after: {
     stability: number;
     evidence: number;
@@ -357,6 +471,10 @@ export interface FaultOutcome {
   systemNote: string;
   recommendedNextStep: string;
   learnedRule: string;
+  recoveryPercent: number;
+  broughtBack: string[];
+  crewContribution: string;
+  hallucinationNote: string;
 }
 
 export interface FaultCaseRecord {
@@ -509,10 +627,27 @@ export interface ChapterTwoOutcome {
   logSummary: string;
   leadDossierNote: string;
   supportDossierNote: string;
+  planetName?: string;
+  blackBoxTitle?: string;
+  technologyPointsAwarded?: number;
+  aiUpgrade?: string;
+  civilizationRecord?: string;
+  blackBoxKnowledge?: string[];
+  defeatedEcho?: boolean;
+  fragments?: string[];
+  unlockedModule?: string;
+  titleEarned?: string;
+  finalLetter?: string[];
+  completedAt?: number;
 }
 
 export interface ChapterTwoState {
   currentStep: ChapterTwoStep;
+  sceneState: ChapterTwoSceneState;
+  focusedPlanetId: ChapterTwoPlanetId | null;
+  focusedLocationId: ChapterTwoLocationId | null;
+  exploredLocationIds: ChapterTwoLocationId[];
+  blackBoxUnlocked: boolean;
   echo: ChapterTwoEcho | null;
   truth: ChapterTwoTruth | null;
   attemptCount: number;
@@ -575,11 +710,16 @@ export interface GameState {
   chapterThreeHintUnlocked: boolean;
   scannedRegionLabel: string | null;
   newRegionAlert: boolean;
+  technologyPoints: number;
+  aiCapabilityLevel: number;
+  aiCapabilityUnlocks: string[];
   planetCatalog: PlanetModel[];
   faultCaseRecords: FaultCaseRecord[];
   signalMission: SignalMissionState;
   taskDesk: TaskDeskState;
   chapterTwo: ChapterTwoState;
+  homePlanetHub: HomePlanetHubState;
   shipLogs: ShipLogEntry[];
   shipStatusNote: string | null;
+  classroomArtifacts: ClassroomArtifact[];
 }

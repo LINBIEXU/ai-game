@@ -1,5 +1,6 @@
 "use client";
 
+import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
 import type { AIOperationState } from "@/types/ai";
 import type { CrewMember, ShipTask, ShipTaskId, TaskResult } from "@/types/game";
 
@@ -35,8 +36,11 @@ export function TaskBoardPanel({
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
 
   return (
-    <section className="scene-reveal grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-      <aside className="panel-surface rounded-[32px] p-5">
+    <section className="scene-reveal ship-secondary-stage">
+      <div className="ship-secondary-stage__bg" style={{ backgroundImage: `url(${shipSecondarySceneAssets.fabricationBay})` }} />
+      <div className="ship-secondary-stage__overlay" />
+      <div className="ship-secondary-stage__content grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+      <aside className="panel-surface ship-secondary-panel rounded-[32px] p-5">
         <div className="soft-label text-[11px] text-white/42">任务台</div>
         <div className="mt-4 space-y-3">
           {tasks.map((task) => {
@@ -65,7 +69,7 @@ export function TaskBoardPanel({
       <div className="space-y-6">
         {selectedTask ? (
           <>
-            <div className="panel-surface rounded-[32px] p-6 md:p-8">
+            <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 md:p-8">
               <div className="soft-label text-[11px] text-white/42">任务概况</div>
               <h2 className="mt-3 text-3xl font-semibold text-white">{selectedTask.title}</h2>
               <p className="mt-3 text-base leading-7 text-white/64">{selectedTask.summary}</p>
@@ -75,7 +79,7 @@ export function TaskBoardPanel({
               </div>
             </div>
 
-            <div className="panel-surface rounded-[32px] p-6 md:p-8">
+            <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 md:p-8">
               <div className="soft-label text-[11px] text-white/42">派谁去</div>
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {crewRoster.map((crew) => {
@@ -125,8 +129,9 @@ export function TaskBoardPanel({
             </div>
           </>
         ) : (
-          <div className="panel-surface rounded-[32px] p-6 text-sm text-white/58">先选一个任务，再决定派谁去。</div>
+          <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 text-sm text-white/58">先选一个任务，再决定派谁去。</div>
         )}
+      </div>
       </div>
     </section>
   );
@@ -140,8 +145,11 @@ interface TaskResultPanelProps {
 
 export function TaskResultPanel({ result, crew, onFinish }: TaskResultPanelProps) {
   return (
-    <section className="scene-reveal grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-      <div className="panel-surface hologram-sweep unlock-burst rounded-[32px] p-6 md:p-8">
+    <section className="scene-reveal ship-secondary-stage">
+      <div className="ship-secondary-stage__bg" style={{ backgroundImage: `url(${shipSecondarySceneAssets.fabricationBay})` }} />
+      <div className="ship-secondary-stage__overlay" />
+      <div className="ship-secondary-stage__content grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
+      <div className="panel-surface ship-secondary-panel hologram-sweep unlock-burst rounded-[32px] p-6 md:p-8">
         <div className="soft-label text-[11px] text-white/42">任务结果</div>
         <h2 className="mt-3 text-3xl font-semibold text-white">{result.outcomeTitle}</h2>
         <p className="mt-4 text-base leading-7 text-white/66">{result.outcomeSummary}</p>
@@ -162,7 +170,7 @@ export function TaskResultPanel({ result, crew, onFinish }: TaskResultPanelProps
         </button>
       </div>
 
-      <div className="panel-surface rounded-[32px] p-6">
+      <div className="panel-surface ship-secondary-panel rounded-[32px] p-6">
         <div className="soft-label text-[11px] text-white/42">执行船员</div>
         {crew ? (
           <div className="mt-4 grid gap-4 md:grid-cols-[88px_1fr]">
@@ -180,6 +188,7 @@ export function TaskResultPanel({ result, crew, onFinish }: TaskResultPanelProps
         ) : (
           <div className="mt-4 text-sm text-white/58">未找到执行船员。</div>
         )}
+      </div>
       </div>
     </section>
   );

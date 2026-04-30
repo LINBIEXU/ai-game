@@ -1,6 +1,7 @@
 "use client";
 
-import { crewRefinementOptions, labelMap } from "@/lib/game-constants";
+import { formTypeOptions, labelMap, roleOptions, talentOptions, temperamentOptions } from "@/lib/game-constants";
+import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
 import type { AIOperationState } from "@/types/ai";
 import type { RecruitForm, RecruitSignalAnalysis } from "@/types/game";
 
@@ -32,6 +33,44 @@ function buildSourceKey(form: RecruitForm) {
   return [form.description.trim(), form.notes.trim()].filter(Boolean).join("｜");
 }
 
+function ChoiceGroup<Value extends string>({
+  title,
+  value,
+  options,
+  onChange
+}: {
+  title: string;
+  value: Value | null;
+  options: Array<{ value: Value; label: string; hint: string }>;
+  onChange: (value: Value) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 text-sm font-semibold text-white/84">{title}</div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {options.map((option) => {
+          const active = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              className={`rounded-[20px] border px-4 py-4 text-left transition ${
+                active
+                  ? "border-cyan-300/60 bg-cyan-300/12 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
+                  : "border-white/10 bg-white/[0.03] hover:border-cyan-300/28 hover:bg-cyan-300/6"
+              }`}
+            >
+              <div className="text-sm font-semibold text-white">{option.label}</div>
+              <div className="mt-2 text-xs leading-5 text-white/54">{option.hint}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CrewRecruitPanel({
   form,
   analysis,
@@ -47,28 +86,21 @@ export function CrewRecruitPanel({
 }: CrewRecruitPanelProps) {
   const analysisFresh = analysis?.sourceText === buildSourceKey(form);
   const activeAnalysis = analysisFresh ? analysis : null;
-  const previewFormType = form.formType ?? activeAnalysis?.inferredFormType ?? "hybrid";
-  const previewRole = form.role ?? activeAnalysis?.inferredRole ?? "scout";
-
-  const applyRefinement = (option: (typeof crewRefinementOptions)[number]) => {
-    if (option.formType) onChange("formType", option.formType);
-    if (option.role) onChange("role", option.role);
-    if (option.temperament) onChange("temperament", option.temperament);
-    if (option.talent) onChange("talent", option.talent);
-    if (option.styleTag) {
-      const nextTags = form.styleTags.includes(option.styleTag)
-        ? form.styleTags
-        : [...form.styleTags, option.styleTag].slice(-3);
-      onChange("styleTags", nextTags);
-    }
-    if (option.specialFocus) {
-      onChange("specialFocus", option.specialFocus);
-    }
-  };
+  const previewFormType = form.formType ?? activeAnalysis?.inferredFormType ?? null;
+  const previewRole = form.role ?? activeAnalysis?.inferredRole ?? null;
+  const missingSelections = [
+    !form.formType ? "形态" : null,
+    !form.role ? "职责" : null,
+    !form.temperament ? "气质" : null,
+    !form.talent ? "专长" : null
+  ].filter(Boolean) as string[];
 
   return (
-    <section className="scene-reveal grid gap-6 xl:grid-cols-[1.16fr_0.84fr]">
-      <div className="panel-surface rounded-[32px] p-6 md:p-8">
+    <section className="scene-reveal ship-secondary-stage">
+      <div className="ship-secondary-stage__bg ship-secondary-stage__bg--bright" style={{ backgroundImage: `url(${shipSecondarySceneAssets.recruitChamber})` }} />
+      <div className="ship-secondary-stage__overlay" />
+      <div className="ship-secondary-stage__content grid gap-6 xl:grid-cols-[1.16fr_0.84fr]">
+      <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 md:p-8">
         <div className="soft-label text-[11px] text-white/45">船员招募台</div>
         <h2 className="mt-4 text-3xl font-semibold text-white">先说一句，你的伙伴就会开始成形。</h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/58">
@@ -111,65 +143,39 @@ export function CrewRecruitPanel({
           </div>
         </div>
 
+        <div className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.03] p-5 md:p-6">
+          <div className="text-sm font-semibold text-white">这次由你来定轮廓</div>
+          <p className="mt-2 text-sm leading-6 text-white/56">
+            系统只负责理解描述和补一点气质细节，不再默认把角色锁成能量体或侦查方向。真正生成前，先把这位伙伴的基础设定定下来。
+          </p>
+          <div className="mt-5 space-y-5">
+            <ChoiceGroup title="伙伴形态" value={form.formType} options={formTypeOptions} onChange={(value) => onChange("formType", value)} />
+            <ChoiceGroup title="主要职责" value={form.role} options={roleOptions} onChange={(value) => onChange("role", value)} />
+            <ChoiceGroup title="整体气质" value={form.temperament} options={temperamentOptions} onChange={(value) => onChange("temperament", value)} />
+            <ChoiceGroup title="核心专长" value={form.talent} options={talentOptions} onChange={(value) => onChange("talent", value)} />
+          </div>
+        </div>
+
         <div className="mt-5 space-y-3">
           <GenerationStatus title="招募信号解析" operation={analysisOperation} onRetry={onRetryAnalyze} />
-          <GenerationStatus title="船员回声生成" operation={generationOperation} onRetry={onRetryGenerate} />
+          <GenerationStatus title="船员档案创建" operation={generationOperation} onRetry={onRetryGenerate} />
         </div>
 
         {activeAnalysis ? (
           <div className="mt-7 space-y-5">
             <SystemFeedback eyebrow="系统已识别你的招募意图" title={activeAnalysis.summary} body={`${activeAnalysis.roleSummary} · ${activeAnalysis.styleSummary}`} tone="success" />
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="text-xs tracking-[0.2em] text-white/35">关键词</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {activeAnalysis.extractedKeywords.map((keyword) => (
-                    <span key={keyword} className="rounded-full border border-cyan-200/14 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-100">
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="text-xs tracking-[0.2em] text-white/35">倾向判断</div>
-                <div className="mt-3 space-y-2 text-sm text-white/72">
-                  <div>{labelMap.role[activeAnalysis.inferredRole]}</div>
-                  <div>{labelMap.talent[activeAnalysis.inferredTalent]}</div>
-                  <div>{labelMap.temperament[activeAnalysis.inferredTemperament]}</div>
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="text-xs tracking-[0.2em] text-white/35">推荐偏向</div>
-                <div className="mt-3 space-y-2 text-sm text-white/72">
-                  {activeAnalysis.suggestedFocuses.slice(0, 3).map((item) => (
-                    <div key={item}>{item}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/8 px-4 py-3 text-sm text-cyan-50">
-              当前锁定：{labelMap.formType[previewFormType]} · {labelMap.role[previewRole]}。系统会先按这个轮廓生成，再由你微调。
-            </div>
-
-            <div className="rounded-[26px] border border-white/8 bg-white/[0.03] p-5">
-              <div className="text-sm font-semibold text-white">最后微调一下</div>
-              <div className="mt-2 text-xs text-white/46">这些只是修饰器，不会盖过你刚刚写下的描述。</div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {crewRefinementOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => applyRefinement(option)}
-                    className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/72 transition hover:border-cyan-300/30 hover:bg-cyan-300/10 hover:text-white"
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              当前由你锁定：
+              {" "}
+              {form.formType ? labelMap.formType[form.formType] : "待选形态"}
+              {" · "}
+              {form.role ? labelMap.role[form.role] : "待选职责"}
+              {" · "}
+              {form.temperament ? labelMap.temperament[form.temperament] : "待选气质"}
+              {" · "}
+              {form.talent ? labelMap.talent[form.talent] : "待选专长"}
+              。系统理解只做辅助，最终生成以你的选择为准。
             </div>
 
             <div>
@@ -189,51 +195,44 @@ export function CrewRecruitPanel({
               disabled={!canGenerate || isGenerating}
               className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-white/12 disabled:text-white/40"
             >
-              生成这位伙伴
+              创建这位伙伴
             </button>
-            <div className="mt-3 text-xs text-white/48">这节课会留下：角色名字、形象、档案和登船记录。</div>
+            {missingSelections.length > 0 ? (
+              <div className="text-xs text-amber-100/72">还需要你先选好：{missingSelections.join("、")}。</div>
+            ) : null}
+            <div className="mt-3 text-xs text-white/48">这节课会留下：角色名字、设定、档案、导入图像和登船记录。</div>
           </div>
         ) : (
           <div className="mt-7 rounded-[24px] border border-dashed border-white/12 bg-white/[0.02] px-5 py-4 text-sm leading-6 text-white/46">
-            先让系统读一遍你的招募信号。读完就会给出关键词、倾向判断，然后很快生成结果。
+            先让系统读一遍你的招募信号。读完后就可以继续创建课堂档案。
           </div>
         )}
       </div>
 
-      <aside className="panel-surface hologram-sweep rounded-[32px] p-6">
+      <aside className="panel-surface ship-secondary-panel hologram-sweep rounded-[32px] p-6">
         <div className="soft-label text-[11px] text-white/45">招募信号预览</div>
         <div className="mt-5">
-          <CrewPortrait formType={previewFormType} role={previewRole} />
+          {previewFormType && previewRole ? (
+            <CrewPortrait formType={previewFormType} role={previewRole} />
+          ) : (
+            <div className="relative flex aspect-[4/5] min-h-[29rem] w-full items-center justify-center overflow-hidden rounded-[28px] border border-dashed border-white/12 bg-slate-950/60">
+              <div className="absolute inset-6 rounded-full bg-gradient-to-br from-cyan-300/18 via-sky-300/8 to-transparent blur-3xl" />
+              <div className="relative max-w-xs text-center">
+                <div className="text-lg font-semibold text-white">轮廓还没完全锁定</div>
+                <div className="mt-3 text-sm leading-6 text-white/52">先在左侧选好伙伴形态和职责，预览才会按你的决定收拢，不再默认跳到系统推断。</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="mt-5 space-y-4 rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-          <div className="text-lg font-semibold text-white">系统会先抓这些</div>
-          {form.description.trim() ? (
-            <div className="rounded-[22px] border border-white/8 bg-slate-950/45 px-4 py-4 text-sm leading-6 text-white/68">
-              “{form.description.trim()}”
-            </div>
-          ) : (
-            <div className="text-sm leading-6 text-white/48">还没有收到主描述。先说说这位伙伴是谁、像什么、会做什么。</div>
-          )}
-
-          {activeAnalysis ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {activeAnalysis.extractedKeywords.map((keyword) => (
-                  <span key={keyword} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-              <div className="text-sm leading-6 text-white/62">{activeAnalysis.summary}</div>
-            </>
-          ) : (
-            <div className="rounded-[22px] border border-white/8 bg-slate-950/45 px-4 py-4 text-sm leading-6 text-white/58">
-              系统理解后，这里会很快浮现关键词、能力倾向和角色风格。
-            </div>
-          )}
+        <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+          <div className="text-lg font-semibold text-white">伙伴轮廓预览</div>
+          <div className="mt-3 text-sm leading-6 text-white/58">
+            {form.description.trim() ? "主舰已收到你的招募描述，生成后会写入船员档案。" : "先在左侧说说这位伙伴是谁、像什么、会做什么。"}
+          </div>
         </div>
       </aside>
+      </div>
     </section>
   );
 }

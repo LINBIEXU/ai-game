@@ -12,6 +12,7 @@ import type {
   SignalNature
 } from "@/types/game";
 import { createInitialMemoryVaultState } from "@/lib/memory-vault";
+import { emptyHomePlanetHubState } from "@/lib/home-planet-hub";
 
 export const STORAGE_KEY = "starship-prototype-save-v5";
 
@@ -33,6 +34,11 @@ export const emptySignalMission = (): SignalMissionState => ({
 
 export const emptyChapterTwoState = (): ChapterTwoState => ({
   currentStep: "response",
+  sceneState: "ship_bridge",
+  focusedPlanetId: null,
+  focusedLocationId: null,
+  exploredLocationIds: [],
+  blackBoxUnlocked: false,
   echo: null,
   truth: null,
   attemptCount: 0,
@@ -77,6 +83,9 @@ export const createInitialGameState = () => ({
   chapterThreeHintUnlocked: false,
   scannedRegionLabel: null,
   newRegionAlert: false,
+  technologyPoints: 0,
+  aiCapabilityLevel: 1,
+  aiCapabilityUnlocks: ["基础理解"],
   planetCatalog: [],
   faultCaseRecords: [],
   signalMission: emptySignalMission(),
@@ -87,8 +96,10 @@ export const createInitialGameState = () => ({
     latestResult: null
   },
   chapterTwo: emptyChapterTwoState(),
+  homePlanetHub: emptyHomePlanetHubState(),
   shipLogs: [],
-  shipStatusNote: null
+  shipStatusNote: null,
+  classroomArtifacts: []
 });
 
 export const chapterTwoFocusOptions = [

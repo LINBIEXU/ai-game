@@ -43,7 +43,7 @@ export function BridgeConsole({
         }
       : !firstStarLit
         ? {
-            label: "前往失落信号台",
+            label: "前往信息库",
             action: onOpenSignalMission
           }
         : null;
@@ -53,7 +53,7 @@ export function BridgeConsole({
     : !systemsRestored
       ? "飞船系统等待恢复"
       : !firstStarLit
-        ? "失落信号台已可进入"
+        ? "信息库已可进入"
         : chapterComplete
           ? "下一章入口正在闪烁"
           : "世界已经因为你的任务推进";
@@ -61,9 +61,9 @@ export function BridgeConsole({
   const robotBody = !crewOnboard
     ? "引导机器人：先把协作位点亮。没有伙伴，主舱恢复会卡在最前面的断点。"
     : !systemsRestored
-      ? "引导机器人：船员已经登船。现在可以一起恢复失落信号台、星图和回声档案舱。"
+      ? "引导机器人：船员已经登船。现在可以一起恢复信息库、星图和第一颗星球档案。"
       : !firstStarLit
-        ? "引导机器人：主舱恢复完成。失落信号台检测到三段异常回声，先选一段最值得追踪的。"
+        ? "引导机器人：主舱恢复完成。信息库正在等待第一颗可调用星球模型。"
         : chapterComplete
           ? "引导机器人：第一章记录完毕。远航门仍然关闭，但新的坐标已经在门外闪光。"
           : "引导机器人：第一颗航星在线，新坐标已记录，回声异常也正在主舱边缘聚集。";
@@ -72,12 +72,12 @@ export function BridgeConsole({
     <section className="scene-reveal grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <div className="space-y-6">
         <div className={`panel-surface panel-grid rounded-[32px] p-6 md:p-8 ${systemsRestored ? "hologram-sweep" : ""}`}>
-          <div className="soft-label text-[11px] text-white/45">第一章 · 失落信号的起点</div>
+          <div className="soft-label text-[11px] text-white/45">第一章 · 星球建模的起点</div>
           <h2 className="mt-4 text-3xl font-semibold text-white">飞船正在被一点点重新点亮。</h2>
           <p className="mt-4 max-w-3xl text-base leading-7 text-white/68">
             {!crewOnboard && "你已经苏醒，主舱基础回路恢复，但真正的协作仍未开始。"}
             {crewOnboard && !systemsRestored && "船员已加入，主舱开始恢复更多功能位。你会明显看见这艘船正在回到工作状态。"}
-            {systemsRestored && !firstStarLit && "信号台、星图和档案舱重新联机。现在该把第一段失落回声拼回完整形状。"}
+            {systemsRestored && !firstStarLit && "信息库、星图和档案舱重新联机。现在该把第一颗星球建成可调用模型。"}
             {firstStarLit && "第一颗航星亮起后，飞船不再只是被修好一点，而是真的朝前走了一步。"}
           </p>
 
@@ -194,11 +194,11 @@ export function BridgeConsole({
         <div className="panel-surface rounded-[28px] p-5">
           <div className="soft-label text-[11px] text-white/45">下一步</div>
           <div className="mt-3 text-lg font-semibold text-white">
-            {!firstStarLit ? "让主舱恢复，再处理第一段失落回声" : "新的异常已被主舱记住"}
+            {!firstStarLit ? "让主舱恢复，再完成第一颗星球建模" : "新的航线已被主舱记住"}
           </div>
           <div className="mt-3 text-sm leading-6 text-white/64">
             {!firstStarLit
-              ? "这一章里，你会先招募伙伴，再恢复系统，然后把一段失落信号修成真正能推动世界变化的线索。"
+              ? "这一章里，你会先招募伙伴，再恢复系统，然后把第一颗星球建成真正能继续调用的世界对象。"
               : repairedSignal?.nextLead ?? "新的回声异常正在主舱边缘闪烁。"}
           </div>
         </div>

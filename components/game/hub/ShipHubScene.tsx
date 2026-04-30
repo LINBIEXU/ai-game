@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { bridgeModuleCatalog, shipBootMessages, shipBootOrder } from "@/lib/game-constants";
+import { chapterTwoSceneAssets } from "@/lib/chapter-two-exploration";
 import type { BridgeModuleId, CrewMember, RepairedSignal } from "@/types/game";
 
 import { CrewPortrait } from "@/components/game/CrewPortrait";
@@ -18,6 +19,9 @@ interface ShipHubSceneProps {
   chapterTwoComplete: boolean;
   scannedRegionLabel: string | null;
   newRegionAlert: boolean;
+  technologyPoints: number;
+  aiCapabilityLevel: number;
+  aiCapabilityUnlocks: string[];
   repairedSignal: RepairedSignal | null;
   shipLogs: Array<{ id: string; title: string; body: string; tag: string }>;
   shipStatusNote: string | null;
@@ -26,6 +30,8 @@ interface ShipHubSceneProps {
   onRestoreSystems: () => void;
   onOpenSignalMission: () => void;
   onOpenTaskBoard: () => void;
+  onOpenArchive: () => void;
+  onOpenHomePlanetHub: () => void;
   onOpenLogbook: () => void;
   onOpenChapterTwoPortal: () => void;
 }
@@ -70,6 +76,9 @@ export function ShipHubScene({
   chapterTwoComplete,
   scannedRegionLabel,
   newRegionAlert,
+  technologyPoints,
+  aiCapabilityLevel,
+  aiCapabilityUnlocks,
   repairedSignal,
   shipLogs,
   shipStatusNote,
@@ -78,6 +87,8 @@ export function ShipHubScene({
   onRestoreSystems,
   onOpenSignalMission,
   onOpenTaskBoard,
+  onOpenArchive,
+  onOpenHomePlanetHub,
   onOpenLogbook,
   onOpenChapterTwoPortal
 }: ShipHubSceneProps) {
@@ -107,7 +118,7 @@ export function ShipHubScene({
 
   if (!systemsRestored) {
     return (
-      <section className="scene-reveal relative min-h-[72vh] overflow-hidden rounded-[38px] bridge-shell bridge-structure px-6 py-10 md:px-10 md:py-12">
+      <section className="scene-reveal camera-boot-pull relative min-h-[72vh] overflow-hidden rounded-[38px] bridge-shell bridge-shell--dark bridge-structure px-6 py-10 md:px-10 md:py-12">
         <div className="absolute inset-0 opacity-60">
           <div className="absolute left-[12%] top-[18%] h-28 w-28 rounded-full border border-cyan-200/8 bg-cyan-200/[0.03]" />
           <div className="absolute right-[14%] top-[24%] h-20 w-20 rounded-full border border-white/6" />
@@ -118,6 +129,9 @@ export function ShipHubScene({
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
         <div className="absolute inset-y-12 left-10 w-px bg-gradient-to-b from-transparent via-cyan-200/12 to-transparent" />
         <div className="absolute inset-y-12 right-10 w-px bg-gradient-to-b from-transparent via-cyan-200/12 to-transparent" />
+        <span className="core-light-strip core-light-strip--left" />
+        <span className="core-light-strip core-light-strip--right" />
+        <span className="core-light-strip core-light-strip--bottom" />
 
         <div className="relative flex min-h-[58vh] flex-col items-center justify-center text-center">
           <div className="soft-label text-[11px] text-white/34">低能耗主舰</div>
@@ -127,7 +141,7 @@ export function ShipHubScene({
           <button
             type="button"
             onClick={onRestoreSystems}
-            className="core-node group mt-10 flex h-48 w-48 items-center justify-center rounded-full border border-cyan-200/25 bg-cyan-200/[0.05] text-center transition hover:scale-[1.02]"
+            className="core-node core-restore-trigger group mt-10 flex h-48 w-48 items-center justify-center rounded-full border border-cyan-200/25 bg-cyan-200/[0.05] text-center transition hover:scale-[1.02]"
           >
             <div className="core-ring" />
             <div className="core-ring delay-150" />
@@ -189,14 +203,14 @@ export function ShipHubScene({
       return {
         label: shipLogs.length > 0 ? `${shipLogs.length} 条记录` : "静默",
         disabled: false,
-        action: onOpenLogbook,
+        action: onOpenArchive,
         priority: shipLogs.length > 0 ? "secondary" as const : "muted" as const,
         visible
       };
     }
 
     return {
-      label: chapterTwoUnlocked ? (chapterTwoComplete ? "更深回应" : chapterTwoRouteLocked ? "航线已锁定" : "新区域入口") : "锁定",
+      label: chapterTwoUnlocked ? (chapterTwoComplete ? "黑匣归档" : chapterTwoRouteLocked ? "远征进行中" : "文明星入口") : "锁定",
       disabled: !chapterTwoUnlocked,
       action: onOpenChapterTwoPortal,
       priority: chapterTwoUnlocked ? "primary" as const : "locked" as const,
@@ -236,8 +250,8 @@ export function ShipHubScene({
     .slice(0, 4);
 
   return (
-    <section className="scene-reveal space-y-5">
-      <div className="fleet-broadcast panel-surface rounded-full px-4 py-2">
+    <section className="scene-reveal ship-hub-immersive relative min-h-screen overflow-hidden">
+      <div className="fleet-broadcast panel-surface absolute left-6 right-6 top-24 z-20 rounded-full px-4 py-2 md:left-10 md:right-10 md:top-28">
         <div className="fleet-broadcast-track">
           {[...broadcastItems, ...broadcastItems].map((item, index) => (
             <span key={`${item}-${index}`} className="fleet-broadcast-item">
@@ -247,18 +261,63 @@ export function ShipHubScene({
         </div>
       </div>
 
-      <div className="bridge-shell bridge-structure relative overflow-hidden rounded-[38px] px-5 py-5 md:px-7 md:py-7">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(124,226,255,0.08),transparent_22%),radial-gradient(circle_at_80%_16%,rgba(244,114,182,0.08),transparent_18%)]" />
+      <div className="ship-hub-bridge-view relative min-h-screen overflow-hidden px-6 pb-8 pt-40 md:px-10 md:pb-10 md:pt-44">
+        <div
+          className="bridge-command-backdrop"
+          aria-hidden="true"
+          style={{
+            backgroundImage: `url(${chapterTwoSceneAssets.shipBridge.imageUrl})`
+          }}
+        >
+          <div className="bridge-command-backdrop__scan" />
+        </div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(124,226,255,0.05),transparent_24%),radial-gradient(circle_at_80%_16%,rgba(244,114,182,0.035),transparent_18%)]" />
         <div className="relative grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
           <div className="space-y-5">
+            {chapterTwoComplete && (
+              <div className="ship-ai-upgrade-card rounded-[28px] p-5">
+                <div className="soft-label text-[10px] text-cyan-100/60">主控台新模块上线</div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-2xl font-semibold text-white">语言理解 Level 1</div>
+                  <span className="rounded-full border border-cyan-200/20 bg-cyan-200/[0.08] px-3 py-2 text-xs text-cyan-50">
+                    AI 升级完成
+                  </span>
+                </div>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68">
+                  语言黑匣已写入。以后，我会更努力听清你的意思。但我也会提醒你：不要让我替你思考。
+                </p>
+              </div>
+            )}
+
             <div className="panel-surface rounded-[28px] border border-cyan-200/12 bg-cyan-200/[0.04] p-5">
               <div className="soft-label text-[10px] text-cyan-100/55">课堂模式</div>
               <div className="mt-2 text-xl font-semibold text-white">{classroomTarget.title}</div>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">{classroomTarget.body}</p>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-white/58">{classroomTarget.body}</p>
               <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/66">
                 {classroomTarget.result}
               </div>
             </div>
+
+            {firstStarLit && (
+              <div className="panel-surface rounded-[28px] border border-cyan-200/16 bg-cyan-200/[0.055] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <div className="soft-label text-[10px] text-cyan-100/55">第二主阵地</div>
+                    <div className="mt-2 text-2xl font-semibold text-white">母星功能中枢</div>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-white/56">
+                      第一章创造的母星已可作为 AI 创造基地：建设建筑、接作品委托、保存分镜和对话收获。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenHomePlanetHub}
+                    className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200"
+                  >
+                    登陆母星
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className={`bridge-primary module-card module-card--primary rounded-[34px] p-6 md:p-8 ${primaryState.visible ? "module-awake" : "module-dim"}`}>
               <div className="flex items-start justify-between gap-4">
@@ -268,7 +327,7 @@ export function ShipHubScene({
                 </div>
                 <span className="status-chip">{primaryState.label}</span>
               </div>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-white/56">{primaryModule.description}</p>
+              <p className="mt-4 max-w-lg text-sm leading-7 text-white/56">{primaryModule.description}</p>
               <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-200/12 bg-cyan-200/[0.06] px-3 py-2 text-[11px] tracking-[0.14em] text-cyan-100/68">
                 <span className="h-2 w-2 rounded-full bg-cyan-200/80 system-pulse" />
                 FEEDBACK CUE ONLINE
@@ -306,7 +365,7 @@ export function ShipHubScene({
               <div className="panel-surface rounded-[24px] p-4">
                 <div className="soft-label text-[10px] text-white/36">值班船员</div>
                 {activeCrew ? (
-                  <div className="mt-3 grid grid-cols-[56px_1fr] gap-3">
+                  <div className="mt-3 grid grid-cols-[68px_1fr] gap-3">
                     <CrewPortrait formType={activeCrew.formType} role={activeCrew.role} seed={activeCrew.portraitSeed} size="sm" />
                     <div>
                       <div className="text-sm font-semibold text-white">{activeCrew.name}</div>
@@ -329,13 +388,17 @@ export function ShipHubScene({
                       : chapterTwoUnlocked
                         ? "远航门等待靠近"
                         : !firstStarLit
-                          ? "先处理第一段回声"
+                          ? "先完成第一颗星球建模"
                           : "系统稳定")}
                 </div>
               </div>
               <div className="panel-surface rounded-[24px] p-4">
-                <div className="soft-label text-[10px] text-white/36">课堂留痕</div>
-                <div className="mt-3 text-sm leading-6 text-white/56">{shipLogs[0]?.title ?? (crewRoster.length > 0 ? "船员档案已开始写入" : "完成第一个动作后会留下记录")}</div>
+                <div className="soft-label text-[10px] text-white/36">AI 成长</div>
+                <div className="mt-3 text-sm leading-6 text-white/56">
+                  {technologyPoints > 0
+                    ? `科技点 ${technologyPoints} · AI Lv.${aiCapabilityLevel} · ${aiCapabilityUnlocks.slice(-1)[0] ?? "能力更新"}`
+                    : shipLogs[0]?.title ?? (crewRoster.length > 0 ? "船员档案已开始写入" : "完成第一个动作后会留下记录")}
+                </div>
               </div>
             </div>
           </div>
@@ -348,8 +411,8 @@ export function ShipHubScene({
                 className={`module-card rounded-[26px] p-5 text-left transition ${newRegionAlert ? "module-card--spotlight unlock-burst" : "module-card--signal"} w-full`}
               >
                 <div className="soft-label text-[10px] text-fuchsia-100/58">远航门</div>
-                <div className="mt-2 text-lg font-semibold text-white">{chapterTwoComplete ? "更深回应在线" : "新区域已解锁"}</div>
-                <div className="mt-2 text-sm leading-6 text-white/58">{chapterTwoComplete ? scannedRegionLabel ?? "沉默坐标第一层" : "雾带深井入口"}</div>
+                <div className="mt-2 text-lg font-semibold text-white">{chapterTwoComplete ? "科技黑匣记录在线" : "语言文明星航线已解锁"}</div>
+                <div className="mt-2 text-sm leading-6 text-white/58">{chapterTwoComplete ? scannedRegionLabel ?? "言衡星 / 漂短信渠" : "前往第一颗外部工具文明星"}</div>
               </button>
             )}
 

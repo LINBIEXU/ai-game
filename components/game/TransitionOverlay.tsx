@@ -14,13 +14,22 @@ const accentMap = {
   jump: "from-fuchsia-200/70 via-sky-300/25 to-transparent"
 };
 
+const cameraModeMap = {
+  scan: "push",
+  unlock: "archive",
+  arrival: "archive",
+  jump: "dive"
+} as const;
+
 export function TransitionOverlay({ visible, title, detail, mode = "scan" }: TransitionOverlayProps) {
   if (!visible) {
     return null;
   }
 
+  const cameraMode = cameraModeMap[mode];
+
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#01040a]/76 px-6 backdrop-blur-md">
+    <div className={`transition-overlay transition-overlay--${cameraMode} fixed inset-0 z-30 flex items-center justify-center bg-[#01040a]/76 px-6 backdrop-blur-md`}>
       <div className="particle-column">
         {Array.from({ length: 16 }).map((_, index) => (
           <span
@@ -33,10 +42,10 @@ export function TransitionOverlay({ visible, title, detail, mode = "scan" }: Tra
         ))}
       </div>
 
-      <div className={`panel-surface hologram-sweep ${mode === "unlock" ? "unlock-burst" : "scene-reveal"} relative w-full max-w-xl overflow-hidden rounded-[34px] px-8 py-10 text-center shadow-glow`}>
-        <div className={`absolute inset-x-10 top-0 h-20 bg-gradient-to-b ${accentMap[mode]} blur-2xl`} />
+      <div className={`transition-overlay__panel panel-surface hologram-sweep ${mode === "unlock" ? "unlock-burst" : "scene-reveal"} relative w-full max-w-xl overflow-hidden rounded-[34px] px-8 py-10 text-center shadow-glow`}>
+        <div className={`transition-overlay__beam absolute inset-x-10 top-0 h-20 bg-gradient-to-b ${accentMap[mode]} blur-2xl`} />
         <div className="soft-label text-[11px] text-white/45">
-          {mode === "unlock" ? "系统解锁" : mode === "arrival" ? "登船接入" : mode === "jump" ? "远征跃迁" : "系统切换"}
+          {cameraMode === "archive" ? "收束归档" : cameraMode === "dive" ? "下潜回溯" : "推进接入"}
         </div>
         <div className="mt-4 text-3xl font-semibold text-white">{title}</div>
         <div className="mt-4 text-sm leading-7 text-white/68">{detail}</div>

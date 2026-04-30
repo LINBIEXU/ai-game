@@ -15,8 +15,8 @@ const planetSeeds: PlanetSignalSeed[] = [
     title: "残缺天体轮廓 A-17",
     silhouette: "一颗被浅色环带包住的蓝灰色星球，边缘有断裂光痕。",
     teaser: "主舰只记得它曾经可航行，但名字和环境都丢失了。",
-    promptLook: "它看起来最像什么？",
-    promptEnvironment: "它最突出的环境特征是什么？",
+    promptLook: "它的环境特征是什么？",
+    promptEnvironment: "它最有标志性的建筑或景观是什么？",
     promptTone: "它更偏安静、危险、神秘，还是遗迹活跃？"
   },
   {
@@ -24,8 +24,8 @@ const planetSeeds: PlanetSignalSeed[] = [
     title: "残缺天体轮廓 M-04",
     silhouette: "一颗带着橙色裂纹的深色星球，表面像有旧城影子。",
     teaser: "导航盘只留下了一个模糊轮廓，其他调用参数都还没恢复。",
-    promptLook: "你觉得它像怎样的星体？",
-    promptEnvironment: "最容易被记住的环境线索是什么？",
+    promptLook: "这颗星球有哪些主要环境？",
+    promptEnvironment: "这里最有标志性的建筑或景观是什么？",
     promptTone: "它给你的第一感觉更偏哪一种？"
   },
   {
@@ -33,8 +33,8 @@ const planetSeeds: PlanetSignalSeed[] = [
     title: "残缺天体轮廓 E-09",
     silhouette: "一颗被云雾和浅绿光斑包裹的星球，像在慢慢呼吸。",
     teaser: "这颗星球的生态参数掉失严重，主舰只剩下一点模糊亮度。",
-    promptLook: "如果你先看外形，它最像什么？",
-    promptEnvironment: "它的环境里最突出的部分是什么？",
+    promptLook: "它的生态、地貌或天气有什么特征？",
+    promptEnvironment: "它最值得记录的建筑或景观是什么？",
     promptTone: "它更像安静、危险、神秘，还是遗迹活跃？"
   }
 ];
@@ -233,8 +233,9 @@ export function buildPlanetModel(input: {
   analysis: PlanetModelAnalysis;
 }): PlanetModel {
   const mood = input.planetInput.mood ?? "神秘";
+  const landmarkFeature = input.planetInput.environment.trim() || `${input.analysis.environmentTrait} 观测点`;
   const summaryCore = shortenText(
-    `${input.analysis.suggestedName} 是一颗以 ${input.analysis.environmentTrait} 为主轴的 ${mood} 星球，最值得记录的是 ${input.analysis.tags.slice(0, 2).join("、")}。`,
+    `${input.analysis.suggestedName} 是一颗以 ${input.analysis.environmentTrait} 为主轴的 ${mood} 星球，标志景观是 ${landmarkFeature}。`,
     72
   );
   const coordinateSeed = hashString(`${input.analysis.suggestedName}-${input.signalSeed.id}`);
@@ -246,6 +247,7 @@ export function buildPlanetModel(input: {
     coordinateLabel,
     summary: summaryCore,
     environmentTrait: input.analysis.environmentTrait,
+    landmarkFeature,
     mood,
     tags: input.analysis.tags,
     dangerLevel: input.analysis.dangerLevel,
@@ -254,6 +256,7 @@ export function buildPlanetModel(input: {
     production: buildProductionProfile(input.analysis.resourceProfile),
     explorationHooks: [
       `${input.analysis.environmentTrait} 会影响后续探索风险与事件类型。`,
+      `${landmarkFeature} 已记录为后续星球细节设计的主要入口。`,
       `${input.analysis.tags[0] ?? "复合星区"} 将决定最先刷新的支线入口。`,
       `遗迹数据 ${input.analysis.resourceProfile.relicData} / 100，后续更容易解锁故事线索。`
     ],

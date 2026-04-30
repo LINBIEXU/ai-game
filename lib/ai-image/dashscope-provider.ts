@@ -158,9 +158,7 @@ export const dashscopeCrewImageProvider: ImageGenerationProvider = {
     const config = getServerImageConfig();
     const bundle = providerPromptBindings.generateCrewImage(request);
     const revision = request.variant ?? 1;
-    const safePrompt = sanitizeImagePrompt(
-      `${bundle.user}\n\n最终硬约束：整张图片里不能出现任何文字、字母、数字、标牌、铭牌、徽章字样、Logo、水印或可读符号。只要有任何可读字符都算失败。`
-    );
+    const safePrompt = sanitizeImagePrompt(bundle.user);
     const safeNegative = sanitizeImagePrompt(bundle.negative ?? "");
     const response = await fetch(config.dashscope.generationUrl, {
       method: "POST",

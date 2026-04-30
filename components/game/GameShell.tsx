@@ -3,23 +3,32 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { AwakeningScene } from "@/components/game/AwakeningScene";
+import { ChapterOnePresentationLayer } from "@/components/game/ChapterOnePresentationLayer";
+import { ClassroomLoginPanel } from "@/components/game/ClassroomLoginPanel";
 import { CrewRecruitPanel } from "@/components/game/CrewRecruitPanel";
 import { CrewResultCard } from "@/components/game/CrewResultCard";
 import { ChapterCompletePanel } from "@/components/game/chapter-one/ChapterCompletePanel";
 import { ChapterTwoMissionPanel } from "@/components/game/chapter-two/ChapterTwoMissionPanel";
 import { ChapterTwoPortalScene } from "@/components/game/chapter-two/ChapterTwoPortalScene";
 import { ChapterTwoResultPanel } from "@/components/game/chapter-two/ChapterTwoResultPanel";
+import { ExperienceResultPanel } from "@/components/game/chapter-one/ExperienceResultPanel";
+import { HomePlanetHubPanel } from "@/components/game/home-planet/HomePlanetHubPanel";
+import { ParentSummaryPanel } from "@/components/game/chapter-one/ParentSummaryPanel";
 import { SignalAftermathPanel } from "@/components/game/chapter-one/SignalAftermathPanel";
 import { SignalMissionPanel } from "@/components/game/chapter-one/SignalMissionPanel";
 import { SignalReviewPanel } from "@/components/game/chapter-one/SignalReviewPanel";
+import { TrialBridgePanel } from "@/components/game/chapter-one/TrialBridgePanel";
+import { TrialResultPanel } from "@/components/game/chapter-one/TrialResultPanel";
+import { ArchivePanel } from "@/components/game/hub/ArchivePanel";
 import { CrewBayPanel } from "@/components/game/hub/CrewBayPanel";
 import { CrewChatPanel } from "@/components/game/hub/CrewChatPanel";
 import { LogbookPanel } from "@/components/game/hub/LogbookPanel";
 import { ShipSignalBriefing } from "@/components/game/hub/ShipSignalBriefing";
 import { ShipHubScene } from "@/components/game/hub/ShipHubScene";
-import { ShipReturnButton } from "@/components/game/hub/ShipReturnButton";
 import { TaskBoardPanel, TaskResultPanel } from "@/components/game/hub/TaskBoardPanel";
 import { TransitionOverlay } from "@/components/game/TransitionOverlay";
+import { useChapterOnePresentation } from "@/hooks/useChapterOnePresentation";
+import { useClassroomProfile } from "@/hooks/useClassroomProfile";
 import { useGameState } from "@/hooks/useGameState";
 
 interface TransitionState {
@@ -38,6 +47,7 @@ export function GameShell() {
     state,
     operations,
     isHydrated,
+    replaceState,
     canGenerateCrew,
     canAnalyzePlanet,
     canRestorePlanet,
@@ -56,9 +66,15 @@ export function GameShell() {
     openCrewChat,
     returnToCrewBay,
     openTaskBoard,
+    openArchive,
+    openHomePlanetHub,
     openLogbook,
     openChapterTwoPortal,
     startChapterTwoMission,
+    setChapterTwoSceneState,
+    focusChapterTwoPlanet,
+    focusChapterTwoLocation,
+    exploreChapterTwoLocation,
     advanceChapterTwoStep,
     setChapterTwoResponsePrompt,
     analyzeChapterTwoResponse,
@@ -77,6 +93,11 @@ export function GameShell() {
     runChapterTwoSecondPass,
     setChapterTwoFinalChoice,
     completeChapterTwo,
+    activateHomePlanetFeature,
+    buildHomePlanetStructure,
+    saveHomePlanetCommission,
+    saveHomePlanetDialogue,
+    saveHomePlanetStoryboard,
     resolveChapterTwoSetback,
     updateRecruitForm,
     analyzeRecruitInput,
@@ -84,6 +105,8 @@ export function GameShell() {
     rerollCrew,
     regenerateCrewPortrait,
     updateCrewImagePromptHint,
+    importCrewPortrait,
+    importPlanetImage,
     sendCrewMessage,
     boardCrew,
     setActiveCrew,
@@ -102,17 +125,38 @@ export function GameShell() {
     chooseFaultOption,
     retryFaultRun,
     finalizeChapterOne,
+    continueToFaultReview,
+    openFirstExperienceResult,
+    openTrialResult,
+    openParentSummary,
+    startTrialFromBeginning,
+    jumpToFirstLevel,
+    jumpToSecondLevel,
+    teacherCompleteChapterTwoLandmarks,
+    teacherEnterBlackboxTrial,
+    teacherTriggerPlanetRestoration,
+    resetTrialFlow,
     closeSignalReview,
     openChapterComplete,
     restartMission
   } = useGameState();
+  const chapterOnePresentation = useChapterOnePresentation({
+    state,
+    operations
+  });
   const [transition, setTransition] = useState<TransitionState>({
     visible: false,
     title: "",
     detail: "",
     mode: "scan"
   });
+  const [utilityPanelOpen, setUtilityPanelOpen] = useState<"status" | "control" | null>(null);
   const [sceneKey, setSceneKey] = useState(0);
+  const classroomProfile = useClassroomProfile({
+    state,
+    isHydrated,
+    replaceState
+  });
 
   const sceneAnimationToken = useMemo(
     () =>
@@ -142,11 +186,37 @@ export function GameShell() {
 
   const activeRosterCrew = state.crewRoster.find((member) => member.id === state.activeCrewId) ?? null;
   const activeCrew = activeRosterCrew ?? state.generatedCrew ?? null;
+  const importCrewImageFile = async (crewId: string, file: File) => {
+    const asset = await classroomProfile.uploadImage({ kind: "crew", ownerId: crewId, file });
+    importCrewPortrait(crewId, asset);
+    return asset;
+  };
+  const importPlanetImageFile = async (planetId: string, file: File) => {
+    const asset = await classroomProfile.uploadImage({ kind: "planet", ownerId: planetId, file });
+    importPlanetImage(planetId, asset);
+    return asset;
+  };
   const showReturnButton =
     state.currentScene !== "awakening" &&
     state.currentScene !== "hub" &&
     state.currentScene !== "hub-briefing" &&
     state.currentScene !== "signal-review";
+  const immersiveScenes = new Set([
+    "hub",
+    "recruit",
+    "crew-result",
+    "crew-bay",
+    "archive",
+    "logbook",
+    "task-board",
+    "task-result",
+    "signal-mission",
+    "home-planet-hub",
+    "chapter-two-portal",
+    "chapter-two-mission"
+  ]);
+  const immersiveFullscreen = immersiveScenes.has(state.currentScene);
+  const hideImmersiveHeader = state.currentScene === "chapter-two-mission";
 
   const runTransition = async (
     config: Omit<TransitionState, "visible">,
@@ -171,34 +241,296 @@ export function GameShell() {
     return (
       <main className="starfield relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10">
         <div className="panel-surface rounded-[32px] px-8 py-10 text-center">
-          <div className="soft-label text-[11px] text-white/45">主舱同步</div>
+          <div className="soft-label text-[11px] text-white/45">主舱档案</div>
           <div className="mt-4 text-lg text-white/70">正在接入第一章本地进度...</div>
         </div>
       </main>
     );
   }
 
+  if (!classroomProfile.isReady) {
+    return (
+      <ClassroomLoginPanel
+        status={classroomProfile.status}
+        message={classroomProfile.message}
+        onLogin={classroomProfile.login}
+      />
+    );
+  }
+
   return (
-    <main className="starfield relative min-h-screen overflow-hidden px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="soft-label text-[11px] text-white/42">主舰控制台</div>
-            <div className="mt-1 text-xl font-semibold text-white">{state.currentScene === "hub" ? "失落航星" : "主舰内操作"}</div>
+    <main
+      className={`starfield relative min-h-screen overflow-hidden chapter-one-stage chapter-one-stage--${chapterOnePresentation.stage} ${
+        immersiveFullscreen ? "px-0 py-0" : "px-4 py-6 md:px-6 md:py-8"
+      }`}
+      onPointerDownCapture={chapterOnePresentation.handlePointerDown}
+    >
+      <ChapterOnePresentationLayer
+        stage={chapterOnePresentation.stage}
+        cueLabel={chapterOnePresentation.cueLabel}
+        soundEnabled={chapterOnePresentation.soundEnabled}
+        audioReady={chapterOnePresentation.audioReady}
+        onToggleSound={chapterOnePresentation.toggleSound}
+      />
+      <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-2 md:right-4">
+        <button
+          type="button"
+          onClick={() => setUtilityPanelOpen((current) => (current === "status" ? null : "status"))}
+          className="rounded-full border border-cyan-200/18 bg-black/42 px-3 py-3 text-xs font-semibold text-cyan-50/82 backdrop-blur-md transition hover:border-cyan-200/36 hover:bg-black/58 [writing-mode:vertical-rl]"
+        >
+          舰况
+        </button>
+        <button
+          type="button"
+          onClick={() => setUtilityPanelOpen((current) => (current === "control" ? null : "control"))}
+          className="rounded-full border border-white/14 bg-black/42 px-3 py-3 text-xs font-semibold text-white/78 backdrop-blur-md transition hover:border-white/28 hover:bg-black/58 [writing-mode:vertical-rl]"
+        >
+          权限
+        </button>
+      </div>
+
+      {utilityPanelOpen && (
+        <div className="fixed right-16 top-1/2 z-40 max-h-[min(82vh,720px)] w-[20rem] max-w-[calc(100vw-5.5rem)] -translate-y-1/2 overflow-y-auto rounded-[24px] border border-white/10 bg-black/72 p-4 text-white shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl md:right-20">
+          {utilityPanelOpen === "status" && (
+            <div>
+              <div className="soft-label text-[10px] text-cyan-100/50">主舰状态</div>
+              <div className="mt-2 text-lg font-semibold text-white">{state.currentScene === "hub" ? "失落航星" : "主舰内操作"}</div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/55">
+                <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-cyan-100/90">
+                  {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">学员 {classroomProfile.profileName}</span>
+              </div>
+              <div className={`mt-3 text-xs leading-5 ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/56"}`}>
+                {classroomProfile.message}
+              </div>
+            </div>
+          )}
+
+          {utilityPanelOpen === "control" && (
+            <div>
+            <div className="soft-label text-[10px] text-white/40">课堂本地档案</div>
+            <div className="mt-2 text-sm font-semibold text-white">{classroomProfile.profileName}</div>
+            <div className="mt-1 text-xs text-white/55">
+              {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+            </div>
+            <div className={`mt-2 text-xs leading-5 ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/48"}`}>
+              {classroomProfile.message}
+            </div>
+
+            <div className="mt-4 border-t border-white/8 pt-4">
+              <div className="soft-label text-[10px] text-white/36">航行操作</div>
+              <div className="mt-3 grid gap-2">
+                {showReturnButton && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      returnToHub();
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    返回主舰
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    restartMission();
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  重开这一轮
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    classroomProfile.logout();
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  切换学员
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-white/8 pt-4">
+              <div className="soft-label text-[10px] text-white/36">教师快捷</div>
+              <div className="mt-3 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "试听流程重新开始",
+                        detail: "主舰会回到开场状态，方便老师重新带一轮完整体验。",
+                        mode: "arrival"
+                      },
+                      startTrialFromBeginning,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  从头开始试听
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "跳到第一关入口",
+                        detail: "如果还没有船员，会先进入船员招募；如果已有船员，会直接打开信息库第一关。",
+                        mode: "scan"
+                      },
+                      jumpToFirstLevel,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  跳到第一关入口
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "准备第二章",
+                        detail: "主舰会准备文明远征入口；如果缺少星球结果，会生成一个课堂演示用母星坐标。",
+                        mode: "jump"
+                      },
+                      jumpToSecondLevel,
+                      620
+                    );
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  跳到第二章
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "四处地标已点亮",
+                        detail: "课堂救场：直接保留四枚文明碎片，并开启黑匣入口。",
+                        mode: "unlock"
+                      },
+                      teacherCompleteChapterTwoLandmarks,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                >
+                  点亮四个地标
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "进入黑匣试炼",
+                        detail: "课堂救场：直接进入失序回声最终战。",
+                        mode: "scan"
+                      },
+                      teacherEnterBlackboxTrial,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                >
+                  直接进入黑匣战
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "言衡星复苏完成",
+                        detail: "课堂救场：直接写入第二章成果、科技点和飞船 AI 升级。",
+                        mode: "unlock"
+                      },
+                      teacherTriggerPlanetRestoration,
+                      620
+                    );
+                  }}
+                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                >
+                  触发星球复苏
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "打开试听成果总页",
+                        detail: "主舰正在汇总船员、母星、黑匣远征和存档状态。",
+                        mode: "unlock"
+                      },
+                      openTrialResult,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                >
+                  查看最终成果页
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUtilityPanelOpen(null);
+                    void runTransition(
+                      {
+                        title: "当前试听流程已重置",
+                        detail: "只重置这轮课堂演示状态，保留项目的身份与存档结构。",
+                        mode: "arrival"
+                      },
+                      resetTrialFlow,
+                      520
+                    );
+                  }}
+                  className="rounded-[16px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-left text-sm text-amber-50 transition hover:bg-amber-200/[0.14]"
+                >
+                  重置当前试听流程
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {showReturnButton && <ShipReturnButton onClick={returnToHub} />}
-            <button
-              type="button"
-              onClick={restartMission}
-              className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-white/70 transition hover:border-white/22 hover:bg-white/[0.06]"
-            >
-              重开这一轮
-            </button>
+          )}
+        </div>
+      )}
+
+      {!hideImmersiveHeader && !immersiveFullscreen && (
+        <div className={immersiveFullscreen ? "pointer-events-none fixed left-4 top-4 z-30 md:left-6 md:top-6" : "mb-5 flex flex-wrap items-center justify-between gap-3"}>
+          <div className={immersiveFullscreen ? "pointer-events-auto max-w-md rounded-[22px] border border-white/10 bg-black/32 px-4 py-3 text-white backdrop-blur-md" : ""}>
+            <div className="soft-label text-[11px] text-white/42">{immersiveFullscreen ? "主舰状态" : "主舰控制台"}</div>
+            <div className="mt-1 text-xl font-semibold text-white">{state.currentScene === "hub" ? "失落航星" : "主舰内操作"}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/55">
+              <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-cyan-100/90">
+                {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">学员 {classroomProfile.profileName}</span>
+            </div>
+            <div className={`mt-2 text-xs ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/56"}`}>
+              {classroomProfile.message}
+            </div>
           </div>
         </div>
+      )}
 
-        <div key={sceneKey} className="mt-6">
+      <div className={immersiveFullscreen ? "" : "mx-auto max-w-7xl"}>
+
+        <div key={sceneKey} className={immersiveFullscreen ? "" : "mt-6"}>
           {state.currentScene === "awakening" && (
             <AwakeningScene
               onAwaken={() =>
@@ -227,6 +559,9 @@ export function GameShell() {
               chapterTwoComplete={state.chapterTwoComplete}
               scannedRegionLabel={state.scannedRegionLabel}
               newRegionAlert={state.newRegionAlert}
+              technologyPoints={state.technologyPoints}
+              aiCapabilityLevel={state.aiCapabilityLevel}
+              aiCapabilityUnlocks={state.aiCapabilityUnlocks}
               repairedSignal={state.signalMission.repairedSignal}
               shipLogs={state.shipLogs}
               shipStatusNote={state.shipStatusNote}
@@ -267,7 +602,9 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "信息库舱接入中",
-                    detail: "主舰正在报告基础记忆缺失。接下来要抢救航行、故障和船员协作三块记忆。",
+                    detail: state.firstStarLit
+                      ? "主舰正在调出你刚刚完成的第一颗星球档案。这里会显示本次体验的成果和下一步入口。"
+                      : "主舰正在报告基础记忆缺失。先定义第一颗可航行星球，让导航盘重新点亮。",
                     mode: "scan"
                   },
                   openSignalMission,
@@ -282,6 +619,28 @@ export function GameShell() {
                     mode: "scan"
                   },
                   openTaskBoard,
+                  760
+                )
+              }
+              onOpenArchive={() =>
+                runTransition(
+                  {
+                    title: "档案舱正在展开",
+                    detail: "主舰正在按学员姓名调出本地课堂档案：船员、星球、导入图片和最近成果都会在这里回看。",
+                    mode: "scan"
+                  },
+                  openArchive,
+                  700
+                )
+              }
+              onOpenHomePlanetHub={() =>
+                runTransition(
+                  {
+                    title: "母星中枢正在接入",
+                    detail: "主舰把第一章创造的母星转入基地视图：资源、建筑和作品中枢会在这里展开。",
+                    mode: "arrival"
+                  },
+                  openHomePlanetHub,
                   760
                 )
               }
@@ -310,6 +669,43 @@ export function GameShell() {
             />
           )}
 
+          {state.currentScene === "archive" && (
+            <ArchivePanel
+              authUid={classroomProfile.profileName}
+              loginType="CLASSROOM_LOCAL"
+              accountEmail={null}
+              isAnonymousAccount={false}
+              saveStatus={classroomProfile.status === "saving" ? "saving" : classroomProfile.status === "error" ? "error" : "saved"}
+              statusMessage={classroomProfile.message}
+              lastSavedAt={null}
+              didRestoreHistory
+              saveSummary={null}
+              crewRoster={state.crewRoster}
+              recentWorks={[]}
+              state={state}
+              upgradeStage="idle"
+              upgradeMessage=""
+              upgradeError={null}
+              upgradeBusy={false}
+              pendingUpgradeEmail=""
+              onRequestUpgradeCode={async () => null}
+              onConfirmUpgrade={async () => null}
+            />
+          )}
+
+          {state.currentScene === "home-planet-hub" && (
+            <HomePlanetHubPanel
+              state={state}
+              activeCrew={activeCrew}
+              onReturn={returnToHub}
+              onActivateFeature={activateHomePlanetFeature}
+              onBuildStructure={buildHomePlanetStructure}
+              onSaveCommission={saveHomePlanetCommission}
+              onSaveDialogue={saveHomePlanetDialogue}
+              onSaveStoryboard={saveHomePlanetStoryboard}
+            />
+          )}
+
           {state.currentScene === "hub-briefing" && (
             <ShipSignalBriefing
               onComplete={() =>
@@ -329,19 +725,12 @@ export function GameShell() {
           {state.currentScene === "chapter-two-portal" && (
             <ChapterTwoPortalScene
               activeCrew={activeCrew}
+              planet={state.signalMission.planet.confirmedModel}
               repairedSignal={state.signalMission.repairedSignal}
               completed={state.chapterTwoComplete}
               routeLocked={state.chapterTwoRouteLocked}
               onBegin={() =>
-                runTransition(
-                  {
-                    title: "沉默坐标正在展开",
-                    detail: "主舰正在沿着第一章留下的回声，把你们送进真正可调查的新区域。",
-                    mode: "jump"
-                  },
-                  startChapterTwoMission,
-                  1320
-                )
+                startChapterTwoMission()
               }
               onReturn={returnToHub}
             />
@@ -359,13 +748,17 @@ export function GameShell() {
               roundOneOperation={operations["chapter-two-round-one"]}
               roundTwoOperation={operations["chapter-two-round-two"]}
               completionOperation={operations["chapter-two-complete"]}
+              onSetSceneState={setChapterTwoSceneState}
+              onFocusPlanet={focusChapterTwoPlanet}
+              onFocusLocation={focusChapterTwoLocation}
+              onExploreLocation={exploreChapterTwoLocation}
               onAdvance={advanceChapterTwoStep}
               onSetResponsePrompt={setChapterTwoResponsePrompt}
               onAnalyzeResponse={() =>
                 runTransition(
                   {
-                    title: "系统正在理解你的判断",
-                    detail: "主舰会先抓你最在意的那条线，再决定这段回应该从哪一面被拆开。",
+                    title: "黑匣正在校验你的理解",
+                    detail: "主舰会判断你是否说清了语言模型的能力、边界和容易出错的地方。",
                     mode: "scan"
                   },
                   analyzeChapterTwoResponse,
@@ -379,8 +772,8 @@ export function GameShell() {
               onAnalyzeAssignment={() =>
                 runTransition(
                   {
-                    title: "双船员协作正在排布",
-                    detail: "系统会先读懂你想让谁怎样介入，再把这次协作收拢成可执行的推进方式。",
+                    title: "黑匣接近路线正在排布",
+                    detail: "系统会把这次外部远征收拢成可执行的黑匣学习流程。",
                     mode: "arrival"
                   },
                   analyzeChapterTwoAssignment,
@@ -393,8 +786,8 @@ export function GameShell() {
               onAnalyzeRoundOne={() =>
                 runTransition(
                   {
-                    title: "第一轮意图正在校准",
-                    detail: "系统会先理解你现在最想查的那一层，再开始第一次不完全恢复。",
+                    title: "应用提示正在校验",
+                    detail: "科技黑匣会检查你的指令是否包含任务、语境、边界和输出方式。",
                     mode: "scan"
                   },
                   analyzeChapterTwoRoundOne,
@@ -404,8 +797,8 @@ export function GameShell() {
               onRunRoundOne={() =>
                 runTransition(
                   {
-                    title: "第一轮协作正在校准",
-                    detail: "系统会先按你选的重点和分工，做一次不完全但有方向的恢复。",
+                    title: "文明档案正在修复",
+                    detail: "主舰会按你的清晰提示整理损坏记录，并标出不能编造的缺口。",
                     mode: "scan"
                   },
                   runChapterTwoFirstPass,
@@ -419,8 +812,8 @@ export function GameShell() {
               onAnalyzeRoundTwo={() =>
                 runTransition(
                   {
-                    title: "第二轮修正意图正在校准",
-                    detail: "主舰会先消化你的补充和协作调整，再把第二轮结果压得更准。",
+                    title: "黑匣挑战正在校验",
+                    detail: "这一步会验证你是否能写出一条真正可用、不会诱发乱编的 AI 指令。",
                     mode: "arrival"
                   },
                   analyzeChapterTwoRoundTwo,
@@ -430,8 +823,8 @@ export function GameShell() {
               onRunRoundTwo={() =>
                 runTransition(
                   {
-                    title: "第二轮修正正在进行",
-                    detail: "你们正在用新的补充和分工调整，把系统一步步调到更接近真相的位置。",
+                    title: "科技黑匣正在开启",
+                    detail: "语言文明的核心知识正在回流主舰，科技点即将写入 AI 成长系统。",
                     mode: "arrival"
                   },
                   runChapterTwoSecondPass,
@@ -443,8 +836,8 @@ export function GameShell() {
               onComplete={() =>
                 runTransition(
                   {
-                    title: "第二章正在归档",
-                    detail: "最终判断已经生效，主舰、船员档案和新区域扫描图都会一起更新。",
+                    title: "黑匣知识正在归档",
+                    detail: "科技点、文明记录和飞船 AI 理解能力会一起写入主舰。",
                     mode: "unlock"
                   },
                   completeChapterTwo,
@@ -466,8 +859,8 @@ export function GameShell() {
               onRecoverByStrategy={() =>
                 runTransition(
                   {
-                    title: "回响回路重新打开",
-                    detail: "主舰保留了这次失败留下的线索。你们可以不换人，直接改写判断和调查方向。",
+                    title: "黑匣挑战重新打开",
+                    detail: "主舰保留了失败留下的线索。你可以直接改写最终指令，再试一次。",
                     mode: "scan"
                   },
                   () => resolveChapterTwoSetback("retry-strategy"),
@@ -485,8 +878,8 @@ export function GameShell() {
               onReturn={() =>
                 runTransition(
                   {
-                    title: "主舰状态已回写",
-                    detail: "第二章的结果已经留在星图、日志和船员档案里。你可以回主舰继续准备下一次远征。",
+                    title: "语言理解 Level 1 已上线",
+                    detail: "语言黑匣已写入。主舰会更努力听清你的意思，也会提醒你不要让它替你思考。",
                     mode: "arrival"
                   },
                   returnToHub,
@@ -504,6 +897,7 @@ export function GameShell() {
               onRecruit={openRecruitment}
               imageOperation={operations["crew-image"]}
               onRegeneratePortrait={regenerateCrewPortrait}
+              onImportCrewImage={importCrewImageFile}
               onUpdateImagePromptHint={updateCrewImagePromptHint}
               onSelectEcho={selectCrewPortraitEcho}
               onOpenChat={openCrewChat}
@@ -559,7 +953,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "系统正在解析招募信号",
-                    detail: "主舰会先从你的描述里提取伙伴倾向，再把少量微调权交还给你。",
+                    detail: "主舰会先理解你的描述，再把它和你亲手选定的伙伴轮廓对齐。",
                     mode: "scan"
                   },
                   analyzeRecruitInput,
@@ -588,6 +982,7 @@ export function GameShell() {
               isGenerating={false}
               imageOperation={operations["crew-image"]}
               onRetryImage={() => regenerateCrewPortrait(state.generatedCrew!.id)}
+              onImportCrewImage={importCrewImageFile}
               onUpdateImagePromptHint={updateCrewImagePromptHint}
               onBoard={() =>
                 runTransition(
@@ -639,11 +1034,96 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "第一颗星球正在写回星图",
-                    detail: "导航盘、资源产出和第一个探索坐标会随着这次建模一起恢复。",
+                    detail: "导航盘、资源产出、第一个探索坐标和本次体验成果页会随着这次建模一起恢复。",
                     mode: "unlock"
                   },
                   restorePlanetModel,
                   1080
+                )
+              }
+            />
+          )}
+
+          {state.currentScene === "experience-result" && activeCrew && state.signalMission.planet.confirmedModel && (
+            <ExperienceResultPanel
+              crew={activeCrew}
+              planet={state.signalMission.planet.confirmedModel}
+              shipLogs={state.shipLogs}
+              saveStatus={classroomProfile.status === "saving" ? "saving" : classroomProfile.status === "error" ? "error" : "saved"}
+              statusMessage={classroomProfile.message}
+              lastSavedAt={null}
+              onContinue={() =>
+                runTransition(
+                  {
+                    title: "文明远征入口正在打开",
+                    detail: "第一颗星球已经成为母星。接下来会前往语言与信息文明星，寻找第一枚科技黑匣。",
+                    mode: "scan"
+                  },
+                  continueToFaultReview,
+                  780
+                )
+              }
+              onReturnToHub={() =>
+                runTransition(
+                  {
+                    title: "返回主舰",
+                    detail: "这次体验成果已经留在主舰档案里。你可以稍后继续第二章文明远征。",
+                    mode: "arrival"
+                  },
+                  returnToHub,
+                  680
+                )
+              }
+              onOpenArchive={() =>
+                runTransition(
+                  {
+                    title: "主舰存档正在展开",
+                    detail: "船员、第一颗星球、日志和最近保存时间都会一起显示出来。",
+                    mode: "scan"
+                  },
+                  openArchive,
+                  680
+                )
+              }
+              onOpenParentSummary={() =>
+                runTransition(
+                  {
+                    title: "体验说明页正在展开",
+                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示给老师与家长。",
+                    mode: "arrival"
+                  },
+                  openParentSummary,
+                  620
+                )
+              }
+              onImportPlanetImage={importPlanetImageFile}
+            />
+          )}
+
+          {state.currentScene === "trial-bridge" && activeCrew && state.signalMission.planet.confirmedModel && (
+            <TrialBridgePanel
+              crew={activeCrew}
+              planet={state.signalMission.planet.confirmedModel}
+              onEnterFaultRun={() =>
+                runTransition(
+                  {
+                    title: "文明远征入口正在打开",
+                    detail: "主舰会从母星出发，前往语言与信息文明星，开启第一枚科技黑匣。",
+                    mode: "jump"
+                  },
+                  continueToFaultReview,
+                  920
+                )
+              }
+              onBackToFirstResult={() =>
+                runTransition(
+                  {
+                    title: "回看第一关成果",
+                    detail: "主舰正在调回第一颗星球和导航盘恢复记录。",
+                    mode: "arrival"
+                  },
+                  openFirstExperienceResult,
+                  520
                 )
               }
             />
@@ -671,9 +1151,9 @@ export function GameShell() {
               onStartFaultRun={() =>
                 runTransition(
                   {
-                    title: "故障回溯链正在展开",
-                    detail: "过去的信息世界已经打开，这一轮会围绕随机故障种子生成一条新的短回溯链。",
-                    mode: "scan"
+                    title: "旧信息库回溯链正在展开",
+                    detail: "旧信息库回路已经打开，这一轮会生成一条短演算链，用来补齐早期主舰资料。",
+                    mode: "jump"
                   },
                   startFaultRun,
                   980
@@ -694,12 +1174,97 @@ export function GameShell() {
               onFinalize={() =>
                 runTransition(
                   {
-                    title: "信息库前两层已归档",
-                    detail: "主舰正在汇总星球建模与故障回溯真正带来的恢复结果。",
+                    title: "试听成果正在汇总",
+                    detail: "主舰正在把船员、星球、黑匣远征和日志收成一页可展示成果。",
                     mode: "unlock"
                   },
                   finalizeChapterOne,
                   980
+                )
+              }
+            />
+          )}
+
+          {state.currentScene === "trial-result" && (
+            <TrialResultPanel
+              crew={activeCrew}
+              planet={state.signalMission.planet.confirmedModel}
+              faultRun={state.signalMission.faultRun}
+              chapterTwoOutcome={state.chapterTwo.outcome}
+              technologyPoints={state.technologyPoints}
+              aiCapabilityLevel={state.aiCapabilityLevel}
+              aiCapabilityUnlocks={state.aiCapabilityUnlocks}
+              shipLogs={state.shipLogs}
+              saveStatus={classroomProfile.status === "saving" ? "saving" : classroomProfile.status === "error" ? "error" : "saved"}
+              lastSavedAt={null}
+              onReturnToHub={() =>
+                runTransition(
+                  {
+                    title: "返回主舰",
+                    detail: "试听成果已经留在主舰档案里，可以继续查看存档或准备下一位孩子体验。",
+                    mode: "arrival"
+                  },
+                  returnToHub,
+                  680
+                )
+              }
+              onRestartTrial={() =>
+                runTransition(
+                  {
+                    title: "试听流程重新开始",
+                    detail: "主舰会回到开场状态，方便老师重新带一轮完整体验。",
+                    mode: "arrival"
+                  },
+                  startTrialFromBeginning,
+                  620
+                )
+              }
+              onOpenParentSummary={() =>
+                runTransition(
+                  {
+                    title: "体验说明页正在展开",
+                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示给老师与家长。",
+                    mode: "arrival"
+                  },
+                  openParentSummary,
+                  620
+                )
+              }
+            />
+          )}
+
+          {state.currentScene === "parent-summary" && (
+            <ParentSummaryPanel
+              crew={activeCrew}
+              planet={state.signalMission.planet.confirmedModel}
+              faultRun={state.signalMission.faultRun}
+              chapterTwoOutcome={state.chapterTwo.outcome}
+              technologyPoints={state.technologyPoints}
+              aiCapabilityLevel={state.aiCapabilityLevel}
+              aiCapabilityUnlocks={state.aiCapabilityUnlocks}
+              shipLogs={state.shipLogs}
+              saveStatus={classroomProfile.status === "saving" ? "saving" : classroomProfile.status === "error" ? "error" : "saved"}
+              lastSavedAt={null}
+              onBackToResult={() =>
+                runTransition(
+                  {
+                    title: "返回成果页",
+                    detail: "主舰正在收起说明层，回到孩子完成的任务成果。",
+                    mode: "arrival"
+                  },
+                  state.chapterTwo.outcome ? openTrialResult : openFirstExperienceResult,
+                  520
+                )
+              }
+              onReturnToHub={() =>
+                runTransition(
+                  {
+                    title: "返回主舰",
+                    detail: "说明页已归档，主舰视图重新展开。",
+                    mode: "arrival"
+                  },
+                  returnToHub,
+                  620
                 )
               }
             />

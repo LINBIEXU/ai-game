@@ -1,5 +1,7 @@
 "use client";
 
+import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
+
 interface StarMapPanelProps {
   firstStarLit: boolean;
   coordinateLabel?: string | null;
@@ -7,9 +9,12 @@ interface StarMapPanelProps {
 
 export function StarMapPanel({ firstStarLit, coordinateLabel }: StarMapPanelProps) {
   return (
-    <div className={`panel-surface rounded-[28px] p-5 ${firstStarLit ? "hologram-sweep unlock-burst" : "panel-reveal"}`}>
+    <div className={`ship-secondary-mini-panel ${firstStarLit ? "hologram-sweep unlock-burst" : "panel-reveal"}`}>
+      <div className="ship-secondary-mini-panel__bg" style={{ backgroundImage: `url(${shipSecondarySceneAssets.navigationTheater})` }} />
+      <div className="ship-secondary-mini-panel__overlay" />
+      <div className="ship-secondary-mini-panel__content">
       <div className="soft-label text-[11px] text-white/45">航星图</div>
-      <div className="mt-4 rounded-[24px] border border-white/8 bg-slate-950/50 p-5">
+      <div className="mt-4 rounded-[24px] border border-white/8 bg-slate-950/50 p-5 backdrop-blur-sm">
         <div className="relative h-36">
           <div className="absolute left-8 top-16 h-px w-40 bg-gradient-to-r from-cyan-300/50 to-white/0" />
           <div className="absolute left-24 top-10 h-px w-32 bg-gradient-to-r from-white/0 via-white/20 to-white/0" />
@@ -35,6 +40,7 @@ export function StarMapPanel({ firstStarLit, coordinateLabel }: StarMapPanelProp
         <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/75">
           {coordinateLabel ?? "新坐标尚未记录"}
         </div>
+      </div>
       </div>
     </div>
   );

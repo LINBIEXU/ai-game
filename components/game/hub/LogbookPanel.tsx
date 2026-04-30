@@ -1,5 +1,6 @@
 "use client";
 
+import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
 import type { ShipLogEntry } from "@/types/game";
 
 interface LogbookPanelProps {
@@ -10,7 +11,10 @@ export function LogbookPanel({ shipLogs }: LogbookPanelProps) {
   const latest = shipLogs[0] ?? null;
 
   return (
-    <section className="scene-reveal space-y-5">
+    <section className="scene-reveal ship-secondary-stage">
+      <div className="ship-secondary-stage__bg" style={{ backgroundImage: `url(${shipSecondarySceneAssets.archiveHall})` }} />
+      <div className="ship-secondary-stage__overlay" />
+      <div className="ship-secondary-stage__content space-y-5">
       <div className="fleet-broadcast panel-surface rounded-full px-4 py-2">
         <div className="fleet-broadcast-track">
           {[`航海记录 ${shipLogs.length}`, "主舰会记住谁去了哪里", "世界变化会沉到日志里", `航海记录 ${shipLogs.length}`, "主舰会记住谁去了哪里"].map((item, index) => (
@@ -21,7 +25,7 @@ export function LogbookPanel({ shipLogs }: LogbookPanelProps) {
         </div>
       </div>
 
-      <div className="panel-surface rounded-[32px] p-6 md:p-8">
+      <div className="panel-surface ship-secondary-panel rounded-[32px] p-6 md:p-8">
       <div className="soft-label text-[11px] text-white/42">航海日志舱</div>
       <h2 className="mt-3 text-3xl font-semibold text-white">主舰正在记住每一次出动。</h2>
 
@@ -49,6 +53,7 @@ export function LogbookPanel({ shipLogs }: LogbookPanelProps) {
             <p className="mt-3 text-sm leading-7 text-white/62">{entry.body}</p>
           </article>
         ))}
+      </div>
       </div>
       </div>
     </section>

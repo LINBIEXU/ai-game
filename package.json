@@ -8,12 +8,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "postbuild": "node scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "check:deploy": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
+    "@cloudbase/js-sdk": "^2.27.3",
+    "@cloudbase/node-sdk": "^3.18.1",
     "next": "14.2.25",
     "react": "18.3.1",
     "react-dom": "18.3.1"

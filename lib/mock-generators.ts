@@ -143,9 +143,34 @@ function unique<T>(items: T[]) {
 const recruitKeywordRules = {
   formType: {
     mechanical: ["机械", "机体", "金属", "齿轮", "旧机器", "机器人", "装甲"],
-    biological: ["生物", "毛茸茸", "柔软", "像动物", "植物", "有翅膀", "呼吸"],
+    biological: [
+      "生物",
+      "毛茸茸",
+      "柔软",
+      "像动物",
+      "植物",
+      "有翅膀",
+      "呼吸",
+      "人类",
+      "真人",
+      "少女",
+      "少年",
+      "女孩",
+      "男孩",
+      "女性",
+      "男性",
+      "战士",
+      "法师",
+      "巫师",
+      "骑士",
+      "公主",
+      "王子",
+      "精灵",
+      "魔法少女",
+      "美少女战士"
+    ],
     energy: ["发光", "能量", "光", "电", "闪烁", "频率", "波纹"],
-    hybrid: ["神秘", "混合", "不像一种", "看不清", "奇怪", "未知", "双相"]
+    hybrid: ["混合", "不像一种", "看不清", "双相"]
   },
   role: {
     scout: ["找路", "追踪", "侦察", "找线索", "扫描", "潜行", "探索"],
@@ -204,6 +229,21 @@ const visualSpeciesRules = [
     subject: "兔型非人伙伴",
     keywords: ["兔", "兔子", "小兔"],
     guardrails: ["主体必须保持兔类或明显兔型生物", "不要自动替换成人类脸", "保留长耳或清晰兔型轮廓"]
+  },
+  {
+    subject: "龙型非人伙伴",
+    keywords: ["龙", "小龙", "幼龙", "飞龙", "东方龙"],
+    guardrails: ["主体必须保持龙类或明显龙型生物", "不要自动替换成人类脸或人类身体", "保留龙角、鳞片、长尾或清晰龙型轮廓"]
+  },
+  {
+    subject: "水生非人伙伴",
+    keywords: ["鱼", "鲸", "海豚", "水母", "鲨鱼", "章鱼"],
+    guardrails: ["主体必须保持水生生物或明显水生伙伴", "不要自动替换成人类角色", "保留鳍、流线身体或水生轮廓"]
+  },
+  {
+    subject: "大型兽类非人伙伴",
+    keywords: ["熊", "鹿", "马", "狼", "狮子", "老虎", "豹"],
+    guardrails: ["主体必须保持对应兽类轮廓", "不要自动替换成人类角色", "可以有装备但不能丢失动物身体结构"]
   },
   {
     subject: "机械船员",
@@ -279,12 +319,20 @@ function wantsHumanoid(text: string) {
 }
 
 function inferHumanVisualSubject(text: string) {
+  if (includesAny(text, ["精灵", "elf"])) {
+    return "幻想精灵角色";
+  }
+
   if (includesAny(text, ["美少女战士", "sailor moon", "魔法少女", "变身少女"])) {
     return "人类魔法少女战士";
   }
 
   if (includesAny(text, ["少女战士", "女战士", "战斗少女"])) {
     return "人类少女战士";
+  }
+
+  if (includesAny(text, ["法师", "巫师", "女巫", "骑士", "战士", "刺客", "忍者", "海盗", "船长", "公主", "王子"])) {
+    return "人类或幻想人形角色";
   }
 
   if (includesAny(text, ["少女", "女生", "女孩", "美少女"])) {
@@ -323,7 +371,32 @@ function inferDefaultVisualSubject(formType: RecruitForm["formType"]) {
     return "生物伙伴";
   }
 
-  return "未来混合体伙伴";
+  return "玩家原创伙伴";
+}
+
+function inferFormTypeFromSubjectText(text: string): RecruitForm["formType"] | null {
+  if (inferHumanVisualSubject(text)) {
+    return "biological";
+  }
+
+  if (visualSpeciesRules.some((rule) => rule.subject.includes("非人") && includesAny(text, rule.keywords))) {
+    return "biological";
+  }
+
+  return null;
+}
+
+function extractOriginalVisualSubject(description: string) {
+  const normalized = description
+    .replace(/\s+/g, " ")
+    .split(/[。！？\n\r]/)[0]
+    ?.trim();
+
+  if (!normalized || normalized.length < 2) {
+    return null;
+  }
+
+  return `玩家描述的原创伙伴：${shortenText(normalized, 24)}`;
 }
 
 export function inferCrewVisualProfile(input: {
@@ -336,6 +409,7 @@ export function inferCrewVisualProfile(input: {
   const matchedRule = visualSpeciesRules.find((rule) => includesAny(text, rule.keywords));
   const humanoidRequested = wantsHumanoid(text);
   const humanSubject = inferHumanVisualSubject(text);
+  const originalSubject = extractOriginalVisualSubject(input.description);
 
   if (!matchedRule && humanSubject) {
     return {
@@ -364,12 +438,13 @@ export function inferCrewVisualProfile(input: {
     };
   }
 
-  const visualSubject = inferDefaultVisualSubject(input.formType);
+  const visualSubject = originalSubject ?? inferDefaultVisualSubject(input.formType);
   const visualGuardrails = [
-    `主体必须保持${visualSubject}的核心身份`,
+    `主体必须严格贴合${visualSubject}，不要改成通用人形船员`,
     "名字、职责、能力和角色气质必须维持一致",
-    "服饰与背景可以自由变化，但不要偏离招募信号本身",
-    "除非玩家明确要求拟人化，否则不要自动加入人类脸或人类比例"
+    "服饰与背景可以自由变化，但不要偏离玩家原始招募描述",
+    "除非玩家明确要求拟人化，否则不要自动加入人类脸或人类比例",
+    "除非玩家明确提到宇航服、机甲或装甲，否则不要自动套科幻制服或机械外壳"
   ];
 
   return {
@@ -559,7 +634,7 @@ function describePromptAlignment(text: string, truth: ChapterTwoTruth) {
 export function analyzeRecruitSignal(form: RecruitForm): RecruitSignalAnalysis {
   const sourceText = [form.description.trim(), form.notes.trim()].filter(Boolean).join(" ");
   const text = sourceText || form.customPrompt.trim() || "想招募一位可靠的新伙伴";
-  const inferredFormType = form.formType ?? scoreByRules(text, recruitKeywordRules.formType) ?? "hybrid";
+  const inferredFormType = form.formType ?? scoreByRules(text, recruitKeywordRules.formType) ?? inferFormTypeFromSubjectText(text) ?? "biological";
   const inferredRole = form.role ?? scoreByRules(text, recruitKeywordRules.role) ?? "scout";
   const inferredTemperament = form.temperament ?? scoreByRules(text, recruitKeywordRules.temperament) ?? "calm";
   const inferredTalent = form.talent ?? scoreByRules(text, recruitKeywordRules.talent) ?? "decode";

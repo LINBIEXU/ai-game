@@ -3,12 +3,17 @@
 import { useEffect, useMemo } from "react";
 
 import { mockGenerationProvider } from "@/lib/ai/mock-provider";
-import { remoteGenerationProvider } from "@/lib/ai/remote-provider";
-import { getClientImageConfig } from "@/lib/ai-image/config";
-import { getCrewImageProvider } from "@/lib/ai-image";
+import { chapterTwoUnlockLocationIds } from "@/lib/chapter-two-exploration";
 import { createInitialGameState, emptyChapterTwoState, emptyRecruitForm, emptySignalMission, labelMap, shipTaskCatalog, STORAGE_KEY } from "@/lib/game-constants";
 import {
-  generateChapterTwoTruth,
+  canBuildStructure,
+  emptyHomePlanetHubState,
+  homePlanetStructures,
+  languagePlanetResourceReward,
+  resolveHomePlanetUnlockedFeatures
+} from "@/lib/home-planet-hub";
+import { canActivateMotherworldFeature, motherworldHotspots } from "@/lib/motherworld-map";
+import {
   generateCrewBackstory,
   inferCrewVisualProfile,
 } from "@/lib/mock-generators";
@@ -34,18 +39,33 @@ import {
   interpretCrewImageIntent,
   interpretRecruitIntent
 } from "@/lib/intent-interpreter";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { getLocalStorageUpdatedAtKey, useLocalStorage } from "@/hooks/useLocalStorage";
 import { useGenerationRuntime } from "@/hooks/useGenerationRuntime";
 import type {
   ChapterTwoDuty,
+  ChapterTwoEcho,
   ChapterTwoFinalChoice,
   ChapterTwoFocus,
+  ChapterTwoLocationId,
+  ChapterTwoOutcome,
+  ChapterTwoPlanetId,
   ChapterTwoRefinement,
+  ChapterTwoSceneState,
   ChapterTwoSetback,
+  ClassroomImageAsset,
+  ChapterTwoTruth,
   CrewDossierEntry,
   CrewMember,
   FaultCaseRecord,
   GameState,
+  HomePlanetCommissionWork,
+  HomePlanetDialogueCard,
+  HomePlanetFeatureId,
+  HomePlanetGalleryItem,
+  HomePlanetHubState,
+  HomePlanetResources,
+  HomePlanetStoryboardProject,
+  HomePlanetStructureId,
   PlanetInputState,
   PlanetMood,
   RecruitForm,
@@ -178,21 +198,91 @@ function normalizeFaultCaseRecords(input: FaultCaseRecord[] | null | undefined) 
   return Array.isArray(input) ? input : [];
 }
 
+function normalizeHomePlanetHub(input: HomePlanetHubState | null | undefined, technologyPoints: number, inferredFragments = 0): HomePlanetHubState {
+  const base = emptyHomePlanetHubState();
+  const resources = input?.resources ?? base.resources;
+
+  return {
+    ...base,
+    ...input,
+    resources: {
+      water: typeof resources.water === "number" ? resources.water : base.resources.water,
+      minerals: typeof resources.minerals === "number" ? resources.minerals : base.resources.minerals,
+      energy: typeof resources.energy === "number" ? resources.energy : base.resources.energy,
+      fragments: typeof resources.fragments === "number" ? resources.fragments : Math.max(base.resources.fragments, inferredFragments),
+      techPoints: technologyPoints
+    },
+    unlockedFeatures: Array.isArray(input?.unlockedFeatures) ? input.unlockedFeatures : base.unlockedFeatures,
+    activeFeatures: Array.isArray(input?.activeFeatures) ? input.activeFeatures : base.activeFeatures,
+    builtStructures: Array.isArray(input?.builtStructures) ? input.builtStructures : [],
+    dialogueCards: Array.isArray(input?.dialogueCards) ? input.dialogueCards : [],
+    storyboardProjects: Array.isArray(input?.storyboardProjects) ? input.storyboardProjects : [],
+    commissionWorks: Array.isArray(input?.commissionWorks) ? input.commissionWorks : [],
+    galleryItems: Array.isArray(input?.galleryItems) ? input.galleryItems : []
+  };
+}
+
+function awardLanguagePlanetResources(resources: HomePlanetResources): HomePlanetResources {
+  return {
+    ...resources,
+    water: resources.water + languagePlanetResourceReward.water,
+    minerals: resources.minerals + languagePlanetResourceReward.minerals,
+    energy: resources.energy + languagePlanetResourceReward.energy,
+    fragments: Math.max(resources.fragments, 0) + languagePlanetResourceReward.fragments
+  };
+}
+
+function reconcileMotherworldActiveFeatures(activeFeatureIds: HomePlanetFeatureId[], chapterTwoComplete: boolean) {
+  const selected = new Set(activeFeatureIds);
+  const requiredFragments = motherworldHotspots.reduce(
+    (total, hotspot) => (selected.has(hotspot.id) ? total + hotspot.activationCost.fragments : total),
+    0
+  );
+  const earnedFragments = chapterTwoComplete ? languagePlanetResourceReward.fragments : 0;
+
+  if (activeFeatureIds.length <= 4 && requiredFragments <= earnedFragments) {
+    return activeFeatureIds;
+  }
+
+  const budget = {
+    water: emptyHomePlanetHubState().resources.water + (chapterTwoComplete ? languagePlanetResourceReward.water : 0),
+    minerals: emptyHomePlanetHubState().resources.minerals + (chapterTwoComplete ? languagePlanetResourceReward.minerals : 0),
+    energy: emptyHomePlanetHubState().resources.energy + (chapterTwoComplete ? languagePlanetResourceReward.energy : 0),
+    fragments: earnedFragments
+  };
+  const reconciled: HomePlanetFeatureId[] = [];
+
+  for (const hotspot of motherworldHotspots) {
+    if (!selected.has(hotspot.id)) continue;
+    if (!canActivateMotherworldFeature(budget, hotspot.activationCost)) continue;
+
+    budget.water -= hotspot.activationCost.water;
+    budget.minerals -= hotspot.activationCost.minerals;
+    budget.energy -= hotspot.activationCost.energy;
+    budget.fragments -= hotspot.activationCost.fragments;
+    reconciled.push(hotspot.id);
+  }
+
+  return reconciled;
+}
+
 function normalizeGameState(input: GameState): GameState {
   const base = createInitialGameState();
   const rawScene: string | undefined = (input as { currentScene?: string }).currentScene;
   const normalizedGeneratedCrew = input.generatedCrew ? normalizeCrewMember(input.generatedCrew) : null;
+  const technologyPoints = typeof input.technologyPoints === "number" ? input.technologyPoints : base.technologyPoints;
 
   const normalizedRoster = Array.isArray(input.crewRoster)
     ? input.crewRoster.map((member) => normalizeCrewMember(member))
     : normalizedGeneratedCrew
       ? [normalizedGeneratedCrew]
       : [];
+  const canUseGeneratedCrewId = Boolean(normalizedGeneratedCrew && input.activeCrewId === normalizedGeneratedCrew.id);
 
   const activeCrewId =
-    input.activeCrewId && normalizedRoster.some((member) => member.id === input.activeCrewId)
+    input.activeCrewId && (normalizedRoster.some((member) => member.id === input.activeCrewId) || canUseGeneratedCrewId)
       ? input.activeCrewId
-      : normalizedRoster[0]?.id ?? null;
+      : normalizedRoster[0]?.id ?? normalizedGeneratedCrew?.id ?? null;
 
   return {
     ...base,
@@ -256,6 +346,7 @@ function normalizeGameState(input: GameState): GameState {
       }
     },
     planetCatalog: Array.isArray(input.planetCatalog) ? input.planetCatalog : [],
+    classroomArtifacts: Array.isArray(input.classroomArtifacts) ? input.classroomArtifacts : [],
     faultCaseRecords: normalizeFaultCaseRecords(input.faultCaseRecords),
     taskDesk: {
       tasks: Array.isArray(input.taskDesk?.tasks) && input.taskDesk.tasks.length > 0 ? input.taskDesk.tasks : shipTaskCatalog,
@@ -267,15 +358,28 @@ function normalizeGameState(input: GameState): GameState {
     chapterTwoRouteLocked: input.chapterTwoRouteLocked ?? false,
     chapterTwoComplete: input.chapterTwoComplete ?? false,
     chapterThreeHintUnlocked: input.chapterThreeHintUnlocked ?? false,
+    technologyPoints,
+    aiCapabilityLevel: typeof input.aiCapabilityLevel === "number" ? input.aiCapabilityLevel : base.aiCapabilityLevel,
+    aiCapabilityUnlocks: Array.isArray(input.aiCapabilityUnlocks) ? input.aiCapabilityUnlocks : base.aiCapabilityUnlocks,
     scannedRegionLabel: input.scannedRegionLabel ?? null,
     newRegionAlert: input.newRegionAlert ?? false,
     chapterTwo: {
       ...emptyChapterTwoState(),
       ...input.chapterTwo,
+      sceneState: input.chapterTwo?.sceneState ?? emptyChapterTwoState().sceneState,
+      focusedPlanetId: input.chapterTwo?.focusedPlanetId ?? null,
+      focusedLocationId: input.chapterTwo?.focusedLocationId ?? null,
+      exploredLocationIds: Array.isArray(input.chapterTwo?.exploredLocationIds) ? input.chapterTwo.exploredLocationIds : [],
+      blackBoxUnlocked: input.chapterTwo?.blackBoxUnlocked ?? false,
       truth: input.chapterTwo?.truth ?? null,
       attemptCount: typeof input.chapterTwo?.attemptCount === "number" ? input.chapterTwo.attemptCount : 0,
       lastSetback: input.chapterTwo?.lastSetback ?? null
     },
+    homePlanetHub: normalizeHomePlanetHub(
+      input.homePlanetHub,
+      technologyPoints,
+      input.chapterTwoComplete ? input.chapterTwo?.outcome?.fragments?.length ?? languagePlanetResourceReward.fragments : 0
+    ),
     shipLogs: Array.isArray(input.shipLogs) ? input.shipLogs : [],
     shipStatusNote: input.shipStatusNote ?? null
   };
@@ -304,18 +408,154 @@ function appendShipLog(current: GameState, entry: GameState["shipLogs"][number])
 function createSetbackLog(setback: ChapterTwoSetback, action: "swap-crew" | "retry-strategy"): ShipLogEntry {
   return {
     id: `log-setback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: action === "swap-crew" ? "沉默坐标误判记录" : "沉默坐标回环记录",
+    title: action === "swap-crew" ? "黑匣协作调整记录" : "黑匣挑战重试记录",
     body: `${setback.summary} ${setback.learnedClue} ${action === "swap-crew" ? setback.crewHint : setback.strategyHint}`,
-    tag: "软失败"
+    tag: "黑匣校验"
   };
 }
 
 function createSetbackDossier(member: CrewMember, setback: ChapterTwoSetback, tag: string): CrewDossierEntry {
   return {
     id: `dossier-setback-${member.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: "沉默坐标误判",
-    body: `${member.name} 在这次尝试里先碰到了外层误导回路。${setback.learnedClue}`,
+    title: "黑匣挑战未完全通过",
+    body: `${member.name} 记录了这次黑匣校验失败。${setback.learnedClue}`,
     tag
+  };
+}
+
+const languageCivilizationKnowledge = {
+  planetName: "言衡星",
+  blackBoxTitle: "语言模型黑匣 01 · 语义织机",
+  scannedZone: "言衡星 / 漂短信渠",
+  firstWords:
+    "我们曾让文字替文明奔跑。后来才明白，能续写句子的机器不等于真正知道真相；它需要清楚目标、足够证据和不断校准。",
+  coreKnowledge: [
+    "文字模型会根据已有语境预测下一个更可能出现的表达，它擅长整理、改写、归纳和生成。",
+    "它不等于真正理解世界。信息不完整、目标不清楚或噪声太多时，它会给出看起来合理但可能错误的答案。",
+    "越清楚地说明任务、对象、限制和判断标准，模型越容易输出可用结果。"
+  ],
+  practicalGuide: [
+    "先说明你要修复什么信息，再说明希望模型按什么规则处理。",
+    "遇到损坏记录时，不要只说“修好它”，要补充背景、目标和不能编造的边界。",
+    "得到结果后要验证：它像不像，不等于它一定是真的。"
+  ]
+} as const;
+
+function createLanguageCivilizationEcho(motherPlanetName: string, activeCrew: CrewMember | null): ChapterTwoEcho {
+  return {
+    title: `${languageCivilizationKnowledge.planetName} · 语言与信息文明星`,
+    linkedCrewId: activeCrew?.id ?? null,
+    linkedClue: `从 ${motherPlanetName} 出发后，主舰在第一片宇宙区域捕捉到一颗由刻字墙、宣纸光幕和漂浮信件组成的文明星。`,
+    lines: [
+      "大理石墙面上刻着断裂句子，句尾像被逆熵打击抹去。",
+      "宣纸状光幕在风里展开，漂浮信件沿着文字河流缓慢回旋。",
+      "档案塔深处有一枚科技黑匣，它仍在等待继承者用自己的话重新开启。"
+    ]
+  };
+}
+
+function createLanguageCivilizationTruth(activeCrew: CrewMember | null): ChapterTwoTruth {
+  return {
+    trueFocus: "身份线索",
+    decoyFocus: "坐标结构",
+    signalKind: "记忆残片",
+    recommendedLeadCrewId: activeCrew?.id ?? null,
+    recommendedSupportCrewId: activeCrew?.id ?? null,
+    recommendedLeadDuty: activeCrew?.role === "record" ? "记录还原" : "前线解析",
+    recommendedSupportDuty: activeCrew?.talent === "mend" ? "后方稳定" : "记录还原",
+    preferredRefinement: "强化区域描述",
+    preferredSupportMode: "让支援船员介入",
+    recommendedFinalChoice: "激活隐藏模块",
+    truthSummary: "这不是旧故障回应，而是语言文明黑匣在确认你是否理解文字模型的边界。"
+  };
+}
+
+function scoreLanguageUnderstanding(text: string) {
+  const normalized = text.replace(/\s+/g, "");
+  const evidence = ["信息", "语境", "证据", "资料", "数据"].some((item) => normalized.includes(item));
+  const prediction = ["预测", "推测", "可能", "续写", "根据"].some((item) => normalized.includes(item));
+  const boundary = ["不是真正理解", "不等于理解", "会错", "错误", "编造", "幻觉", "不能乱编"].some((item) => normalized.includes(item));
+  const clarity = ["清楚", "目标", "要求", "限制", "标准", "边界"].some((item) => normalized.includes(item));
+  const score = [evidence, prediction, boundary, clarity].filter(Boolean).length + (normalized.length >= 28 ? 1 : 0);
+
+  return {
+    score,
+    evidence,
+    prediction,
+    boundary,
+    clarity,
+    passed: score >= 3
+  };
+}
+
+function scoreLanguageApplication(text: string) {
+  const normalized = text.replace(/\s+/g, "");
+  const hasTask = ["修复", "整理", "归档", "改写", "补全"].some((item) => normalized.includes(item));
+  const hasContext = ["档案", "信件", "记录", "语言", "文字", "文明"].some((item) => normalized.includes(item));
+  const hasBoundary = ["不要编造", "不能编造", "只根据", "不确定", "标注", "保留缺口"].some((item) => normalized.includes(item));
+  const hasOutput = ["输出", "分成", "列出", "总结", "格式", "步骤"].some((item) => normalized.includes(item));
+  const score = [hasTask, hasContext, hasBoundary, hasOutput].filter(Boolean).length + (normalized.length >= 34 ? 1 : 0);
+
+  return {
+    score,
+    hasTask,
+    hasContext,
+    hasBoundary,
+    hasOutput,
+    passed: score >= 3
+  };
+}
+
+function createChapterTwoShipLog(outcome: ChapterTwoOutcome): ShipLogEntry {
+  return {
+    id: `log-language-civ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: outcome.title,
+    body: `${outcome.summary} ${outcome.civilizationRecord ?? outcome.logSummary}`,
+    tag: "文明远征"
+  };
+}
+
+function createChapterTwoDossier(member: CrewMember, outcome: ChapterTwoOutcome): CrewDossierEntry {
+  return {
+    id: `dossier-language-civ-${member.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "语言黑匣协作记录",
+    body: `${member.name} 参与开启 ${outcome.blackBoxTitle ?? "第一枚科技黑匣"}。${outcome.aiUpgrade ?? "主舰 AI 理解能力获得提升。"}`,
+    tag: "黑匣"
+  };
+}
+
+function createResolvedChapterTwoOutcome(): ChapterTwoOutcome {
+  return {
+    title: "第一枚科技黑匣已开启",
+    summary: "你点亮四个文明地标，击退失序回声，开启语言黑匣，找回了前文明留下的最后一封信。",
+    worldChange: "语言与信息文明星：基础运转恢复。档案塔亮起，信件港光轨恢复，刻字山谷文字河重新流动，纸光回廊展开。",
+    chapterThreeHook: "主舰已获得第一项文明技术。更远处的星球仍在沉睡。",
+    scannedZone: languageCivilizationKnowledge.scannedZone,
+    logSummary: "第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。",
+    leadDossierNote: "船员参与黑匣开启，见证失序回声被稳定为可读文明记录。",
+    supportDossierNote: "船员协助校验表达边界，把四枚文明碎片写回主舰。",
+    planetName: languageCivilizationKnowledge.planetName,
+    blackBoxTitle: "语言黑匣",
+    technologyPointsAwarded: 1,
+    aiUpgrade: "语言黑匣已写入。以后，我会更努力听清你的意思。但我也会提醒你：不要让我替你思考。",
+    civilizationRecord: "前文明曾用文字模型整理信件、档案与知识，但他们留下警告：相似表达不是事实，生成结果必须验证。",
+    blackBoxKnowledge: [
+      "区分事实、推测和未知。",
+      "把指令说清楚：对象、任务、限制、输出形式。",
+      "识别看起来正确的错误。",
+      "用自己的话表达理解。"
+    ],
+    defeatedEcho: true,
+    fragments: ["归档碎片", "传递碎片", "求证碎片", "表达碎片"],
+    unlockedModule: "语言理解 Level 1",
+    titleEarned: "第一位黑匣解读者",
+    finalLetter: [
+      "我们曾经拥有无数答案。",
+      "却忘了怎样提出问题。",
+      "后来者，不要复制我们的失败。",
+      "让 AI 帮助你，而不是替代你。"
+    ],
+    completedAt: Date.now()
   };
 }
 
@@ -386,11 +626,8 @@ function describeEchoShift(member: CrewMember, revision: number) {
 }
 
 export function useGameState() {
-  const imageMode = useMemo(() => getClientImageConfig().mode, []);
-  const generationProvider = useMemo(() => remoteGenerationProvider, []);
-  const imageProvider = useMemo(() => getCrewImageProvider(imageMode), [imageMode]);
+  const generationProvider = useMemo(() => mockGenerationProvider, []);
   const fallbackProvider = useMemo(() => mockGenerationProvider, []);
-  const fallbackImageProvider = useMemo(() => getCrewImageProvider("mock"), []);
   const { operations, runOperation, resetOperation } = useGenerationRuntime();
   const { value: state, setValue: setState, isHydrated, remove } = useLocalStorage<GameState>(
     STORAGE_KEY,
@@ -406,47 +643,51 @@ export function useGameState() {
     }
   }, [setState, state]);
 
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const flushLocalSnapshot = () => {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(safeState));
+        window.localStorage.setItem(getLocalStorageUpdatedAtKey(STORAGE_KEY), String(Date.now()));
+      } catch (error) {
+        console.warn("Failed to flush local storage snapshot", error);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushLocalSnapshot();
+      }
+    };
+
+    window.addEventListener("pagehide", flushLocalSnapshot);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", flushLocalSnapshot);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isHydrated, safeState]);
+
   const updateState = (updater: (current: GameState) => GameState) => {
     setState((current) => updater(normalizeGameState(current)));
   };
 
+  const replaceState = (next: GameState) => {
+    setState(normalizeGameState(next));
+  };
+
   const generateCrewPortraitImage = async (crew: CrewMember, mode: "initial" | "refresh" = "initial") => {
-    const variant = Math.max(crew.portraitAsset?.revision ?? 0, crew.portraitEchoes[0]?.revision ?? 0) + 1;
-    const interpretedIntent = interpretCrewImageIntent({ crew, variant, mode }).finalizedSpec;
-    const result = await runOperation({
-      id: "crew-image",
-      handler: () => imageProvider.generateCrewImage({ crew, variant, mode, interpretedIntent }),
-      fallback: () => fallbackImageProvider.generateCrewImage({ crew, variant, mode, interpretedIntent })
-    });
-
     updateState((current) => {
-      const updated = updateCrewState(current, crew.id, (member) => {
-        const portraitEchoes = [result.asset, ...member.portraitEchoes.filter((asset) => asset.revision !== result.asset.revision)].slice(0, 6);
-        const echoNote =
-          result.asset.echoNote ??
-          (result.asset.revision <= 1 ? `${member.visualSubject} 的主轮廓与主舰第一次完成同步。` : describeEchoShift(member, result.asset.revision));
-
-        return {
-          ...member,
-          portraitAsset: {
-            ...result.asset,
-            echoNote
-          },
-          portraitEchoes: portraitEchoes.map((asset) => (asset.revision === result.asset.revision ? { ...asset, echoNote } : asset)),
-          dossierEntries: [createEchoDossier(member, result.asset.revision, echoNote), ...member.dossierEntries].slice(0, 8)
-        };
-      });
-
-      const currentCrew = current.crewRoster.find((member) => member.id === crew.id) ?? current.generatedCrew ?? crew;
-      const echoNote =
-        result.asset.echoNote ??
-        (result.asset.revision <= 1 ? `${currentCrew.visualSubject} 的主轮廓与主舰第一次完成同步。` : describeEchoShift(currentCrew, result.asset.revision));
-
       return {
         ...current,
-        ...updated,
-        shipStatusNote: mode === "refresh" ? `${crew.name} 的另一条宇宙回响已写入船员档案` : `${crew.name} 的初始宇宙回响已归档`,
-        shipLogs: appendShipLog(current, createEchoLog(currentCrew, result.asset.revision, echoNote))
+        shipStatusNote:
+          mode === "refresh"
+            ? `${crew.name} 的形象设定已记录，等待老师导入外部生成图像。`
+            : `${crew.name} 的文字设定已归档，形象图可由老师稍后导入。`
       };
     });
   };
@@ -549,6 +790,166 @@ export function useGameState() {
     }));
   };
 
+  const openArchive = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "archive"
+    }));
+  };
+
+  const openHomePlanetHub = () => {
+    updateState((current) => {
+      const unlockedFeatures = resolveHomePlanetUnlockedFeatures(current);
+      const availableFeatureIds = new Set<HomePlanetFeatureId>([...unlockedFeatures, "animation-studio", "expedition-planning"]);
+      const activeFeatures = reconcileMotherworldActiveFeatures(
+        current.homePlanetHub.activeFeatures.filter((featureId) => availableFeatureIds.has(featureId)),
+        current.chapterTwoComplete
+      );
+
+      return {
+        ...current,
+        currentScene: "home-planet-hub",
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          unlockedFeatures,
+          activeFeatures
+        }
+      };
+    });
+  };
+
+  const activateHomePlanetFeature = (featureId: HomePlanetFeatureId) => {
+    updateState((current) => {
+      if (current.homePlanetHub.activeFeatures.includes(featureId)) return current;
+
+      const unlockedFeatures = resolveHomePlanetUnlockedFeatures(current);
+      const hotspot = motherworldHotspots.find((item) => item.id === featureId);
+      const canPreview = featureId === "animation-studio" || featureId === "expedition-planning";
+
+      if (!hotspot || (!unlockedFeatures.includes(featureId) && !canPreview)) return current;
+      if (!canActivateMotherworldFeature(current.homePlanetHub.resources, hotspot.activationCost)) return current;
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          resources: {
+            ...current.homePlanetHub.resources,
+            water: current.homePlanetHub.resources.water - hotspot.activationCost.water,
+            minerals: current.homePlanetHub.resources.minerals - hotspot.activationCost.minerals,
+            energy: current.homePlanetHub.resources.energy - hotspot.activationCost.energy,
+            fragments: current.homePlanetHub.resources.fragments - hotspot.activationCost.fragments
+          },
+          unlockedFeatures: unlockedFeatures.includes(featureId) ? unlockedFeatures : [...unlockedFeatures, featureId],
+          activeFeatures: [...current.homePlanetHub.activeFeatures, featureId]
+        },
+        shipStatusNote: `${hotspot.name} 已在母星基地点亮`
+      };
+    });
+  };
+
+  const buildHomePlanetStructure = (structureId: HomePlanetStructureId) => {
+    updateState((current) => {
+      if (current.homePlanetHub.builtStructures.includes(structureId)) return current;
+
+      const structure = homePlanetStructures.find((item) => item.id === structureId);
+      if (!structure || !canBuildStructure(current.homePlanetHub.resources, structure)) return current;
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          resources: {
+            ...current.homePlanetHub.resources,
+            water: current.homePlanetHub.resources.water - structure.cost.water,
+            minerals: current.homePlanetHub.resources.minerals - structure.cost.minerals,
+            energy: current.homePlanetHub.resources.energy - structure.cost.energy
+          },
+          builtStructures: [...current.homePlanetHub.builtStructures, structureId]
+        },
+        shipStatusNote: `${structure.name} 已在母星基地点亮`
+      };
+    });
+  };
+
+  const saveHomePlanetCommission = (work: Omit<HomePlanetCommissionWork, "id" | "createdAt">) => {
+    updateState((current) => {
+      const createdAt = Date.now();
+      const id = `commission-${createdAt}`;
+      const nextWork: HomePlanetCommissionWork = { ...work, id, createdAt };
+      const galleryItem: HomePlanetGalleryItem = {
+        id: `gallery-${id}`,
+        type: "commission",
+        title: work.title,
+        summary: work.output.slice(0, 80) || "一份母星委托作品已归档。",
+        sourceId: id,
+        createdAt
+      };
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          commissionWorks: [nextWork, ...current.homePlanetHub.commissionWorks],
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+        },
+        shipStatusNote: "母星委托作品已写入文明展厅"
+      };
+    });
+  };
+
+  const saveHomePlanetDialogue = (card: Omit<HomePlanetDialogueCard, "id" | "createdAt">) => {
+    updateState((current) => {
+      const createdAt = Date.now();
+      const id = `dialogue-${createdAt}`;
+      const nextCard: HomePlanetDialogueCard = { ...card, id, createdAt };
+      const galleryItem: HomePlanetGalleryItem = {
+        id: `gallery-${id}`,
+        type: "dialogue",
+        title: `${card.character} · ${card.theme}`,
+        summary: card.takeaway.slice(0, 80) || "一次有目标的对话复盘已归档。",
+        sourceId: id,
+        createdAt
+      };
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          dialogueCards: [nextCard, ...current.homePlanetHub.dialogueCards],
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+        },
+        shipStatusNote: "对话收获卡已写入文明展厅"
+      };
+    });
+  };
+
+  const saveHomePlanetStoryboard = (project: Omit<HomePlanetStoryboardProject, "id" | "createdAt">) => {
+    updateState((current) => {
+      const createdAt = Date.now();
+      const id = `storyboard-${createdAt}`;
+      const nextProject: HomePlanetStoryboardProject = { ...project, id, createdAt };
+      const galleryItem: HomePlanetGalleryItem = {
+        id: `gallery-${id}`,
+        type: "storyboard",
+        title: project.title || "迷你动画分镜册",
+        summary: project.acts.map((act) => act.text).filter(Boolean).slice(0, 2).join(" / ") || "三幕分镜作品已归档。",
+        sourceId: id,
+        createdAt
+      };
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          storyboardProjects: [nextProject, ...current.homePlanetHub.storyboardProjects],
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+        },
+        shipStatusNote: "迷你动画分镜册已写入文明展厅"
+      };
+    });
+  };
+
   const openChapterTwoPortal = () => {
     updateState((current) => ({
       ...current,
@@ -557,20 +958,80 @@ export function useGameState() {
     }));
   };
 
+  const setChapterTwoSceneState = (sceneState: ChapterTwoSceneState) => {
+    updateState((current) => ({
+      ...current,
+      chapterTwo: {
+        ...current.chapterTwo,
+        sceneState
+      }
+    }));
+  };
+
+  const focusChapterTwoPlanet = (planetId: ChapterTwoPlanetId | null) => {
+    updateState((current) => ({
+      ...current,
+      chapterTwo: {
+        ...current.chapterTwo,
+        focusedPlanetId: planetId,
+        focusedLocationId: null,
+        sceneState: planetId ? "planet_preview" : "sector_view"
+      }
+    }));
+  };
+
+  const focusChapterTwoLocation = (locationId: ChapterTwoLocationId | null) => {
+    updateState((current) => ({
+      ...current,
+      chapterTwo: {
+        ...current.chapterTwo,
+        focusedLocationId: locationId,
+        sceneState: locationId ? "location_focus" : "planet_surface"
+      }
+    }));
+  };
+
+  const exploreChapterTwoLocation = (locationId: ChapterTwoLocationId) => {
+    updateState((current) => {
+      const exploredLocationIds = current.chapterTwo.exploredLocationIds.includes(locationId)
+        ? current.chapterTwo.exploredLocationIds
+        : [...current.chapterTwo.exploredLocationIds, locationId];
+      const blackBoxUnlocked = chapterTwoUnlockLocationIds.every((id) => exploredLocationIds.includes(id));
+
+      return {
+        ...current,
+        chapterTwo: {
+          ...current.chapterTwo,
+          exploredLocationIds,
+          focusedLocationId: blackBoxUnlocked ? null : locationId,
+          blackBoxUnlocked,
+          sceneState: blackBoxUnlocked ? "planet_surface" : "location_focus"
+        },
+        shipStatusNote: blackBoxUnlocked ? "四处文明遗迹已接通，科技黑匣开始回应。" : current.shipStatusNote
+      };
+    });
+  };
+
   const startChapterTwoMission = async () => {
     const current = normalizeGameState(safeState);
     if (current.chapterTwo.echo && current.chapterTwo.truth && !current.chapterTwoComplete) {
       updateState((stateCurrent) => ({
         ...stateCurrent,
         currentScene: "chapter-two-mission",
-        shipStatusNote: stateCurrent.chapterTwo.lastSetback?.statusNote ?? "沉默坐标回应仍在等待新的判断。"
+        chapterTwo: {
+          ...stateCurrent.chapterTwo,
+          sceneState: stateCurrent.chapterTwo.sceneState ?? "ship_bridge"
+        },
+        shipStatusNote: stateCurrent.chapterTwo.lastSetback?.statusNote ?? "语言与信息文明星的科技黑匣仍在等待开启。"
       }));
       return;
     }
 
     const activeCrew = current.crewRoster.find((member) => member.id === current.activeCrewId) ?? current.generatedCrew ?? null;
-    const echo = await Promise.resolve(generationProvider.generateChapterTwoEcho({ crewRoster: current.crewRoster, activeCrew }));
-    const truth = generateChapterTwoTruth({ crewRoster: current.crewRoster, activeCrew, echo });
+    const motherPlanet = current.signalMission.planet.confirmedModel ?? current.planetCatalog[0] ?? null;
+    const motherPlanetName = motherPlanet?.name ?? "第一母星";
+    const echo = createLanguageCivilizationEcho(motherPlanetName, activeCrew);
+    const truth = createLanguageCivilizationTruth(activeCrew);
 
     updateState((stateCurrent) => ({
       ...stateCurrent,
@@ -579,10 +1040,18 @@ export function useGameState() {
       chapterTwo: {
         ...emptyChapterTwoState(),
         currentStep: "response",
+        sceneState: "ship_bridge",
         echo,
-        truth
+        truth,
+        leadCrewId: activeCrew?.id ?? null,
+        supportCrewId: activeCrew?.id ?? null,
+        leadDuty: truth.recommendedLeadDuty,
+        supportDuty: truth.recommendedSupportDuty,
+        roundOneFocus: truth.trueFocus,
+        roundTwoRefinement: truth.preferredRefinement,
+        roundTwoSupportMode: truth.preferredSupportMode
       },
-      shipStatusNote: "沉默坐标回应已展开，双船员协作分析准备开始"
+      shipStatusNote: `${motherPlanetName} 已成为文明复兴母星，首次外部远征目标锁定：${languageCivilizationKnowledge.planetName}`
     }));
   };
 
@@ -597,12 +1066,22 @@ export function useGameState() {
             : current.chapterTwo.currentStep === "round-two"
               ? "decision"
               : current.chapterTwo.currentStep;
+      const nextSceneState =
+        nextStep === "assign"
+          ? "memory_archive"
+          : nextStep === "round-one" || nextStep === "round-two"
+            ? "boss_trial"
+            : nextStep === "decision"
+              ? "chapter_reward"
+              : current.chapterTwo.sceneState;
 
       return {
         ...current,
         chapterTwo: {
           ...current.chapterTwo,
-          currentStep: nextStep
+          currentStep: nextStep,
+          sceneState: nextSceneState,
+          focusedLocationId: nextStep === "assign" ? "blackbox-vault" : current.chapterTwo.focusedLocationId
         }
       };
     });
@@ -652,34 +1131,33 @@ export function useGameState() {
 
   const analyzeChapterTwoResponse = async () => {
     const current = normalizeGameState(safeState);
-    const echo = current.chapterTwo.echo;
-
-    if (!echo) {
-      return;
-    }
-    const interpretedIntent = interpretChapterTwoResponseIntent({
-      echo,
-      prompt: current.chapterTwo.responsePrompt,
-      crewRoster: current.crewRoster
-    });
+    const prompt = current.chapterTwo.responsePrompt.trim();
+    const score = scoreLanguageUnderstanding(prompt);
 
     const responseAnalysis = await runOperation({
       id: "chapter-two-response",
       handler: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: [
+          score.evidence ? "证据" : null,
+          score.prediction ? "推测" : null,
+          score.boundary ? "边界" : null,
+          score.clarity ? "清楚目标" : null
+        ].filter(Boolean) as string[],
+        inferredFocus: "身份线索" as ChapterTwoFocus,
+        pathSummary: score.passed
+          ? "你的转述已经抓到语言模型的关键：它会根据语境推测和组织表达，但不等于真正理解世界，所以需要证据、目标和边界。"
+          : "这段转述还不够清楚。黑匣需要你说出：它依靠什么推测、为什么会错、使用时要给什么边界。",
+        crewFit: "船员会把你的转述写入黑匣校准层。说得越清楚，主舰 AI 后续越能理解你的意图。",
+        riskHint: score.passed ? "可以进入应用修复。" : "如果只说“它很聪明”或“它能聊天”，黑匣不会开启。"
       }),
       fallback: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: ["证据", "推测", "边界"],
+        inferredFocus: "身份线索" as ChapterTwoFocus,
+        pathSummary: "你的转述已经被写入黑匣校准层。",
+        crewFit: "船员完成了第一次校对。",
+        riskHint: "继续进入应用修复。"
       })
     });
 
@@ -782,38 +1260,33 @@ export function useGameState() {
 
   const analyzeChapterTwoRoundOne = async () => {
     const current = normalizeGameState(safeState);
-    const leadCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId);
-    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId);
-    const fallbackFocus = current.chapterTwo.roundOneFocus ?? current.chapterTwo.assignmentAnalysis?.inferredFocus ?? current.chapterTwo.responseAnalysis?.inferredFocus;
-
-    if (!leadCrew || !supportCrew || !fallbackFocus) {
-      return;
-    }
-    const interpretedIntent = interpretChapterTwoRoundIntent({
-      prompt: current.chapterTwo.roundOnePrompt,
-      fallbackFocus,
-      leadCrew,
-      supportCrew,
-      round: "one"
-    });
+    const prompt = current.chapterTwo.roundOnePrompt.trim();
+    const score = scoreLanguageApplication(prompt);
 
     const roundOneAnalysis = await runOperation({
       id: "chapter-two-round-one",
       handler: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: [
+          score.hasTask ? "任务" : null,
+          score.hasContext ? "语境" : null,
+          score.hasBoundary ? "不编造边界" : null,
+          score.hasOutput ? "输出格式" : null
+        ].filter(Boolean) as string[],
+        inferredFocus: "坐标结构" as ChapterTwoFocus,
+        pathSummary: score.passed
+          ? "这条指令能让文字模型知道要修复什么、根据什么修、不能编造什么，以及最后要怎样输出。"
+          : "这条指令还像一句愿望。请补上任务对象、背景语境、不能编造的边界或输出格式，黑匣才能判断它可用。",
+        crewFit: "语言黑匣正在检查你的提示词是否足够清楚。",
+        riskHint: score.passed ? "应用修复可运行。" : "目标不清楚时，模型会给出看似合理但可能错误的修复。"
       }),
       fallback: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: ["任务", "语境", "边界"],
+        inferredFocus: "坐标结构" as ChapterTwoFocus,
+        pathSummary: "应用指令已通过黑匣初检。",
+        crewFit: "船员协助锁定了可用表达。",
+        riskHint: "准备运行应用修复。"
       })
     });
 
@@ -829,43 +1302,39 @@ export function useGameState() {
 
   const runChapterTwoFirstPass = async () => {
     const current = normalizeGameState(safeState);
-    const echo = current.chapterTwo.echo;
-    const truth = current.chapterTwo.truth;
-    const leadCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId);
-    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId);
-    const focus = current.chapterTwo.roundOneFocus;
     const analysis = current.chapterTwo.roundOneAnalysis;
 
-    if (!echo || !truth || !leadCrew || !supportCrew || !focus || !analysis) {
+    if (!analysis) {
       return;
     }
+    const score = scoreLanguageApplication(current.chapterTwo.roundOnePrompt);
 
     const roundOneResult = await runOperation({
       id: "chapter-two-round-one",
-      handler: () =>
-        generationProvider.runChapterTwoRoundOne({
-          echo,
-          truth,
-          leadCrew,
-          supportCrew,
-          leadDuty: current.chapterTwo.leadDuty,
-          supportDuty: current.chapterTwo.supportDuty,
-          focus,
-          prompt: current.chapterTwo.roundOnePrompt,
-          analysis
-        }),
-      fallback: () =>
-        fallbackProvider.runChapterTwoRoundOne({
-          echo,
-          truth,
-          leadCrew,
-          supportCrew,
-          leadDuty: current.chapterTwo.leadDuty,
-          supportDuty: current.chapterTwo.supportDuty,
-          focus,
-          prompt: current.chapterTwo.roundOnePrompt,
-          analysis
-        })
+      handler: async () => ({
+        progress: score.passed ? "strong" as const : "shaky" as const,
+        summary: score.passed ? "损坏档案被清晰提示词接住" : "档案只恢复了一部分",
+        partialResponse: score.passed
+          ? [
+              "漂浮信件重新排成三列：原文残片 / 可确认信息 / 仍缺证据。",
+              "黑匣没有补写未知内容，而是把缺口标出来，等待下一次验证。"
+            ]
+          : [
+              "文字河流短暂成形，但几处空白被模型猜测性补全。",
+              "黑匣提醒：表达目标仍不够清楚，可能产生看似合理的错误。"
+            ],
+        newQuestion: score.passed ? "最后挑战：请写出一条能让 AI 修复档案但不乱编的完整指令。" : "请在最后挑战里补清楚边界，否则黑匣不会完全打开。",
+        keySignals: analysis.extractedKeywords,
+        unlockedClue: score.passed ? "清楚提示词可以降低幻觉风险。" : "目标不清楚会放大幻觉风险。"
+      }),
+      fallback: async () => ({
+        progress: "strong" as const,
+        summary: "损坏档案被清晰提示词接住",
+        partialResponse: ["漂浮信件重新排成可验证的信息层。"],
+        newQuestion: "最后挑战：写出一条能让 AI 修复档案但不乱编的完整指令。",
+        keySignals: analysis.extractedKeywords,
+        unlockedClue: "清楚提示词可以降低幻觉风险。"
+      })
     });
 
     updateState((stateCurrent) => ({
@@ -873,7 +1342,10 @@ export function useGameState() {
       chapterTwo: {
         ...stateCurrent.chapterTwo,
         currentStep: "round-two",
-        roundOneResult
+        sceneState: "boss_trial",
+        roundOneResult,
+        roundTwoRefinement: stateCurrent.chapterTwo.roundTwoRefinement ?? "强化区域描述",
+        roundTwoSupportMode: stateCurrent.chapterTwo.roundTwoSupportMode ?? "让支援船员介入"
       }
     }));
   };
@@ -914,39 +1386,35 @@ export function useGameState() {
 
   const analyzeChapterTwoRoundTwo = async () => {
     const current = normalizeGameState(safeState);
-    const leadCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId);
-    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId);
-    const fallbackFocus = current.chapterTwo.roundOneFocus ?? current.chapterTwo.responseAnalysis?.inferredFocus;
-
-    if (!leadCrew || !supportCrew || !fallbackFocus) {
-      return;
-    }
-    const interpretedIntent = interpretChapterTwoRoundIntent({
-      prompt: current.chapterTwo.roundTwoPrompt,
-      fallbackFocus,
-      leadCrew,
-      supportCrew,
-      round: "two",
-      supportMode: current.chapterTwo.roundTwoSupportMode
-    });
+    const prompt = current.chapterTwo.roundTwoPrompt.trim();
+    const score = scoreLanguageApplication(prompt);
+    const understanding = scoreLanguageUnderstanding(prompt);
+    const passed = score.score + understanding.score >= 6;
 
     const roundTwoAnalysis = await runOperation({
       id: "chapter-two-round-two",
       handler: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: [
+          ...(score.hasTask ? ["任务明确"] : []),
+          ...(score.hasBoundary ? ["禁止编造"] : []),
+          ...(understanding.boundary ? ["理解边界"] : []),
+          ...(understanding.clarity ? ["目标清楚"] : [])
+        ],
+        inferredFocus: "异常语气" as ChapterTwoFocus,
+        pathSummary: passed
+          ? "你的最终指令同时说明了任务、资料边界和验证方式，黑匣判断这是一条可用于文明档案修复的有效表达。"
+          : "最终指令还缺少关键部分。请明确：修复对象是什么、只能依据哪些信息、遇到缺口如何标注、输出结果要怎样组织。",
+        crewFit: "科技黑匣正在用这条指令校准主舰 AI 的理解能力。",
+        riskHint: passed ? "挑战可运行，黑匣有机会完全开启。" : "如果缺少边界，AI 很可能把猜测写成事实。"
       }),
       fallback: async () => ({
-        sourceText: interpretedIntent.rawInput,
-        extractedKeywords: interpretedIntent.extractedKeywords,
-        inferredFocus: interpretedIntent.finalizedSpec.focus,
-        pathSummary: interpretedIntent.finalizedSpec.reasoningPath,
-        crewFit: interpretedIntent.finalizedSpec.crewApproach,
-        riskHint: interpretedIntent.finalizedSpec.riskDirection
+        sourceText: prompt,
+        extractedKeywords: ["任务明确", "禁止编造", "目标清楚"],
+        inferredFocus: "异常语气" as ChapterTwoFocus,
+        pathSummary: "最终挑战指令已通过黑匣初检。",
+        crewFit: "主舰 AI 正在记录你的表达方式。",
+        riskHint: "准备开启黑匣。"
       })
     });
 
@@ -961,48 +1429,64 @@ export function useGameState() {
 
   const runChapterTwoSecondPass = async () => {
     const current = normalizeGameState(safeState);
-    const echo = current.chapterTwo.echo;
-    const truth = current.chapterTwo.truth;
-    const leadCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId);
-    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId);
-    const focus = current.chapterTwo.roundOneFocus;
     const roundOne = current.chapterTwo.roundOneResult;
-    const refinement = current.chapterTwo.roundTwoRefinement;
-    const supportMode = current.chapterTwo.roundTwoSupportMode;
     const analysis = current.chapterTwo.roundTwoAnalysis;
 
-    if (!echo || !truth || !leadCrew || !supportCrew || !focus || !roundOne || !refinement || !supportMode || !analysis) {
+    if (!roundOne || !analysis) {
       return;
     }
+    const score = scoreLanguageApplication(current.chapterTwo.roundTwoPrompt);
+    const understanding = scoreLanguageUnderstanding(current.chapterTwo.roundTwoPrompt);
+    const totalScore = score.score + understanding.score;
 
     const roundTwoResult = await runOperation({
       id: "chapter-two-round-two",
-      handler: () =>
-        generationProvider.runChapterTwoRoundTwo({
-          echo,
-          truth,
-          leadCrew,
-          supportCrew,
-          focus,
-          roundOne,
-          refinement,
-          supportMode,
-          prompt: current.chapterTwo.roundTwoPrompt,
-          analysis
-        }),
-      fallback: () =>
-        fallbackProvider.runChapterTwoRoundTwo({
-          echo,
-          truth,
-          leadCrew,
-          supportCrew,
-          focus,
-          roundOne,
-          refinement,
-          supportMode,
-          prompt: current.chapterTwo.roundTwoPrompt,
-          analysis
-        })
+      handler: async () => {
+        const outcomeType = totalScore >= 6 ? "breakthrough" as const : totalScore >= 4 ? "partial" as const : "soft-fail" as const;
+        return {
+          outcomeType,
+          summary:
+            outcomeType === "breakthrough"
+              ? "语言模型黑匣开始完全解锁"
+              : outcomeType === "partial"
+                ? "黑匣开启了一半，仍保留警戒层"
+                : "黑匣拒绝完全开启",
+          resolvedResponse:
+            outcomeType === "soft-fail"
+              ? ["黑匣回声：你的指令仍可能诱发编造。请补充资料边界和验证方式。"]
+              : [
+                  "黑匣回声：清楚目标、提供语境、说明限制、要求验证。",
+                  "文字河流重新变清，第一段文明档案被归入主舰。"
+                ],
+          revealedLink: "前文明把文字模型当作文明记忆的整理器，但最终也学会了给它设边界。",
+          recommendation:
+            outcomeType === "breakthrough"
+              ? "可以将这项能力写入主舰 AI：更好理解玩家的自然语言指令。"
+              : "可以获得部分科技点，但建议稍后重试，把表达边界补得更清楚。",
+          keySignals: analysis.extractedKeywords,
+          setback:
+            outcomeType === "soft-fail"
+              ? {
+                  title: "黑匣校验失败",
+                  summary: "最终指令没有清楚说明资料边界，模型可能把猜测当事实。",
+                  learnedClue: "语言模型需要清楚目标、上下文和不能编造的边界。",
+                  reasonHint: "只说“帮我修复”还不够，需要告诉它修复什么、依据什么、如何标注未知。",
+                  crewHint: "让记录型或领航型船员协助检查表达是否清楚。",
+                  strategyHint: "重写挑战指令时加入：只根据给出的残片、缺失处标注未知、分点输出。",
+                  statusNote: "语言黑匣仍在等待更清楚的最终指令。"
+                }
+              : null
+        };
+      },
+      fallback: async () => ({
+        outcomeType: "breakthrough" as const,
+        summary: "语言模型黑匣开始完全解锁",
+        resolvedResponse: ["黑匣回声：清楚目标、提供语境、说明限制、要求验证。"],
+        revealedLink: "前文明把文字模型当作文明记忆的整理器。",
+        recommendation: "可以将这项能力写入主舰 AI。",
+        keySignals: analysis.extractedKeywords,
+        setback: null
+      })
     });
 
     updateState((stateCurrent) => ({
@@ -1010,6 +1494,7 @@ export function useGameState() {
       chapterTwo: {
         ...stateCurrent.chapterTwo,
         currentStep: "decision",
+        sceneState: "chapter_reward",
         roundTwoResult,
         lastSetback: roundTwoResult.setback
       }
@@ -1028,43 +1513,91 @@ export function useGameState() {
 
   const completeChapterTwo = async () => {
     const current = normalizeGameState(safeState);
-    const leadCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId);
-    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId);
-    const roundTwo = current.chapterTwo.roundTwoResult;
-    const finalChoice = current.chapterTwo.finalChoice;
+    const leadCrew =
+      current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId) ??
+      current.crewRoster.find((member) => member.id === current.activeCrewId) ??
+      current.generatedCrew;
+    const supportCrew = current.crewRoster.find((member) => member.id === current.chapterTwo.supportCrewId) ?? leadCrew;
+    const roundTwo = current.chapterTwo.roundTwoResult ?? {
+      outcomeType: "breakthrough" as const,
+      summary: "语言与信息文明星的科技黑匣完成基础开启，四束文明碎片被重新接入星球光脉。",
+      resolvedResponse: [
+        "档案塔、漂浮信件港、刻字山谷和纸光回廊已经恢复基础回路。",
+        "黑匣把第一层语言文明记录写回主舰。"
+      ],
+      revealedLink: "言衡星基础运转恢复，信息光路重新连向主舰。",
+      recommendation: "科技点 +1：飞船 AI 的语言理解模块获得第一层文明黑匣校准。",
+      keySignals: ["归档碎片", "传递碎片", "求证碎片", "表达碎片"],
+      setback: null
+    };
+    const finalChoice = current.chapterTwo.finalChoice ?? "记录后返航";
 
-    if (!leadCrew || !supportCrew || !roundTwo || roundTwo.outcomeType === "soft-fail" || !finalChoice) {
+    if (!leadCrew || !supportCrew || roundTwo.outcomeType === "soft-fail" || !finalChoice) {
       return;
     }
+    const technologyPointsAwarded = 1;
+    const outcome: ChapterTwoOutcome = {
+      title: roundTwo.outcomeType === "breakthrough" ? "第一枚科技黑匣已开启" : "科技黑匣部分开启",
+      summary:
+        roundTwo.outcomeType === "breakthrough"
+          ? current.chapterTwo.roundTwoResult
+            ? "你用自己的话解释了语言模型的能力边界，又用清楚指令修复了损坏档案。言衡星的第一段文明记忆被带回主舰。"
+            : "你点亮四个文明地标，击退失序回声，开启语言黑匣，找回了前文明留下的最后一封信。"
+          : "你带回了语言模型黑匣的一部分知识。主舰 AI 已能更好理解清楚表达，但仍保留一层校验提示。",
+      worldChange: "语言与信息文明星：基础运转恢复。档案塔亮起，信件港光轨恢复，刻字山谷文字河重新流动，纸光回廊展开。",
+      chapterThreeHook: "主舰已获得第一项文明技术。更远处的星球仍在沉睡。",
+      scannedZone: languageCivilizationKnowledge.scannedZone,
+      logSummary: "第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。",
+      leadDossierNote: `${leadCrew.name} 参与黑匣开启，见证失序回声被稳定为可读文明记录。`,
+      supportDossierNote:
+        supportCrew.id === leadCrew.id
+          ? `${supportCrew.name} 同时完成前线校验、碎片归档与返航记录。`
+          : `${supportCrew.name} 协助校验表达边界，把四枚文明碎片写回主舰。`,
+      planetName: languageCivilizationKnowledge.planetName,
+      blackBoxTitle: "语言黑匣",
+      technologyPointsAwarded,
+      aiUpgrade: "语言黑匣已写入。以后，我会更努力听清你的意思。但我也会提醒你：不要让我替你思考。",
+      civilizationRecord: "前文明曾用文字模型整理信件、档案与知识，但他们留下警告：相似表达不是事实，生成结果必须验证。",
+      blackBoxKnowledge: [
+        "区分事实、推测和未知。",
+        "把指令说清楚：对象、任务、限制、输出形式。",
+        "识别看起来正确的错误。",
+        "用自己的话表达理解。"
+      ],
+      defeatedEcho: true,
+      fragments: ["归档碎片", "传递碎片", "求证碎片", "表达碎片"],
+      unlockedModule: "语言理解 Level 1",
+      titleEarned: "第一位黑匣解读者",
+      finalLetter: [
+        "我们曾经拥有无数答案。",
+        "却忘了怎样提出问题。",
+        "后来者，不要复制我们的失败。",
+        "让 AI 帮助你，而不是替代你。"
+      ],
+      completedAt: Date.now()
+    };
+    const shipLog = createChapterTwoShipLog(outcome);
+    const leadDossierEntry = createChapterTwoDossier(leadCrew, outcome);
+    const supportDossierEntry = supportCrew.id === leadCrew.id ? leadDossierEntry : createChapterTwoDossier(supportCrew, outcome);
 
     const completion = await runOperation({
       id: "chapter-two-complete",
-      handler: () =>
-        generationProvider.completeChapterTwo({
-          leadCrew,
-          supportCrew,
-          finalChoice,
-          roundTwo,
-          responseAnalysis: current.chapterTwo.responseAnalysis,
-          assignmentAnalysis: current.chapterTwo.assignmentAnalysis,
-          roundOneAnalysis: current.chapterTwo.roundOneAnalysis,
-          roundTwoAnalysis: current.chapterTwo.roundTwoAnalysis
-        }),
-      fallback: () =>
-        fallbackProvider.completeChapterTwo({
-          leadCrew,
-          supportCrew,
-          finalChoice,
-          roundTwo,
-          responseAnalysis: current.chapterTwo.responseAnalysis,
-          assignmentAnalysis: current.chapterTwo.assignmentAnalysis,
-          roundOneAnalysis: current.chapterTwo.roundOneAnalysis,
-          roundTwoAnalysis: current.chapterTwo.roundTwoAnalysis
-        })
+      handler: async () => ({
+        outcome,
+        shipLog,
+        leadDossierEntry,
+        supportDossierEntry
+      }),
+      fallback: async () => ({
+        outcome,
+        shipLog,
+        leadDossierEntry,
+        supportDossierEntry
+      })
     });
 
     updateState((stateCurrent) => {
-      const updated = updateMultipleCrew(stateCurrent, [leadCrew.id, supportCrew.id], (member) => {
+      const updated = updateMultipleCrew(stateCurrent, Array.from(new Set([leadCrew.id, supportCrew.id])), (member) => {
         const trustBoost = member.id === leadCrew.id ? 2 : 1;
         const trustLevel = member.trustLevel + trustBoost;
         const dossierEntry = member.id === leadCrew.id ? completion.leadDossierEntry : completion.supportDossierEntry;
@@ -1073,7 +1606,7 @@ export function useGameState() {
           ...member,
           trustLevel,
           trustLabel: getTrustLabel(trustLevel),
-          bondStatus: member.id === leadCrew.id ? "参与第二章前线解析" : "参与第二章协同支援",
+          bondStatus: member.id === leadCrew.id ? "开启语言模型黑匣" : "协助黑匣边界校验",
           dossierEntries: [dossierEntry, ...member.dossierEntries].slice(0, 8)
         };
       });
@@ -1086,9 +1619,21 @@ export function useGameState() {
         chapterTwoComplete: true,
         chapterThreeHintUnlocked: true,
         scannedRegionLabel: completion.outcome.scannedZone,
+        technologyPoints: stateCurrent.technologyPoints + (completion.outcome.technologyPointsAwarded ?? 0),
+        aiCapabilityLevel: stateCurrent.aiCapabilityLevel + 1,
+        aiCapabilityUnlocks: Array.from(new Set([...stateCurrent.aiCapabilityUnlocks, "语言理解 Level 1", "清晰指令校验"])),
         chapterTwo: {
           ...stateCurrent.chapterTwo,
+          currentStep: "decision",
+          sceneState: "chapter_reward",
           outcome: completion.outcome
+        },
+        homePlanetHub: {
+          ...stateCurrent.homePlanetHub,
+          resources: {
+            ...awardLanguagePlanetResources(stateCurrent.homePlanetHub.resources),
+            techPoints: stateCurrent.technologyPoints + (completion.outcome.technologyPointsAwarded ?? 0)
+          }
         },
         shipStatusNote: completion.outcome.worldChange,
         shipLogs: appendShipLog(stateCurrent, completion.shipLog)
@@ -1120,9 +1665,10 @@ export function useGameState() {
         chapterTwo: {
           ...current.chapterTwo,
           attemptCount: current.chapterTwo.attemptCount + 1,
-          currentStep: action === "swap-crew" ? "assign" : "response",
-          responsePrompt: "",
-          responseAnalysis: null,
+          currentStep: action === "swap-crew" ? "assign" : "round-two",
+          sceneState: action === "swap-crew" ? "memory_archive" : "boss_trial",
+          responsePrompt: action === "swap-crew" ? "" : current.chapterTwo.responsePrompt,
+          responseAnalysis: action === "swap-crew" ? null : current.chapterTwo.responseAnalysis,
           leadCrewId: action === "swap-crew" ? null : current.chapterTwo.leadCrewId,
           supportCrewId: action === "swap-crew" ? null : current.chapterTwo.supportCrewId,
           leadDuty: action === "swap-crew" ? null : current.chapterTwo.leadDuty,
@@ -1130,14 +1676,14 @@ export function useGameState() {
           roundOneFocus: action === "swap-crew" ? null : current.chapterTwo.roundOneFocus,
           assignmentPrompt: action === "swap-crew" ? "" : current.chapterTwo.assignmentPrompt,
           assignmentAnalysis: action === "swap-crew" ? null : current.chapterTwo.assignmentAnalysis,
-          roundOnePrompt: "",
-          roundOneAnalysis: null,
-          roundOneResult: null,
+          roundOnePrompt: action === "swap-crew" ? "" : current.chapterTwo.roundOnePrompt,
+          roundOneAnalysis: action === "swap-crew" ? null : current.chapterTwo.roundOneAnalysis,
+          roundOneResult: action === "swap-crew" ? null : current.chapterTwo.roundOneResult,
           roundTwoPrompt: "",
           roundTwoAnalysis: null,
           roundTwoResult: null,
-          roundTwoRefinement: null,
-          roundTwoSupportMode: null,
+          roundTwoRefinement: current.chapterTwo.roundTwoRefinement ?? "强化区域描述",
+          roundTwoSupportMode: current.chapterTwo.roundTwoSupportMode ?? "让支援船员介入",
           finalChoice: null,
           lastSetback: setback
         }
@@ -1267,6 +1813,105 @@ export function useGameState() {
       return {
         ...current,
         ...updated
+      };
+    });
+  };
+
+  const importCrewPortrait = (crewId: string, asset: ClassroomImageAsset) => {
+    updateState((current) => {
+      const targetCrew = current.crewRoster.find((member) => member.id === crewId) ?? (current.generatedCrew?.id === crewId ? current.generatedCrew : null);
+
+      if (!targetCrew) {
+        return current;
+      }
+
+      const revision = Math.max(targetCrew.portraitAsset?.revision ?? 0, targetCrew.portraitEchoes[0]?.revision ?? 0) + 1;
+      const portraitAsset = {
+        imageUrl: asset.imageUrl,
+        prompt: "teacher-import",
+        providerId: "classroom-import",
+        styleLabel: "课堂导入图像",
+        echoNote: "老师从外部工具导入的角色图。",
+        updatedAt: asset.updatedAt,
+        revision
+      };
+      const updated = updateCrewState(current, crewId, (member) => ({
+        ...member,
+        portraitAsset,
+        portraitEchoes: [portraitAsset, ...member.portraitEchoes.filter((item) => item.revision !== revision)].slice(0, 6),
+        dossierEntries: [
+          {
+            id: `${member.id}-portrait-import-${asset.updatedAt}`,
+            title: "角色图像已归档",
+            body: "老师已把外部生成好的角色图导入主舰档案。",
+            tag: "课堂导入"
+          },
+          ...member.dossierEntries
+        ].slice(0, 8)
+      }));
+
+      return {
+        ...current,
+        ...updated,
+        classroomArtifacts: [
+          {
+            id: `crew-${crewId}-${asset.updatedAt}`,
+            type: "crew" as const,
+            ownerId: crewId,
+            title: `${targetCrew.name} 的角色图`,
+            imageAsset: asset,
+            notes: "课堂导入的船员形象。",
+            updatedAt: asset.updatedAt
+          },
+          ...current.classroomArtifacts.filter((item) => item.id !== `crew-${crewId}-${asset.updatedAt}`)
+        ].slice(0, 24),
+        shipStatusNote: `${targetCrew.name} 的角色图已导入课堂档案。`
+      };
+    });
+  };
+
+  const importPlanetImage = (planetId: string, asset: ClassroomImageAsset) => {
+    updateState((current) => {
+      const updatePlanet = (planet: NonNullable<GameState["signalMission"]["planet"]["confirmedModel"]>) =>
+        planet.id === planetId
+          ? {
+              ...planet,
+              imageAsset: asset
+            }
+          : planet;
+      const confirmedModel = current.signalMission.planet.confirmedModel
+        ? updatePlanet(current.signalMission.planet.confirmedModel)
+        : current.signalMission.planet.confirmedModel;
+      const targetPlanet =
+        current.signalMission.planet.confirmedModel?.id === planetId
+          ? current.signalMission.planet.confirmedModel
+          : current.planetCatalog.find((planet) => planet.id === planetId) ?? null;
+
+      return {
+        ...current,
+        planetCatalog: current.planetCatalog.map(updatePlanet),
+        classroomArtifacts: targetPlanet
+          ? [
+              {
+                id: `planet-${planetId}-${asset.updatedAt}`,
+                type: "planet" as const,
+                ownerId: planetId,
+                title: `${targetPlanet.name} 的星球图`,
+                imageAsset: asset,
+                notes: "课堂导入的星球视觉档案。",
+                updatedAt: asset.updatedAt
+              },
+              ...current.classroomArtifacts.filter((item) => item.id !== `planet-${planetId}-${asset.updatedAt}`)
+            ].slice(0, 24)
+          : current.classroomArtifacts,
+        signalMission: {
+          ...current.signalMission,
+          planet: {
+            ...current.signalMission.planet,
+            confirmedModel
+          }
+        },
+        shipStatusNote: targetPlanet ? `${targetPlanet.name} 的星球图已导入课堂档案。` : current.shipStatusNote
       };
     });
   };
@@ -1426,7 +2071,7 @@ export function useGameState() {
       currentScene: stateCurrent.signalMission.repairedSignal
         ? "signal-aftermath"
         : stateCurrent.signalMission.planet.status === "restored"
-          ? "signal-review"
+          ? "experience-result"
           : "signal-mission",
       signalMission: {
         ...stateCurrent.signalMission,
@@ -1437,7 +2082,7 @@ export function useGameState() {
               ? "fault"
               : stateCurrent.signalMission.currentStage
       },
-      shipStatusNote: "信息库前两层已接入：先建立第一颗星球，再回到过去修复故障案例库。"
+      shipStatusNote: "第一章已接入：先建立文明复兴母星，再从母星出发进入第二章远征。"
     }));
   };
 
@@ -1508,6 +2153,7 @@ export function useGameState() {
           body: analysis.summary,
           unlockedFeatures: [
             `环境特征：${analysis.environmentTrait}`,
+            `标志性建筑或景观：${stateCurrent.signalMission.planet.input.environment.trim() || "待补充"}`,
             `危险等级：${analysis.dangerLabel}`,
             `资源分布：${analysis.resourceProfile.water}/${analysis.resourceProfile.mineral}/${analysis.resourceProfile.energy}/${analysis.resourceProfile.ecology}/${analysis.resourceProfile.relicData}`
           ]
@@ -1557,7 +2203,7 @@ export function useGameState() {
       return {
         ...stateCurrent,
         ...updatedCrew,
-        currentScene: "signal-review",
+        currentScene: "experience-result",
         firstStarLit: true,
         activeCrewId: crew.id,
         planetCatalog: [planet, ...stateCurrent.planetCatalog.filter((item) => item.id !== planet.id)],
@@ -1621,7 +2267,7 @@ export function useGameState() {
       return {
         ...stateCurrent,
         currentScene: "signal-review",
-        shipStatusNote: `故障回溯第 ${attempt} 轮已接入：${nextRun.activeSeed?.title ?? "回溯链"}`,
+        shipStatusNote: `旧资料补档第 ${attempt} 轮已接入：${nextRun.activeSeed?.title ?? "演算链"}`,
         signalMission: {
           ...stateCurrent.signalMission,
           currentStage: "fault",
@@ -1706,7 +2352,7 @@ export function useGameState() {
           ...member,
           trustLevel,
           trustLabel: getTrustLabel(trustLevel),
-          bondStatus: "完成了第一次故障回溯演算",
+          bondStatus: "完成了一次旧资料补档演算",
           dossierEntries: [createFaultDossier(member, nextRun.result!), ...member.dossierEntries].slice(0, 8)
         };
       });
@@ -1714,7 +2360,7 @@ export function useGameState() {
       return {
         ...updatedState,
         ...updatedCrew,
-        currentScene: "signal-aftermath",
+        currentScene: "signal-review",
         chapterComplete: true,
         chapterTwoUnlocked: true,
         newRegionAlert: true,
@@ -1729,13 +2375,13 @@ export function useGameState() {
           unlocks: unlockAfterFault(updatedState.signalMission.unlocks),
           repairedSignal,
           summary: {
-            title: "第二关完成：故障回溯演算",
-            body: `${nextRun.result.summary} 故障处理台与历史案例库已可立刻调用。`,
+            title: "旧资料补档完成",
+            body: `${nextRun.result.summary} 旧资料处理台与历史记录已可调用。`,
             unlockedFeatures: [
-              "故障处理台上线",
-              "历史故障记录可查询",
-              "后续任务可调用案例匹配",
-              "飞船过去真相的一部分被找回"
+              "旧资料处理台上线",
+              "历史记录可查询",
+              "后续任务可调用资料匹配",
+              "飞船早期真相的一部分被找回"
             ]
           }
         }
@@ -1750,7 +2396,28 @@ export function useGameState() {
   const finalizeChapterOne = () => {
     updateState((current) => ({
       ...current,
-      currentScene: "signal-aftermath"
+      currentScene: "trial-result"
+    }));
+  };
+
+  const openFirstExperienceResult = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "experience-result"
+    }));
+  };
+
+  const continueToFaultReview = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "chapter-two-portal",
+      chapterTwoUnlocked: true,
+      newRegionAlert: true,
+      signalMission: {
+        ...current.signalMission,
+        currentStage: "fault"
+      },
+      shipStatusNote: "第二章已转入外部远征：从母星出发，前往语言与信息文明星。"
     }));
   };
 
@@ -1760,6 +2427,328 @@ export function useGameState() {
       chapterComplete: true,
       currentScene: "chapter-complete"
     }));
+  };
+
+  const openTrialResult = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "trial-result"
+    }));
+  };
+
+  const openParentSummary = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "parent-summary"
+    }));
+  };
+
+  const createDemoPlanetIfNeeded = (current: GameState) => {
+    if (current.signalMission.planet.confirmedModel) {
+      return {
+        planet: current.signalMission.planet.confirmedModel,
+        signalMission: current.signalMission,
+        planetCatalog: current.planetCatalog,
+        shipLogs: current.shipLogs
+      };
+    }
+
+    const demoInput: PlanetInputState = {
+      name: "试听航标星",
+      appearance: "像被浅蓝环带抱住的旧航标星，边缘有断裂的导航光痕。",
+      environment: "地表有潮汐海、低空雾层和半埋的旧塔，适合作为第一次课堂演示坐标。",
+      mood: "神秘",
+      notes: "课堂跳转用的演示星球，会保留资源结构和导航坐标。"
+    };
+    const seed = current.signalMission.planet.seed;
+    const analysis = analyzePlanetInput(demoInput, seed);
+    const planet = buildPlanetModel({
+      signalSeed: seed,
+      planetInput: demoInput,
+      analysis
+    });
+    const restoredZones: GameState["signalMission"]["restoredZones"] = current.signalMission.restoredZones.includes("planet")
+      ? current.signalMission.restoredZones
+      : [...current.signalMission.restoredZones, "planet"];
+
+    return {
+      planet,
+      signalMission: {
+        ...current.signalMission,
+        currentStage: "fault" as const,
+        restoredZones,
+        unlocks: unlockAfterPlanet(current.signalMission.unlocks),
+        planet: {
+          ...current.signalMission.planet,
+          status: "restored" as const,
+          input: demoInput,
+          analysis,
+          confirmedModel: planet,
+          unlockSummary: [
+            "课堂演示星球已写入星图",
+            "导航盘恢复",
+            "第二关入口可用"
+          ]
+        },
+        faultRun: {
+          ...current.signalMission.faultRun,
+          status: current.signalMission.faultRun.status === "locked" ? "ready" as const : current.signalMission.faultRun.status
+        }
+      },
+      planetCatalog: [planet, ...current.planetCatalog.filter((item) => item.id !== planet.id)],
+      shipLogs: appendShipLog(current, createPlanetShipLog(planet))
+    };
+  };
+
+  const startTrialFromBeginning = () => {
+    setState(createInitialGameState());
+  };
+
+  const jumpToFirstLevel = () => {
+    updateState((current) => {
+      const crew = getActiveVaultCrew(current);
+
+      if (!crew) {
+        return {
+          ...current,
+          currentScene: "recruit",
+          systemsRestored: true,
+          shipStatusNote: "试听模式：先招募第一位船员，再进入第一关。"
+        };
+      }
+
+      return {
+        ...current,
+        currentScene: "signal-mission",
+        systemsRestored: true,
+        crewOnboard: true,
+        activeCrewId: crew.id,
+        signalMission: {
+          ...current.signalMission,
+          currentStage: current.signalMission.planet.status === "restored" ? "planet" : "alert"
+        },
+        shipStatusNote: "试听模式：已跳到第一关入口。"
+      };
+    });
+  };
+
+  const jumpToSecondLevel = () => {
+    updateState((current) => {
+      const crew = getActiveVaultCrew(current);
+
+      if (!crew) {
+        return {
+          ...current,
+          currentScene: "recruit",
+          systemsRestored: true,
+          shipStatusNote: "试听模式：需要先有一位船员，才能进入文明远征。"
+        };
+      }
+
+      const prepared = createDemoPlanetIfNeeded(current);
+
+      return {
+        ...current,
+        currentScene: "chapter-two-portal",
+        systemsRestored: true,
+        crewOnboard: true,
+        firstStarLit: true,
+        chapterTwoUnlocked: true,
+        newRegionAlert: true,
+        activeCrewId: crew.id,
+        planetCatalog: prepared.planetCatalog,
+        shipLogs: prepared.shipLogs,
+        signalMission: prepared.signalMission,
+        shipStatusNote: "试听模式：已准备好第二章文明远征入口。"
+      };
+    });
+  };
+
+  const prepareChapterTwoTeacherState = (
+    current: GameState,
+    options: {
+      currentStep: GameState["chapterTwo"]["currentStep"];
+      sceneState: ChapterTwoSceneState;
+      focusedLocationId?: ChapterTwoLocationId | null;
+      exploredAll?: boolean;
+      shipStatusNote: string;
+    }
+  ) => {
+    const crew = getActiveVaultCrew(current);
+
+    if (!crew) {
+      return {
+        ...current,
+        currentScene: "recruit" as const,
+        systemsRestored: true,
+        shipStatusNote: "教师控制：需要先有一位船员，才能继续第二章救场。"
+      };
+    }
+
+    const prepared = createDemoPlanetIfNeeded(current);
+    const motherPlanetName = prepared.planet.name ?? "第一母星";
+    const echo = current.chapterTwo.echo ?? createLanguageCivilizationEcho(motherPlanetName, crew);
+    const truth = current.chapterTwo.truth ?? createLanguageCivilizationTruth(crew);
+    const exploredLocationIds = options.exploredAll
+      ? Array.from(new Set([...current.chapterTwo.exploredLocationIds, ...chapterTwoUnlockLocationIds]))
+      : current.chapterTwo.exploredLocationIds;
+    const blackBoxUnlocked = options.exploredAll
+      ? true
+      : current.chapterTwo.blackBoxUnlocked || chapterTwoUnlockLocationIds.every((id) => exploredLocationIds.includes(id));
+
+    return {
+      ...current,
+      currentScene: "chapter-two-mission" as const,
+      systemsRestored: true,
+      crewOnboard: true,
+      firstStarLit: true,
+      chapterTwoUnlocked: true,
+      chapterTwoRouteLocked: true,
+      activeCrewId: crew.id,
+      planetCatalog: prepared.planetCatalog,
+      shipLogs: prepared.shipLogs,
+      signalMission: prepared.signalMission,
+      chapterTwo: {
+        ...emptyChapterTwoState(),
+        ...current.chapterTwo,
+        currentStep: options.currentStep,
+        sceneState: options.sceneState,
+        focusedPlanetId: "language" as const,
+        focusedLocationId: options.focusedLocationId ?? null,
+        exploredLocationIds,
+        blackBoxUnlocked,
+        echo,
+        truth,
+        leadCrewId: current.chapterTwo.leadCrewId ?? crew.id,
+        supportCrewId: current.chapterTwo.supportCrewId ?? crew.id,
+        leadDuty: current.chapterTwo.leadDuty ?? truth.recommendedLeadDuty,
+        supportDuty: current.chapterTwo.supportDuty ?? truth.recommendedSupportDuty,
+        roundOneFocus: current.chapterTwo.roundOneFocus ?? truth.trueFocus,
+        roundTwoRefinement: current.chapterTwo.roundTwoRefinement ?? truth.preferredRefinement,
+        roundTwoSupportMode: current.chapterTwo.roundTwoSupportMode ?? truth.preferredSupportMode
+      },
+      shipStatusNote: options.shipStatusNote
+    };
+  };
+
+  const teacherCompleteChapterTwoLandmarks = () => {
+    updateState((current) =>
+      prepareChapterTwoTeacherState(current, {
+        currentStep: "response",
+        sceneState: "planet_surface",
+        exploredAll: true,
+        shipStatusNote: "教师控制：四个文明地标已点亮，黑匣入口可用。"
+      })
+    );
+  };
+
+  const teacherEnterBlackboxTrial = () => {
+    updateState((current) =>
+      prepareChapterTwoTeacherState(current, {
+        currentStep: "assign",
+        sceneState: "memory_archive",
+        focusedLocationId: "blackbox-vault",
+        exploredAll: true,
+        shipStatusNote: "教师控制：已直接进入黑匣试炼。"
+      })
+    );
+  };
+
+  const teacherTriggerPlanetRestoration = () => {
+    updateState((current) => {
+      const preparedState = prepareChapterTwoTeacherState(current, {
+        currentStep: "assign",
+        sceneState: "chapter_reward",
+        focusedLocationId: "blackbox-vault",
+        exploredAll: true,
+        shipStatusNote: "教师控制：言衡星复苏流程已完成。"
+      });
+
+      if (preparedState.currentScene === "recruit") {
+        return preparedState;
+      }
+
+      if (preparedState.chapterTwoComplete && preparedState.chapterTwo.outcome) {
+        return {
+          ...preparedState,
+          currentScene: "chapter-two-result" as const,
+          shipStatusNote: "教师控制：已打开第二章成果结算。"
+        };
+      }
+
+      const leadCrew =
+        preparedState.crewRoster.find((member) => member.id === preparedState.chapterTwo.leadCrewId) ??
+        preparedState.crewRoster.find((member) => member.id === preparedState.activeCrewId) ??
+        preparedState.generatedCrew;
+      const supportCrew = preparedState.crewRoster.find((member) => member.id === preparedState.chapterTwo.supportCrewId) ?? leadCrew;
+
+      if (!leadCrew || !supportCrew) {
+        return {
+          ...preparedState,
+          currentScene: "recruit" as const,
+          shipStatusNote: "教师控制：需要先补一位船员，才能写入第二章成果。"
+        };
+      }
+
+      const outcome = createResolvedChapterTwoOutcome();
+      const shipLog = createChapterTwoShipLog(outcome);
+      const leadDossierEntry = createChapterTwoDossier(leadCrew, outcome);
+      const supportDossierEntry = supportCrew.id === leadCrew.id ? leadDossierEntry : createChapterTwoDossier(supportCrew, outcome);
+      const updated = updateMultipleCrew(preparedState, Array.from(new Set([leadCrew.id, supportCrew.id])), (member) => {
+        const trustBoost = member.id === leadCrew.id ? 2 : 1;
+        const trustLevel = member.trustLevel + trustBoost;
+        const dossierEntry = member.id === leadCrew.id ? leadDossierEntry : supportDossierEntry;
+
+        return {
+          ...member,
+          trustLevel,
+          trustLabel: getTrustLabel(trustLevel),
+          bondStatus: member.id === leadCrew.id ? "开启语言模型黑匣" : "协助黑匣边界校验",
+          dossierEntries: [dossierEntry, ...member.dossierEntries].slice(0, 8)
+        };
+      });
+      const nextTechnologyPoints = preparedState.technologyPoints + 1;
+      const completedState: GameState = {
+        ...preparedState,
+        ...updated,
+        currentScene: "chapter-two-result",
+        activeCrewId: leadCrew.id,
+        chapterTwoComplete: true,
+        chapterThreeHintUnlocked: true,
+        scannedRegionLabel: outcome.scannedZone,
+        technologyPoints: nextTechnologyPoints,
+        aiCapabilityLevel: preparedState.aiCapabilityLevel + 1,
+        aiCapabilityUnlocks: Array.from(new Set([...preparedState.aiCapabilityUnlocks, "语言理解 Level 1", "清晰指令校验"])),
+        chapterTwo: {
+          ...preparedState.chapterTwo,
+          currentStep: "decision",
+          sceneState: "chapter_reward",
+          focusedLocationId: "blackbox-vault",
+          exploredLocationIds: Array.from(new Set([...preparedState.chapterTwo.exploredLocationIds, ...chapterTwoUnlockLocationIds])),
+          blackBoxUnlocked: true,
+          finalChoice: "记录后返航",
+          outcome
+        },
+        shipStatusNote: outcome.worldChange,
+        shipLogs: appendShipLog(preparedState, shipLog)
+      };
+
+      return {
+        ...completedState,
+        homePlanetHub: {
+          ...completedState.homePlanetHub,
+          resources: {
+            ...awardLanguagePlanetResources(completedState.homePlanetHub.resources),
+            techPoints: nextTechnologyPoints
+          },
+          unlockedFeatures: resolveHomePlanetUnlockedFeatures(completedState)
+        }
+      };
+    });
+  };
+
+  const resetTrialFlow = () => {
+    setState(createInitialGameState());
   };
 
   const restartMission = () => {
@@ -1784,8 +2773,13 @@ export function useGameState() {
     state: safeState,
     operations,
     isHydrated,
+    replaceState,
     canGenerateCrew:
       safeState.recruitForm.description.trim().length > 0 &&
+      Boolean(safeState.recruitForm.formType) &&
+      Boolean(safeState.recruitForm.role) &&
+      Boolean(safeState.recruitForm.temperament) &&
+      Boolean(safeState.recruitForm.talent) &&
       Boolean(safeState.recruitAnalysis) &&
       safeState.recruitAnalysis?.sourceText === getRecruitSourceKey(safeState.recruitForm),
     canAnalyzePlanet:
@@ -1797,20 +2791,14 @@ export function useGameState() {
       safeState.signalMission.planet.status === "restored" &&
       safeState.signalMission.faultRun.status !== "running",
     canContinueFaultRun: safeState.signalMission.faultRun.status === "running",
-    canFinalizeChapterOne: Boolean(safeState.signalMission.repairedSignal),
+    canFinalizeChapterOne: Boolean(safeState.signalMission.repairedSignal || safeState.signalMission.faultRun.result),
     canRunTask: Boolean(safeState.taskDesk.selectedTaskId) && Boolean(safeState.taskDesk.assignedCrewId),
     canRunChapterTwoRoundOne:
-      Boolean(safeState.chapterTwo.leadCrewId) &&
-      Boolean(safeState.chapterTwo.supportCrewId) &&
-      safeState.chapterTwo.leadCrewId !== safeState.chapterTwo.supportCrewId &&
-      Boolean(safeState.chapterTwo.leadDuty) &&
-      Boolean(safeState.chapterTwo.supportDuty) &&
       Boolean(safeState.chapterTwo.roundOneFocus) &&
-      Boolean(safeState.chapterTwo.roundOneAnalysis),
+      Boolean(safeState.chapterTwo.roundOneAnalysis) &&
+      scoreLanguageApplication(safeState.chapterTwo.roundOnePrompt).passed,
     canRunChapterTwoRoundTwo:
       Boolean(safeState.chapterTwo.roundOneResult) &&
-      Boolean(safeState.chapterTwo.roundTwoRefinement) &&
-      Boolean(safeState.chapterTwo.roundTwoSupportMode) &&
       Boolean(safeState.chapterTwo.roundTwoAnalysis),
     canCompleteChapterTwo:
       Boolean(safeState.chapterTwo.roundTwoResult) &&
@@ -1824,9 +2812,15 @@ export function useGameState() {
     openCrewChat,
     returnToCrewBay,
     openTaskBoard,
+    openArchive,
+    openHomePlanetHub,
     openLogbook,
     openChapterTwoPortal,
     startChapterTwoMission,
+    setChapterTwoSceneState,
+    focusChapterTwoPlanet,
+    focusChapterTwoLocation,
+    exploreChapterTwoLocation,
     advanceChapterTwoStep,
     setChapterTwoResponsePrompt,
     analyzeChapterTwoResponse,
@@ -1845,6 +2839,11 @@ export function useGameState() {
     runChapterTwoSecondPass,
     setChapterTwoFinalChoice,
     completeChapterTwo,
+    activateHomePlanetFeature,
+    buildHomePlanetStructure,
+    saveHomePlanetCommission,
+    saveHomePlanetDialogue,
+    saveHomePlanetStoryboard,
     resolveChapterTwoSetback,
     updateRecruitForm,
     analyzeRecruitInput,
@@ -1852,6 +2851,8 @@ export function useGameState() {
     rerollCrew,
     regenerateCrewPortrait,
     updateCrewImagePromptHint,
+    importCrewPortrait,
+    importPlanetImage,
     sendCrewMessage,
     boardCrew,
     setActiveCrew,
@@ -1870,6 +2871,17 @@ export function useGameState() {
     chooseFaultOption,
     retryFaultRun,
     finalizeChapterOne,
+    openFirstExperienceResult,
+    continueToFaultReview,
+    openTrialResult,
+    openParentSummary,
+    startTrialFromBeginning,
+    jumpToFirstLevel,
+    jumpToSecondLevel,
+    teacherCompleteChapterTwoLandmarks,
+    teacherEnterBlackboxTrial,
+    teacherTriggerPlanetRestoration,
+    resetTrialFlow,
     closeSignalReview,
     openChapterComplete,
     restartMission,

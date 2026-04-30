@@ -17,7 +17,7 @@ export function createPlanetShipLog(planet: PlanetModel): ShipLogEntry {
   return {
     id: makeId("log-planet"),
     title: `${planet.name} 已写入星图`,
-    body: `${planet.summary} 资源产出已启动，导航盘恢复到可调用状态。`,
+    body: `${planet.summary} 标志性建筑或景观：${planet.landmarkFeature || "待补充"}。资源产出已启动，导航盘恢复到可调用状态。`,
     tag: "星图写入"
   };
 }

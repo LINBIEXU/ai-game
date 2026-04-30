@@ -33,7 +33,7 @@ export function SignalTaskPanel({
   return (
     <section className="scene-reveal grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
       <div className="panel-surface rounded-[32px] p-6 md:p-8">
-        <div className="soft-label text-[11px] text-white/45">失落信号任务</div>
+        <div className="soft-label text-[11px] text-white/45">信息库任务</div>
         <h2 className="mt-4 text-3xl font-semibold text-white">
           {repairedSignal ? "信号已经接回来了。" : "先判断这段碎讯像什么。"}
         </h2>

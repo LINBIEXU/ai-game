@@ -2,6 +2,7 @@
 
 import type { ChapterTwoOutcome, CrewMember } from "@/types/game";
 
+import { KidLearningCard } from "@/components/game/KidLearningCard";
 import { SystemFeedback } from "@/components/game/SystemFeedback";
 import { chapterTwoSceneAssets } from "@/lib/chapter-two-exploration";
 
@@ -88,7 +89,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
           onClick={onReturn}
           className="mt-8 rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200"
         >
-          返回主舰，查看 AI 升级
+          返回主舰整理归档
         </button>
       </div>
 
@@ -119,13 +120,15 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
           </div>
         </div>
 
+        <KidLearningCard />
+
         <div className="panel-surface rounded-[28px] p-5">
           <div className="soft-label text-[11px] text-white/42">主舰 AI 回写</div>
           <p className="mt-3 text-sm leading-7 text-white/62">
             {outcome.aiUpgrade ?? "语言黑匣已写入。以后，我会更努力听清你的意思。但我也会提醒你：不要让我替你思考。"}
           </p>
           <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/50">
-            下一步：{outcome.chapterThreeHook}
+            归档提示：第二章已经完成。现在可以回看黑匣记录，或返回母星整理作品。
           </div>
         </div>
       </div>

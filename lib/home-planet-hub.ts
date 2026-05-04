@@ -23,6 +23,35 @@ export interface HomePlanetStructureConfig {
   cost: Pick<HomePlanetResources, "water" | "minerals" | "energy">;
 }
 
+export interface MotherworldBaseEffects {
+  waterFlow: boolean;
+  mineralDiscount: boolean;
+  energyBuffer: boolean;
+  ecologyBond: boolean;
+  relicDataHint: boolean;
+  notes: string[];
+}
+
+export interface HomePlanetStructureEffectConfig {
+  id: HomePlanetStructureId;
+  name: string;
+  impactLabel: string;
+  inactiveSummary: string;
+  activeSummary: string;
+}
+
+export interface HomePlanetExpeditionEffects {
+  archiveExtraRecord: boolean;
+  observatoryScan: boolean;
+  energyCoreBuffer: boolean;
+  memoryGardenBond: boolean;
+  creationRuleCard: boolean;
+  disorderReduction: number;
+  activeStructureIds: HomePlanetStructureId[];
+  notes: string[];
+  scanHints: string[];
+}
+
 export interface CommissionTaskConfig {
   id: string;
   title: string;
@@ -55,7 +84,9 @@ export function emptyHomePlanetHubState(): HomePlanetHubState {
     dialogueCards: [],
     storyboardProjects: [],
     commissionWorks: [],
-    galleryItems: []
+    galleryItems: [],
+    archiveRecords: [],
+    ruleCards: []
   };
 }
 
@@ -65,7 +96,7 @@ export const homePlanetFeatures: HomePlanetFeatureConfig[] = [
     name: "文明展厅",
     shortName: "展厅",
     status: "available",
-    description: "回看船员、母星、黑匣、文明碎片和课堂作品。",
+    description: "回看船员、母星、黑匣、文明碎片和航行作品。",
     unlockText: "第一章完成后可用",
     value: "作品集与成果档案"
   },
@@ -138,32 +169,70 @@ export const homePlanetStructures: HomePlanetStructureConfig[] = [
   {
     id: "archive-hall",
     name: "档案馆",
-    description: "保存星球档案、黑匣记录和课堂成果。",
+    description: "保存星球档案、黑匣记录和证据复盘。",
     cost: { water: 2, minerals: 6, energy: 3 }
   },
   {
     id: "creation-house",
     name: "创作屋",
-    description: "母星居民发布创作委托的地方。",
+    description: "把表达经验整理成可携带的规则卡。",
     cost: { water: 4, minerals: 4, energy: 4 }
   },
   {
     id: "observatory",
     name: "观测台",
-    description: "记录外部星球坐标和远征回看。",
+    description: "提前扫描外部星球的隐藏暗纹。",
     cost: { water: 1, minerals: 8, energy: 6 }
   },
   {
     id: "energy-core",
     name: "能源核心",
-    description: "提高母星基础运转亮度。",
+    description: "为远征出发提供稳定能源缓冲。",
     cost: { water: 0, minerals: 7, energy: 8 }
   },
   {
     id: "memory-garden",
     name: "记忆花园",
-    description: "展示船员回忆和孩子留下的故事。",
+    description: "让共同经历更容易沉淀为船员记录。",
     cost: { water: 7, minerals: 2, energy: 3 }
+  }
+];
+
+export const homePlanetStructureEffects: HomePlanetStructureEffectConfig[] = [
+  {
+    id: "archive-hall",
+    name: "档案馆",
+    impactLabel: "证据回流记录",
+    inactiveSummary: "建成后，证据回声井会把证据记录写回母星档案。",
+    activeSummary: "已接入：证据回声井完成后会新增母星档案。"
+  },
+  {
+    id: "creation-house",
+    name: "创作屋",
+    impactLabel: "表达规则卡",
+    inactiveSummary: "建成后，证据井回流会生成一张表达规则卡。",
+    activeSummary: "已接入：证据井回流会产出表达规则卡。"
+  },
+  {
+    id: "observatory",
+    name: "观测台",
+    impactLabel: "隐藏扫描提示",
+    inactiveSummary: "建成后，言衡星地表会出现额外扫描提示。",
+    activeSummary: "已接入：言衡星地表会显示观测台扫描提示。"
+  },
+  {
+    id: "energy-core",
+    name: "能源核心",
+    impactLabel: "初始失序降低",
+    inactiveSummary: "建成后，外部远征出发时初始失序强度降低。",
+    activeSummary: "已接入：外部远征出发时初始失序强度降低。"
+  },
+  {
+    id: "memory-garden",
+    name: "记忆花园",
+    impactLabel: "共同经历成长",
+    inactiveSummary: "建成后，证据井协作会更容易沉淀为船员共同经历。",
+    activeSummary: "已接入：证据井协作会写入船员共同经历。"
   }
 ];
 
@@ -224,6 +293,97 @@ export function getHomePlanetResourceSeed(state: GameState): HomePlanetResources
   };
 }
 
+export function getMotherworldBaseEffects(state: GameState): MotherworldBaseEffects {
+  const profile = state.signalMission.planet.confirmedModel?.resourceProfile ?? state.planetCatalog[0]?.resourceProfile ?? null;
+  const water = profile?.water ?? 0;
+  const mineral = profile?.mineral ?? 0;
+  const energy = profile?.energy ?? 0;
+  const ecology = profile?.ecology ?? 0;
+  const relicData = profile?.relicData ?? 0;
+  const waterFlow = water >= 24;
+  const mineralDiscount = mineral >= 24;
+  const energyBuffer = energy >= 24;
+  const ecologyBond = ecology >= 24;
+  const relicDataHint = relicData >= 24;
+  const notes = [
+    waterFlow ? "水源充足：母星激活与建设水源消耗降低。" : null,
+    mineralDiscount ? "矿物充足：母星建筑建造成本降低。" : null,
+    energyBuffer ? "能源充足：言衡星初始失序强度降低。" : null,
+    ecologyBond ? "生态充足：船员共同经历更容易成长。" : null,
+    relicDataHint ? "遗迹数据充足：言衡星多一条初始证据提示。" : null
+  ].filter(Boolean) as string[];
+
+  return {
+    waterFlow,
+    mineralDiscount,
+    energyBuffer,
+    ecologyBond,
+    relicDataHint,
+    notes
+  };
+}
+
+export function getHomePlanetStructureEffect(structureId: HomePlanetStructureId) {
+  return homePlanetStructureEffects.find((effect) => effect.id === structureId) ?? null;
+}
+
+export function getHomePlanetExpeditionEffects(state: GameState): HomePlanetExpeditionEffects {
+  const builtStructures = new Set(state.homePlanetHub.builtStructures);
+  const baseEffects = getMotherworldBaseEffects(state);
+  const archiveExtraRecord = builtStructures.has("archive-hall");
+  const observatoryScan = builtStructures.has("observatory") || baseEffects.relicDataHint;
+  const energyCoreBuffer = builtStructures.has("energy-core") || baseEffects.energyBuffer;
+  const memoryGardenBond = builtStructures.has("memory-garden") || baseEffects.ecologyBond;
+  const creationRuleCard = builtStructures.has("creation-house");
+  const disorderReduction = (builtStructures.has("energy-core") ? 1 : 0) + (baseEffects.energyBuffer ? 1 : 0);
+  const notes = [
+    archiveExtraRecord ? "档案馆会保存证据井回流记录。" : null,
+    observatoryScan ? "观测台会显示额外扫描提示。" : null,
+    energyCoreBuffer ? `初始失序强度降低 ${Math.max(1, disorderReduction)} 级。` : null,
+    memoryGardenBond ? "证据井协作会沉淀为共同经历。" : null,
+    creationRuleCard ? "证据井回流会产出表达规则卡。" : null
+  ].filter(Boolean) as string[];
+  const scanHints = [
+    builtStructures.has("observatory") ? "观测台扫描：证据回声井外缘有暗纹，先确认哪些内容必须标为未知。" : null,
+    baseEffects.relicDataHint ? "遗迹数据共振：言衡星入口附近出现一条额外证据提示。" : null
+  ].filter(Boolean) as string[];
+
+  return {
+    archiveExtraRecord,
+    observatoryScan,
+    energyCoreBuffer,
+    memoryGardenBond,
+    creationRuleCard,
+    disorderReduction,
+    activeStructureIds: Array.from(builtStructures),
+    notes,
+    scanHints
+  };
+}
+
+export function getAdjustedMotherworldActivationCost(
+  state: GameState,
+  cost: Pick<HomePlanetResources, "water" | "minerals" | "energy" | "fragments">
+) {
+  const effects = getMotherworldBaseEffects(state);
+
+  return {
+    ...cost,
+    water: Math.max(0, cost.water - (effects.waterFlow ? 1 : 0)),
+    minerals: Math.max(0, cost.minerals - (effects.mineralDiscount ? 2 : 0))
+  };
+}
+
+export function getAdjustedHomePlanetStructureCost(state: GameState, structure: HomePlanetStructureConfig) {
+  const effects = getMotherworldBaseEffects(state);
+
+  return {
+    ...structure.cost,
+    water: Math.max(0, structure.cost.water - (effects.waterFlow ? 1 : 0)),
+    minerals: Math.max(0, structure.cost.minerals - (effects.mineralDiscount ? 2 : 0))
+  };
+}
+
 export function resolveHomePlanetUnlockedFeatures(state: GameState): HomePlanetFeatureId[] {
   const unlocked = new Set<HomePlanetFeatureId>(state.homePlanetHub.unlockedFeatures);
 
@@ -251,4 +411,11 @@ export function canBuildStructure(resources: HomePlanetResources, structure: Hom
     resources.minerals >= structure.cost.minerals &&
     resources.energy >= structure.cost.energy
   );
+}
+
+export function canBuildAdjustedStructure(
+  resources: HomePlanetResources,
+  cost: Pick<HomePlanetResources, "water" | "minerals" | "energy">
+) {
+  return resources.water >= cost.water && resources.minerals >= cost.minerals && resources.energy >= cost.energy;
 }

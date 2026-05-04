@@ -110,10 +110,10 @@ export function ShipHubScene({
       systemsRestored ? "主舰照明在线" : "主舰仍在低能耗",
       feedbackCue,
       crewRoster.length > 0 ? `船员名册 ${crewRoster.length} 已同步` : "船员名册待写入",
-      chapterTwoUnlocked ? "远航门捕获到更深坐标" : firstStarLit ? "智脑推测能力已恢复" : "信息库仍缺少基础记忆",
+      chapterTwoComplete ? "语言黑匣已归档" : chapterTwoUnlocked ? "远航门锁定言衡星" : firstStarLit ? "智脑推测能力已恢复" : "信息库仍缺少基础记忆",
       shipStatusNote ?? "主舰状态稳定"
     ],
-    [systemsRestored, feedbackCue, crewRoster.length, chapterTwoUnlocked, firstStarLit, shipStatusNote]
+    [systemsRestored, feedbackCue, crewRoster.length, chapterTwoComplete, chapterTwoUnlocked, firstStarLit, shipStatusNote]
   );
 
   if (!systemsRestored) {
@@ -212,33 +212,20 @@ export function ShipHubScene({
     return {
       label: chapterTwoUnlocked ? (chapterTwoComplete ? "黑匣归档" : chapterTwoRouteLocked ? "远征进行中" : "文明星入口") : "锁定",
       disabled: !chapterTwoUnlocked,
-      action: onOpenChapterTwoPortal,
-      priority: chapterTwoUnlocked ? "primary" as const : "locked" as const,
+      action: chapterTwoComplete ? onOpenArchive : onOpenChapterTwoPortal,
+      priority: chapterTwoUnlocked && !chapterTwoComplete ? "primary" as const : chapterTwoUnlocked ? "secondary" as const : "locked" as const,
       visible
     };
   };
 
   const primaryModule = bridgeModuleCatalog.find((module) => module.id === primaryModuleId) ?? bridgeModuleCatalog[0];
   const primaryState = moduleState(primaryModule.id);
-  const classroomTarget =
-    crewRoster.length === 0
-      ? {
-          title: "这节课先创造第一位伙伴",
-          body: "先说一句你想招募怎样的船员，系统会把它变成真正能登船的伙伴。",
-          result: "10 分钟内能看到：名字、形象、登船记录"
-        }
-      : !firstStarLit
-        ? {
-            title: "这节课先抢救智脑的基础记忆库",
-            body: "先把航行、故障和船员协作三块记忆接回来。每修好一块，主舰就会立刻恢复一项功能。",
-            result: "10 分钟内能看到：导航盘亮起、档案写入、主舰日志更新"
-          }
-        : {
-            title: "这艘船已经留下了可继续的痕迹",
-            body: "现在可以回看船员、日志和新区域入口，也可以再招募一位伙伴继续课后探索。",
-            result: "课后能留下：船员档案、关系变化、航海记录"
-          };
-
+  const primaryDescription =
+    primaryModule.id === "gate"
+      ? chapterTwoComplete
+        ? "语言黑匣和言衡星远征已经完成。现在适合回看记录、查看归档，或回母星整理作品。"
+        : "从母星出发，前往语言与信息文明星，开启第一枚科技黑匣。"
+      : primaryModule.description;
   const sideModules = bridgeModuleCatalog
     .filter((module) => module.id !== primaryModuleId)
     .filter((module) => {
@@ -251,6 +238,15 @@ export function ShipHubScene({
 
   return (
     <section className="scene-reveal ship-hub-immersive relative min-h-screen overflow-hidden">
+      <div
+        className="bridge-command-backdrop"
+        aria-hidden="true"
+        style={{
+          backgroundImage: `url(${chapterTwoSceneAssets.shipBridge.imageUrl})`
+        }}
+      >
+        <div className="bridge-command-backdrop__scan" />
+      </div>
       <div className="fleet-broadcast panel-surface absolute left-6 right-6 top-24 z-20 rounded-full px-4 py-2 md:left-10 md:right-10 md:top-28">
         <div className="fleet-broadcast-track">
           {[...broadcastItems, ...broadcastItems].map((item, index) => (
@@ -261,16 +257,7 @@ export function ShipHubScene({
         </div>
       </div>
 
-      <div className="ship-hub-bridge-view relative min-h-screen overflow-hidden px-6 pb-8 pt-40 md:px-10 md:pb-10 md:pt-44">
-        <div
-          className="bridge-command-backdrop"
-          aria-hidden="true"
-          style={{
-            backgroundImage: `url(${chapterTwoSceneAssets.shipBridge.imageUrl})`
-          }}
-        >
-          <div className="bridge-command-backdrop__scan" />
-        </div>
+      <div className="ship-hub-bridge-view relative z-10 min-h-screen overflow-hidden px-6 pb-8 pt-40 md:px-10 md:pb-10 md:pt-44">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(124,226,255,0.05),transparent_24%),radial-gradient(circle_at_80%_16%,rgba(244,114,182,0.035),transparent_18%)]" />
         <div className="relative grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
           <div className="space-y-5">
@@ -288,15 +275,6 @@ export function ShipHubScene({
                 </p>
               </div>
             )}
-
-            <div className="panel-surface rounded-[28px] border border-cyan-200/12 bg-cyan-200/[0.04] p-5">
-              <div className="soft-label text-[10px] text-cyan-100/55">课堂模式</div>
-              <div className="mt-2 text-xl font-semibold text-white">{classroomTarget.title}</div>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-white/58">{classroomTarget.body}</p>
-              <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/66">
-                {classroomTarget.result}
-              </div>
-            </div>
 
             {firstStarLit && (
               <div className="panel-surface rounded-[28px] border border-cyan-200/16 bg-cyan-200/[0.055] p-5">
@@ -327,7 +305,7 @@ export function ShipHubScene({
                 </div>
                 <span className="status-chip">{primaryState.label}</span>
               </div>
-              <p className="mt-4 max-w-lg text-sm leading-7 text-white/56">{primaryModule.description}</p>
+              <p className="mt-4 max-w-lg text-sm leading-7 text-white/56">{primaryDescription}</p>
               <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-200/12 bg-cyan-200/[0.06] px-3 py-2 text-[11px] tracking-[0.14em] text-cyan-100/68">
                 <span className="h-2 w-2 rounded-full bg-cyan-200/80 system-pulse" />
                 FEEDBACK CUE ONLINE
@@ -335,7 +313,7 @@ export function ShipHubScene({
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={primaryState.action}
+                  onClick={primaryModule.id === "gate" && chapterTwoComplete ? onOpenChapterTwoPortal : primaryState.action}
                   disabled={primaryState.disabled}
                   className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-white/12 disabled:text-white/40"
                 >
@@ -346,9 +324,29 @@ export function ShipHubScene({
                     : primaryModule.id === "signal-lab"
                       ? "进入信息库"
                       : primaryModule.id === "gate"
-                        ? "进入新区域"
+                        ? chapterTwoComplete
+                          ? "回看黑匣记录"
+                          : "进入第二章远征"
                         : "打开模块"}
                 </button>
+                {primaryModule.id === "gate" && chapterTwoComplete && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onOpenArchive}
+                      className="rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/72 transition hover:border-white/22 hover:bg-white/[0.08]"
+                    >
+                      查看远征归档
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onOpenHomePlanetHub}
+                      className="rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/72 transition hover:border-white/22 hover:bg-white/[0.08]"
+                    >
+                      返回母星整理作品
+                    </button>
+                  </>
+                )}
                 {primaryModule.id !== "recruitment" && crewRoster.length < 2 && (
                   <button
                     type="button"
@@ -384,7 +382,7 @@ export function ShipHubScene({
                 <div className="mt-3 text-sm leading-6 text-white/56">
                   {shipStatusNote ??
                     (chapterTwoComplete
-                      ? "更深航线仍在闪烁"
+                      ? "第二章已归档，等待整理作品"
                       : chapterTwoUnlocked
                         ? "远航门等待靠近"
                         : !firstStarLit
@@ -407,12 +405,12 @@ export function ShipHubScene({
             {chapterTwoUnlocked && (
               <button
                 type="button"
-                onClick={onOpenChapterTwoPortal}
+                onClick={chapterTwoComplete ? onOpenArchive : onOpenChapterTwoPortal}
                 className={`module-card rounded-[26px] p-5 text-left transition ${newRegionAlert ? "module-card--spotlight unlock-burst" : "module-card--signal"} w-full`}
               >
                 <div className="soft-label text-[10px] text-fuchsia-100/58">远航门</div>
-                <div className="mt-2 text-lg font-semibold text-white">{chapterTwoComplete ? "科技黑匣记录在线" : "语言文明星航线已解锁"}</div>
-                <div className="mt-2 text-sm leading-6 text-white/58">{chapterTwoComplete ? scannedRegionLabel ?? "言衡星 / 漂短信渠" : "前往第一颗外部工具文明星"}</div>
+                <div className="mt-2 text-lg font-semibold text-white">{chapterTwoComplete ? "查看远征归档" : "语言文明星航线已解锁"}</div>
+                <div className="mt-2 text-sm leading-6 text-white/58">{chapterTwoComplete ? scannedRegionLabel ?? "言衡星 / 黑匣记录" : "前往第一颗外部工具文明星"}</div>
               </button>
             )}
 

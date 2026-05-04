@@ -11,9 +11,9 @@ export interface CrewGenerationPromptInput {
 export const crewGenerationPrompt: PromptBlueprint<CrewGenerationPromptInput> = {
   id: "crew-generation-v1",
   label: "船员生成提示词 V1",
-  goal: "根据孩子的语言描述，先理解角色倾向，再生成一个像“自己创造出来的伙伴”的船员结果。",
+  goal: "根据小舰长的语言描述，先理解角色倾向，再生成一个像“自己创造出来的伙伴”的船员结果。",
   inputGuide: [
-    "孩子的主描述是第一优先级。",
+    "小舰长的主描述是第一优先级。",
     "微调标签和补充说明只能修饰，不能盖过主描述。",
     "如果描述不足，优先做温和推断，不要生成空洞模板人。"
   ],
@@ -27,13 +27,13 @@ export const crewGenerationPrompt: PromptBlueprint<CrewGenerationPromptInput> = 
       title: "task",
       body: [
         "你正在解析一条主舰招募信号。",
-        "先从孩子的语言里读出人物轮廓，再生成一个可登船的伙伴。"
+        "先从小舰长的语言里读出人物轮廓，再生成一个可登船的伙伴。"
       ]
     },
     {
       title: "must-do",
       body: renderList([
-        "优先理解孩子真正想要的感觉和用途",
+        "优先理解小舰长真正想要的感觉和用途",
         "提取 3—5 个关键词",
         "推断外形倾向、职责倾向、性格倾向、能力偏好、角色风格",
         "生成短而有画面的名字、标题、自我介绍、能力标签",
@@ -56,8 +56,8 @@ export const crewGenerationPrompt: PromptBlueprint<CrewGenerationPromptInput> = 
       title: "interpretation-priority",
       body: [
         "解释顺序：主描述 > 补充说明 > 微调修饰器。",
-        "如果孩子说了“在黑暗里先找灯”，这类具象表达要优先影响角色结果。",
-        "如果多个信号冲突，保留最有画面感、最像孩子真正想表达的那一个。"
+        "如果小舰长说了“在黑暗里先找灯”，这类具象表达要优先影响角色结果。",
+        "如果多个信号冲突，保留最有画面感、最像小舰长真正想表达的那一个。"
       ]
     },
     {
@@ -75,6 +75,6 @@ export const crewGenerationPrompt: PromptBlueprint<CrewGenerationPromptInput> = 
       renderInputBlock("followup_notes", input.followupNotes ?? ""),
       renderInputBlock("refinements", (input.existingRefinements ?? []).join("、")),
       renderInputBlock("current_roster", (input.currentRosterSummary ?? []).join("\n")),
-      "<instruction>\n先理解，再推断，再生成。输出必须让人看出这位伙伴是顺着孩子的话长出来的。\n</instruction>"
+      "<instruction>\n先理解，再推断，再生成。输出必须让人看出这位伙伴是顺着小舰长的话长出来的。\n</instruction>"
     ].join("\n\n")
 };

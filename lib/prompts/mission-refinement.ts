@@ -11,7 +11,7 @@ export interface MissionRefinementPromptInput {
 export const missionRefinementPrompt: PromptBlueprint<MissionRefinementPromptInput> = {
   id: "mission-refinement-v1",
   label: "二轮修正提示词 V1",
-  goal: "根据玩家的第二轮补充和协作调整，生成更接近真相但仍保留悬念的修正结果。",
+  goal: "根据小舰长的第二轮补充和协作调整，生成更接近真相但仍保留悬念的修正结果。",
   inputGuide: [
     "第二轮补充要明显影响结果。",
     "不同分工和不同关注点应带来不同推进方式。",
@@ -19,7 +19,7 @@ export const missionRefinementPrompt: PromptBlueprint<MissionRefinementPromptInp
   ],
   outputGuide: [
     "返回修正后的重点、更新后的关键词、阶段结论、残留疑点、推荐下一步。",
-    "让孩子感受到“补充得更清楚，系统就更懂我”。"
+    "让小舰长感受到“补充得更清楚，系统就更懂我”。"
   ],
   system: renderSections([
     {
@@ -33,7 +33,7 @@ export const missionRefinementPrompt: PromptBlueprint<MissionRefinementPromptInp
       title: "style",
       body: [
         "要有“结果更接近真相”的推进感。",
-        "仍然不要全部讲透，要把真正的下一步留给玩家决定。"
+        "仍然不要全部讲透，要把真正的下一步留给小舰长决定。"
       ]
     },
     {
@@ -41,7 +41,7 @@ export const missionRefinementPrompt: PromptBlueprint<MissionRefinementPromptInp
       body: renderList([
         "完全重复第一轮内容",
         "一口气交出全部谜底",
-        "忽略玩家补充和协作变化"
+        "忽略小舰长补充和协作变化"
       ])
     }
   ]),

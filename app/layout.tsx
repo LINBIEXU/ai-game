@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "失落航星原型",
-  description: "一个面向 9-14 岁孩子的 AI 启蒙互动冒险最小原型"
+  description: "一个 AI 启蒙互动冒险最小原型"
 };
 
 export default function RootLayout({

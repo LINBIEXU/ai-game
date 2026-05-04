@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <radialGradient id="lamp" cx="72%" cy="28%" r="58%">
+      <stop offset="0" stop-color="#ffd89b" stop-opacity=".52"/>
+      <stop offset=".42" stop-color="#9ddfff" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#07101c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="room" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1b2434"/>
+      <stop offset=".62" stop-color="#0c1420"/>
+      <stop offset="1" stop-color="#080910"/>
+    </linearGradient>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="13" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#room)"/>
+  <rect width="2560" height="1440" fill="url(#lamp)"/>
+  <path d="M0 930 L570 680 H1990 L2560 930 V1440 H0 Z" fill="#11131b"/>
+  <g filter="url(#glow)">
+    <rect x="420" y="390" width="420" height="340" rx="42" fill="#0b1827" stroke="#8be8ff" stroke-width="5"/>
+    <rect x="488" y="462" width="284" height="42" rx="18" fill="#8be8ff" opacity=".30"/>
+    <rect x="488" y="540" width="214" height="34" rx="16" fill="#f7d385" opacity=".34"/>
+    <rect x="488" y="608" width="262" height="34" rx="16" fill="#8be8ff" opacity=".22"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M1050 860 h514 l94 298 H956z" fill="#241a16" stroke="#ffd39a" stroke-width="5"/>
+    <rect x="1138" y="734" width="320" height="170" rx="28" fill="#2a201a" stroke="#ffdcad" stroke-width="4"/>
+    <path d="M1182 808 h226" stroke="#ffe2bb" stroke-width="10" stroke-linecap="round" opacity=".66"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M1892 396 l174 64 -64 256 h-238 l-64-256z" fill="#201813" stroke="#ffd27a" stroke-width="5"/>
+    <circle cx="1884" cy="614" r="100" fill="#ffd27a" opacity=".22"/>
+    <path d="M1786 762 h228" stroke="#ffd27a" stroke-width="16" stroke-linecap="round" opacity=".52"/>
+  </g>
+  <g opacity=".30" stroke="#ffd49c" stroke-width="4">
+    <path d="M590 1046 C1020 976 1520 976 1960 1046"/>
+    <path d="M760 1190 H1840"/>
+  </g>
+</svg>

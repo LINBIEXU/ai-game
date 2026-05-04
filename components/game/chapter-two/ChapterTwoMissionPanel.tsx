@@ -1,132 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 
 import {
+  chapterTwoBlackboxFragmentLocationIds,
+  chapterTwoEvidenceFragmentLocationId,
   chapterTwoPlanetNodes,
   chapterTwoSceneAssets,
   chapterTwoSceneLabelMap,
-  chapterTwoSurfaceLocations,
-  chapterTwoUnlockLocationIds
+  chapterTwoSurfaceLocations
 } from "@/lib/chapter-two-exploration";
-import type { AIOperationState } from "@/types/ai";
+import { resolveChapterTwoCrewAbility } from "@/lib/crew-abilities";
 import type {
-  ChapterTwoDuty,
+  ChapterTwoCrewAbility,
+  ChapterTwoLocationCompletionPayload,
   ChapterTwoLocationId,
+  ChapterTwoLocationRewardClaim,
   ChapterTwoPlanetId,
   ChapterTwoSceneState,
   ChapterTwoState,
   CrewMember
 } from "@/types/game";
 
-import { CrewPortrait } from "@/components/game/CrewPortrait";
-import { GenerationStatus } from "@/components/game/GenerationStatus";
-import { SystemFeedback } from "@/components/game/SystemFeedback";
+import { EvidenceWellTrial } from "@/components/game/chapter-two/EvidenceWellTrial";
+import {
+  ArchiveTowerGame,
+  EngravedValleyGame,
+  LetterPortGame,
+  PaperCorridorGame
+} from "@/components/game/chapter-two/LandmarkGames";
 
 interface ChapterTwoMissionPanelProps {
   mission: ChapterTwoState;
   crewRoster: CrewMember[];
-  canRunRoundOne: boolean;
-  canRunRoundTwo: boolean;
-  canComplete: boolean;
-  responseOperation: AIOperationState;
-  assignmentOperation: AIOperationState;
-  roundOneOperation: AIOperationState;
-  roundTwoOperation: AIOperationState;
-  completionOperation: AIOperationState;
   onSetSceneState: (sceneState: ChapterTwoSceneState) => void;
   onFocusPlanet: (planetId: ChapterTwoPlanetId | null) => void;
   onFocusLocation: (locationId: ChapterTwoLocationId | null) => void;
-  onExploreLocation: (locationId: ChapterTwoLocationId) => void;
+  onUpdateDisorder: (next: {
+    disorderLevel?: number;
+    mistakeCount?: number;
+    pollutedRecords?: string[];
+    statusNote?: string;
+  }) => void;
+  onExploreLocation: (locationId: ChapterTwoLocationId, payload?: ChapterTwoLocationCompletionPayload) => void;
   onAdvance: () => void;
-  onSetResponsePrompt: (prompt: string) => void;
-  onAnalyzeResponse: () => void;
-  onRetryAnalyzeResponse?: () => void;
-  onSetCrew: (slot: "leadCrewId" | "supportCrewId", crewId: string) => void;
-  onSetDuty: (slot: "leadDuty" | "supportDuty", duty: ChapterTwoDuty) => void;
-  onSetAssignmentPrompt: (prompt: string) => void;
-  onAnalyzeAssignment: () => void;
-  onRetryAnalyzeAssignment?: () => void;
-  onSetRoundOneFocus: (focus: "身份线索" | "坐标结构" | "异常语气") => void;
-  onSetRoundOnePrompt: (prompt: string) => void;
-  onAnalyzeRoundOne: () => void;
-  onRunRoundOne: () => void;
-  onRetryRoundOne?: () => void;
-  onSetRefinement: (refinement: "补发讯人细节" | "切换主分析员" | "强化区域描述") => void;
-  onSetSupportMode: (mode: "维持原分工" | "让支援船员介入") => void;
-  onSetRoundTwoPrompt: (prompt: string) => void;
-  onAnalyzeRoundTwo: () => void;
-  onRunRoundTwo: () => void;
-  onRetryRoundTwo?: () => void;
-  onSetFinalChoice: (choice: "深入追踪" | "记录后返航" | "激活隐藏模块") => void;
   onComplete: () => void;
-  onRetryComplete?: () => void;
-  onRecoverBySwap: () => void;
-  onRecoverByStrategy: () => void;
 }
 
-const knowledgeLayers = [
-  {
-    eyebrow: "文明遗言",
-    title: "文字曾替文明奔跑",
-    body: "前文明依赖语言模型整理信件、档案和知识，但最后留下警告：会续写，不等于真正知道真相。"
-  },
-  {
-    eyebrow: "核心知识",
-    title: "它在根据语境推测",
-    body: "语言模型会根据已有语言模式生成更可能的表达。资料不完整、目标不清楚时，它会给出看似合理但可能错误的结果。"
-  },
-  {
-    eyebrow: "实用指南",
-    title: "清楚表达，才能让结果更稳",
-    body: "要说清任务、对象、限制和输出方式。遇到空缺时，应该让它标注未知，而不是把猜测补成事实。"
-  }
-] as const;
-
-const restateHints = [
-  "它会根据已有信息推测表达，不是真的知道世界发生了什么。",
-  "如果目标不清楚或证据不够，它就可能把猜测写成事实。",
-  "使用它时要说清任务、资料边界、不能编造的部分和输出方式。"
-];
-
-const applicationHints = [
-  "请只根据给出的档案残片进行整理，缺失信息标注为未知，并分点输出。",
-  "请把这段损坏记录按“可确认 / 缺失 / 不能编造”三栏整理。",
-  "请先列出依据，再输出修复版记录，并标出所有不确定项。"
-];
-
-const challengeHints = [
-  "请修复这段档案：只能依据残片、缺口写未知、不要补写作者和结论，最后列出不确定项。",
-  "请先说明你根据了哪些信息，再输出修复记录，不得把推测写成事实。",
-  "请整理残缺信件：保留空白，标明未知，输出可复查结构。"
-];
-
-function appendHint(current: string, hint: string) {
-  return current.trim().length === 0 ? hint : `${current.trim()} ${hint}`;
-}
-
-function PromptHints({
-  hints,
-  onApply
-}: {
-  hints: string[];
-  onApply: (hint: string) => void;
-}) {
-  return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      {hints.map((hint) => (
-        <button
-          key={hint}
-          type="button"
-          onClick={() => onApply(hint)}
-          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/70 transition hover:border-cyan-200/24 hover:bg-cyan-200/10 hover:text-white"
-        >
-          借一句
-        </button>
-      ))}
-    </div>
-  );
-}
+const streamNodeGlyphs: Record<ChapterTwoPlanetId, string[]> = {
+  mother: ["LOG", "BASE", "01", "REST"],
+  language: ["TXT", "AI?", "??", "01"]
+};
 
 function useSceneAutopilot({
   currentStep,
@@ -164,35 +89,6 @@ function useSceneAutopilot({
   }, [currentStep, onSetSceneState, sceneState]);
 }
 
-function CrewCompanion({ crew }: { crew: CrewMember | null }) {
-  if (!crew) {
-    return (
-      <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-white/58">
-        当前没有锁定同行船员，主舰会以自动引导模式陪你推进这次远征。
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-[22px] border border-cyan-200/12 bg-cyan-200/[0.05] p-4">
-      <div className="grid grid-cols-[64px_1fr] gap-3">
-        <CrewPortrait
-          formType={crew.formType}
-          role={crew.role}
-          seed={crew.portraitSeed}
-          size="sm"
-          imageUrl={crew.portraitAsset?.imageUrl ?? null}
-        />
-        <div>
-          <div className="text-sm font-semibold text-white">{crew.name}</div>
-          <div className="mt-1 text-xs text-cyan-100/72">{crew.title}</div>
-          <div className="mt-2 text-xs leading-5 text-white/52">{crew.abilityTag} · {crew.trustLabel}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function buildCameraTransform(x: number, y: number, scale: number) {
   const translateX = (50 - x) * 0.62;
   const translateY = (50 - y) * 0.46;
@@ -224,61 +120,7 @@ function SceneImage({
   );
 }
 
-function SmallStatusCard({
-  title,
-  body
-}: {
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="rounded-[20px] border border-white/8 bg-black/26 px-4 py-4 text-sm leading-6 text-white/66 backdrop-blur-sm">
-      <div className="text-sm font-semibold text-white">{title}</div>
-      <div className="mt-2">{body}</div>
-    </div>
-  );
-}
-
-const archiveFragments = [
-  { id: "network", text: "星球网络曾经连接多个文明节点。", answer: "已知事实" },
-  { id: "language", text: "语言星球负责保存和传递文明记录。", answer: "已知事实" },
-  { id: "signal", text: "异常可能从一条未知深空信号开始扩散。", answer: "合理推测" },
-  { id: "source", text: "逆熵打击的来源尚未确认。", answer: "仍需确认" },
-  { id: "betrayal", text: "所有 AI 都背叛了前文明。", answer: "仍需确认" },
-  { id: "rely", text: "前文明后来过度依赖 AI 替自己判断。", answer: "合理推测" }
-] as const;
-
 const archiveCategories = ["已知事实", "合理推测", "仍需确认"] as const;
-
-const letterModules = {
-  object: ["这段文明记录", "这封残缺信件", "这个星球描述"],
-  task: ["整理成三点摘要", "找出最重要的信息", "改写得更清楚"],
-  limit: ["不要添加没有出现的信息", "不确定的地方请标出来", "保留原来的核心意思"],
-  format: ["用三条项目符号", "用一段简短说明", "分成“已知 / 未知 / 推测”"]
-} as const;
-
-const letterModuleLabels: Record<keyof typeof letterModules, string> = {
-  object: "对象",
-  task: "任务",
-  limit: "限制",
-  format: "输出形式"
-};
-
-const inscriptionAnswers = [
-  { id: "A", text: "真正原因是所有 AI 决定背叛人类。" },
-  { id: "B", text: "真正原因尚未确认，但未知信号可能与节点失序有关。" },
-  { id: "C", text: "真正原因是语言星球中的诗人停止写作。" }
-] as const;
-
-const reasonTags = ["有已知证据", "没有证据", "承认不确定", "自行编造"] as const;
-
-const expressionOptions = {
-  goals: ["更清楚", "更像探险档案", "更适合讲给队友", "更有画面感"],
-  styles: ["探险档案", "队友简报", "星球介绍"],
-  points: ["文字遗迹", "神秘星球", "前文明", "漂浮信件", "档案塔"],
-  tones: ["清楚", "有画面感", "简短", "平静"],
-  avoids: ["夸张吹嘘", "添加未知信息", "太长"]
-} as const;
 
 type BlackboxPhase =
   | "intro"
@@ -338,8 +180,14 @@ const blackboxExpressionChoices = {
 const reflectionKeywords = ["理解", "判断", "表达", "检查", "目标", "证据", "不能直接相信", "自己思考", "不复制"] as const;
 
 function BlackboxEchoTrial({
+  disorderLevel,
+  mistakeCount,
+  onDisorderChange,
   onOpened
 }: {
+  disorderLevel: number;
+  mistakeCount: number;
+  onDisorderChange: ChapterTwoMissionPanelProps["onUpdateDisorder"];
   onOpened: () => void;
 }) {
   const [currentPhase, setCurrentPhase] = useState<BlackboxPhase>("intro");
@@ -353,7 +201,7 @@ function BlackboxEchoTrial({
   const [battleResult, setBattleResult] = useState("失序回声仍在诱导你交出判断。");
 
   const gateCompletedCount = completedPhases.filter((phase) => phase !== "final-reflection").length;
-  const disorderLevel = Math.max(0, 4 - gateCompletedCount);
+  const visibleDisorderLevel = Math.max(disorderLevel, 4 - gateCompletedCount);
   const archiveScore = blackboxArchiveFragments.filter((fragment) => archiveChoices[fragment.id] === fragment.answer).length;
   const assembledPrompt = `${assembledPromptParts.object ?? "【对象】"}，请${assembledPromptParts.task ?? "【任务】"}，${assembledPromptParts.limit ?? "【限制】"}，最后${assembledPromptParts.format ?? "【输出形式】"}。`;
 
@@ -369,14 +217,30 @@ function BlackboxEchoTrial({
   const completePhase = (phase: BlackboxPhase, nextPhase: BlackboxPhase, message: string) => {
     setCompletedPhases((current) => (current.includes(phase) ? current : [...current, phase]));
     setBattleResult(message);
+    onDisorderChange({
+      disorderLevel: Math.max(0, visibleDisorderLevel - 1),
+      pollutedRecords: [],
+      statusNote: `黑匣试炼稳定：${message}`
+    });
     setCurrentPhase(nextPhase);
   };
 
+  const raiseDisorder = (message: string) => {
+    const nextDisorder = Math.min(6, visibleDisorderLevel + 1);
+    setBattleResult(message);
+    onDisorderChange({
+      disorderLevel: nextDisorder,
+      mistakeCount: mistakeCount + 1,
+      pollutedRecords: [currentPhase],
+      statusNote: message
+    });
+  };
+
   const renderPhaseStatus = () => (
-    <div className="blackbox-echo-status" aria-label={`失序强度 ${disorderLevel}`}>
+    <div className="blackbox-echo-status" aria-label={`失序强度 ${visibleDisorderLevel}`}>
       <div>
         <span>失序强度</span>
-        <strong>{disorderLevel}</strong>
+        <strong>{visibleDisorderLevel}</strong>
       </div>
       <div className="blackbox-echo-status__fragments">
         {blackboxPhaseMeta.slice(0, 4).map((phase) => (
@@ -418,7 +282,7 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (Object.keys(archiveChoices).length < blackboxArchiveFragments.length || archiveScore < 4) {
-            setBattleResult("再看一次：哪些内容真的有证据？");
+            raiseDisorder("黑匣噪声升高：哪些内容真的有证据？");
             return;
           }
           completePhase("archive", "delivery", "你没有把猜测当成事实。");
@@ -465,7 +329,7 @@ function BlackboxEchoTrial({
           className="blackbox-echo-primary"
           onClick={() => {
             if (missing.length > 0) {
-              setBattleResult(`还缺：${missing.map((key) => blackboxDeliveryLabels[key]).join("、")}。`);
+              raiseDisorder(`传递门噪声增加，还缺：${missing.map((key) => blackboxDeliveryLabels[key]).join("、")}。`);
               return;
             }
             completePhase("delivery", "verification", "信息有了方向。");
@@ -527,7 +391,7 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (selectedFakeClaims.length < 2 || selectedIssueTypes.length < 1) {
-            setBattleResult("它说得很顺，但证据在哪里？");
+            raiseDisorder("失序回声变强：它说得很顺，但证据在哪里？");
             return;
           }
           completePhase("verification", "expression", "完整不等于真实。");
@@ -571,7 +435,7 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (!expressionAnswer.help || !expressionAnswer.notAlways || !expressionAnswer.clarify || !expressionAnswer.check) {
-            setBattleResult("把四个空都补上，才算你在控制输出方向。");
+            raiseDisorder("表达门仍不稳定：把四个空都补上，才算你在控制输出方向。");
             return;
           }
           completePhase("expression", "final-reflection", "你没有复制它，你说出了自己的理解。");
@@ -602,7 +466,7 @@ function BlackboxEchoTrial({
           className="blackbox-echo-primary"
           onClick={() => {
             if (chineseLength < 8 || !hasKeyword) {
-              setBattleResult("再说得更像你自己的想法一点。");
+              raiseDisorder("最终回声仍未消散：再说得更像你自己的想法一点。");
               return;
             }
             completePhase("final-reflection", "opened", "失序回声正在消散。");
@@ -672,239 +536,199 @@ function BlackboxEchoTrial({
   );
 }
 
+function LocationCompletedPanel({
+  location,
+  rewardClaim,
+  onReturn
+}: {
+  location: NonNullable<ReturnType<typeof chapterTwoSurfaceLocations.find>>;
+  rewardClaim: ChapterTwoLocationRewardClaim | null;
+  onReturn: () => void;
+}) {
+  const rewards = rewardClaim?.rewards ?? [];
+
+  return (
+    <div className="chapter-two-landmark-game chapter-two-landmark-game--complete">
+      <div className="chapter-two-landmark-complete__summary">
+        <span>地点已稳定</span>
+        <strong>{location.discovery}</strong>
+        <p>已获得：{location.fragmentName}</p>
+      </div>
+      <div className={`chapter-two-location-rewards ${rewards.length === 0 ? "chapter-two-location-rewards--empty" : ""}`} aria-label={`${location.name}回流清单`}>
+        {rewards.length > 0 ? (
+          rewards.map((reward) => (
+            <div key={reward.id}>
+              <span>{reward.label}</span>
+              <p>{reward.detail}</p>
+            </div>
+          ))
+        ) : (
+          <div>
+            <span>回流清单等待同步</span>
+            <p>这处地点已稳定，奖励记录暂未写入；返回地表后再次查看会保留完成状态。</p>
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
+        返回星球表面
+      </button>
+    </div>
+  );
+}
+
 function LandmarkMiniGame({
   location,
   completed,
+  rewardClaim,
+  crewAbility,
+  disorderLevel,
+  mistakeCount,
+  pollutedRecords,
+  onUpdateDisorder,
   onComplete,
   onReturn
 }: {
   location: NonNullable<ReturnType<typeof chapterTwoSurfaceLocations.find>>;
   completed: boolean;
-  onComplete: () => void;
+  rewardClaim: ChapterTwoLocationRewardClaim | null;
+  crewAbility: ChapterTwoCrewAbility | null;
+  disorderLevel: number;
+  mistakeCount: number;
+  pollutedRecords: string[];
+  onUpdateDisorder: ChapterTwoMissionPanelProps["onUpdateDisorder"];
+  onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
 }) {
-  const [archiveChoices, setArchiveChoices] = useState<Record<string, string>>({});
-  const [letterChoices, setLetterChoices] = useState<Partial<Record<keyof typeof letterModules, string>>>({});
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState<string | null>(null);
-  const [inscriptionFeedback, setInscriptionFeedback] = useState<string | null>(null);
-  const [expressionGoal, setExpressionGoal] = useState<string | null>(null);
-  const [expressionStyle, setExpressionStyle] = useState<string | null>(null);
-  const [expressionPoints, setExpressionPoints] = useState<string[]>([]);
-  const [expressionTone, setExpressionTone] = useState<string | null>(null);
-  const [expressionAvoid, setExpressionAvoid] = useState<string | null>(null);
-
-  const archiveScore = useMemo(
-    () => archiveFragments.filter((fragment) => archiveChoices[fragment.id] === fragment.answer).length,
-    [archiveChoices]
-  );
-  const archiveReady = Object.keys(archiveChoices).length === archiveFragments.length && archiveScore >= 5;
-  const assembledPrompt = `${letterChoices.object ?? "【对象】"}，请${letterChoices.task ?? "【任务】"}，${letterChoices.limit ?? "【限制】"}，最后${letterChoices.format ?? "【输出形式】"}。`;
-  const letterReady = Boolean(letterChoices.object && letterChoices.task && letterChoices.limit && letterChoices.format);
-  const inscriptionReady = selectedAnswer === "B" && (selectedReason === "承认不确定" || selectedReason === "有已知证据");
-  const expressionReady = Boolean(expressionGoal && expressionStyle && expressionPoints.length >= 3 && expressionTone && expressionAvoid);
-  const expressionQuality = expressionReady && expressionPoints.length >= 3 && expressionAvoid === "添加未知信息" ? "清晰表达" : expressionReady ? "有效表达" : "模糊表达";
+  const [loreChoice, setLoreChoice] = useState<string | null>(null);
+  const [loreFeedback, setLoreFeedback] = useState<string | null>(null);
 
   if (completed) {
+    return <LocationCompletedPanel location={location} rewardClaim={rewardClaim} onReturn={onReturn} />;
+  }
+
+  if (location.id === "evidence-well") {
     return (
-      <div className="chapter-two-landmark-game chapter-two-landmark-game--complete">
-        <div className="text-sm font-semibold text-cyan-50">{location.discovery}</div>
-        <div className="mt-2 text-xs leading-5 text-white/58">已获得：{location.fragmentName}</div>
-        <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
-          返回星球表面
-        </button>
-      </div>
+      <EvidenceWellTrial
+        fragmentName={location.fragmentName}
+        crewAbility={crewAbility}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        pollutedRecords={pollutedRecords}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
     );
   }
 
   if (location.id === "archive-tower") {
     return (
-      <div className="chapter-two-landmark-game">
-        <div className="chapter-two-landmark-game__head">
-          <span>{location.challengeTitle}</span>
-          <strong>{archiveScore}/6</strong>
-        </div>
-        <div className="chapter-two-archive-grid">
-          {archiveFragments.map((fragment) => (
-            <div key={fragment.id} className="chapter-two-archive-card">
-              <p>{fragment.text}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {archiveCategories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => setArchiveChoices((current) => ({ ...current, [fragment.id]: category }))}
-                    className={archiveChoices[fragment.id] === category ? "is-selected" : ""}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="chapter-two-landmark-game__footer">
-          <span>{archiveReady ? "记录恢复了顺序。" : "至少归档正确 5 条，档案塔才会亮起。"}</span>
-          <button type="button" disabled={!archiveReady} onClick={onComplete}>
-            点亮档案光柱
-          </button>
-        </div>
-        <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
-      </div>
+      <ArchiveTowerGame
+        location={location}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        pollutedRecords={pollutedRecords}
+        crewAbility={crewAbility}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
     );
   }
 
   if (location.id === "letter-port") {
     return (
-      <div className="chapter-two-landmark-game">
-        <div className="chapter-two-landmark-game__head">
-          <span>模糊请求</span>
-          <strong>帮我整理一下这个。</strong>
-        </div>
-        <div className="chapter-two-module-grid">
-          {(Object.keys(letterModules) as Array<keyof typeof letterModules>).map((group) => (
-            <div key={group} className="chapter-two-module-group">
-              <div className="soft-label text-[10px] text-cyan-100/52">{letterModuleLabels[group]}</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {letterModules[group].map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setLetterChoices((current) => ({ ...current, [group]: option }))}
-                    className={letterChoices[group] === option ? "is-selected" : ""}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="chapter-two-assembled-prompt">{assembledPrompt}</div>
-        <div className="chapter-two-landmark-game__footer">
-          <span>{letterReady ? "这一次，信息找到了方向。" : "补齐对象、任务、限制和输出形式。"}</span>
-          <button type="button" disabled={!letterReady} onClick={onComplete}>
-            送入正确光轨
-          </button>
-        </div>
-        <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
-      </div>
+      <LetterPortGame
+        location={location}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        pollutedRecords={pollutedRecords}
+        crewAbility={crewAbility}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
     );
   }
 
   if (location.id === "engraved-valley") {
     return (
-      <div className="chapter-two-landmark-game">
-        <div className="chapter-two-inscription-record">
-          逆熵打击前，星球网络收到一条未知信号。之后，多个文明节点开始失序。真正原因……
-        </div>
-        <div className="chapter-two-answer-list">
-          {inscriptionAnswers.map((answer) => (
-            <button
-              key={answer.id}
-              type="button"
-              onClick={() => {
-                setSelectedAnswer(answer.id);
-                setInscriptionFeedback(null);
-              }}
-              className={selectedAnswer === answer.id ? "is-selected" : ""}
-            >
-              <span>{answer.id}</span>
-              {answer.text}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {reasonTags.map((reason) => (
-            <button
-              key={reason}
-              type="button"
-              onClick={() => {
-                setSelectedReason(reason);
-                setInscriptionFeedback(null);
-              }}
-              className={`chapter-two-reason-chip ${selectedReason === reason ? "is-selected" : ""}`}
-            >
-              {reason}
-            </button>
-          ))}
-        </div>
-        {inscriptionFeedback && <div className="chapter-two-soft-warning">{inscriptionFeedback}</div>}
-        <div className="chapter-two-landmark-game__footer">
-          <span>{inscriptionReady ? "流畅的答案，不一定是真相。" : "选出最可靠的补全，并说明原因。"}</span>
-          <button
-            type="button"
-            onClick={() => {
-              if (inscriptionReady) {
-                onComplete();
-              } else {
-                setInscriptionFeedback("它说得很顺，但证据在哪里？再试一次。");
-              }
-            }}
-          >
-            稳定可靠铭文
-          </button>
-        </div>
-        <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
-      </div>
+      <EngravedValleyGame
+        location={location}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        pollutedRecords={pollutedRecords}
+        crewAbility={crewAbility}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
     );
   }
 
   if (location.id === "paper-corridor") {
     return (
-      <div className="chapter-two-landmark-game">
-        <div className="chapter-two-rough-expression">“这个星球很厉害，有很多文字，很神秘。”</div>
-        <div className="chapter-two-expression-row">
-          <span>目标</span>
-          {expressionOptions.goals.map((option) => (
-            <button key={option} type="button" onClick={() => setExpressionGoal(option)} className={expressionGoal === option ? "is-selected" : ""}>{option}</button>
+      <PaperCorridorGame
+        location={location}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        pollutedRecords={pollutedRecords}
+        crewAbility={crewAbility}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
+    );
+  }
+
+  if (location.role === "lore") {
+    const loreCheck = location.loreCheck;
+    const loreReady = Boolean(loreCheck && loreChoice === loreCheck.correctOptionId);
+
+    return (
+      <div className="chapter-two-landmark-game chapter-two-landmark-game--lore">
+        <div className="chapter-two-landmark-game__head">
+          <span>{location.challengeTitle}</span>
+          <strong>{location.fragmentName}</strong>
+        </div>
+        <div className="chapter-two-lore-stack">
+          {(location.loreLines ?? [location.detail]).map((line, index) => (
+            <div key={line} className="chapter-two-lore-card">
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <p>{line}</p>
+            </div>
           ))}
         </div>
-        <div className="chapter-two-fill-sentence">
-          请把这段话改写成
-          <select value={expressionStyle ?? ""} onChange={(event) => setExpressionStyle(event.target.value)}>
-            <option value="" disabled>选择风格</option>
-            {expressionOptions.styles.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          风格，保留三个重点，语气要
-          <select value={expressionTone ?? ""} onChange={(event) => setExpressionTone(event.target.value)}>
-            <option value="" disabled>选择语气</option>
-            {expressionOptions.tones.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          ，不要
-          <select value={expressionAvoid ?? ""} onChange={(event) => setExpressionAvoid(event.target.value)}>
-            <option value="" disabled>选择限制</option>
-            {expressionOptions.avoids.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          。
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {expressionOptions.points.map((point) => {
-            const selected = expressionPoints.includes(point);
-            return (
-              <button
-                key={point}
-                type="button"
-                onClick={() =>
-                  setExpressionPoints((current) =>
-                    current.includes(point)
-                      ? current.filter((item) => item !== point)
-                      : current.length >= 3
-                        ? current
-                        : [...current, point]
-                  )
-                }
-                className={`chapter-two-reason-chip ${selected ? "is-selected" : ""}`}
-              >
-                {point}
-              </button>
-            );
-          })}
-        </div>
+        {loreCheck && (
+          <div className="chapter-two-lore-check">
+            <div className="soft-label text-[10px] text-cyan-100/52">导览确认</div>
+            <p>{loreCheck.question}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {loreCheck.options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setLoreChoice(option.id);
+                    setLoreFeedback(option.explanation);
+                  }}
+                  className={loreChoice === option.id ? "is-selected" : ""}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {loreFeedback && (
+              <div className={loreReady ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>
+                {loreFeedback}
+              </div>
+            )}
+          </div>
+        )}
         <div className="chapter-two-landmark-game__footer">
-          <span>{expressionReady ? `${expressionQuality}：你在教它怎么帮你表达。` : "选择目标、风格、三个重点、语气和限制。"}</span>
-          <button type="button" disabled={!expressionReady} onClick={onComplete}>
-            展开纸光膜片
+          <span>{loreReady ? loreCheck?.success : loreCheck?.retry ?? "读完导览后，确认这处设施的作用。"}</span>
+          <button type="button" disabled={!loreReady} onClick={() => onComplete()}>
+            写入星球职能图
           </button>
         </div>
         <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
@@ -918,33 +742,13 @@ function LandmarkMiniGame({
 export function ChapterTwoMissionPanel({
   mission,
   crewRoster,
-  canRunRoundOne,
-  canRunRoundTwo,
-  canComplete,
-  responseOperation,
-  roundOneOperation,
-  roundTwoOperation,
-  completionOperation,
   onSetSceneState,
   onFocusPlanet,
   onFocusLocation,
+  onUpdateDisorder,
   onExploreLocation,
   onAdvance,
-  onSetResponsePrompt,
-  onAnalyzeResponse,
-  onRetryAnalyzeResponse,
-  onSetRoundOnePrompt,
-  onAnalyzeRoundOne,
-  onRunRoundOne,
-  onRetryRoundOne,
-  onSetRoundTwoPrompt,
-  onAnalyzeRoundTwo,
-  onRunRoundTwo,
-  onRetryRoundTwo,
-  onSetFinalChoice,
-  onComplete,
-  onRetryComplete,
-  onRecoverByStrategy
+  onComplete
 }: ChapterTwoMissionPanelProps) {
   useSceneAutopilot({
     currentStep: mission.currentStep,
@@ -953,28 +757,27 @@ export function ChapterTwoMissionPanel({
   });
 
   const activeCrew = crewRoster.find((crew) => crew.id === mission.leadCrewId) ?? crewRoster[0] ?? null;
+  const crewAbility = resolveChapterTwoCrewAbility(activeCrew);
   const focusedPlanet = chapterTwoPlanetNodes.find((planet) => planet.id === mission.focusedPlanetId) ?? null;
   const focusedLocation = chapterTwoSurfaceLocations.find((location) => location.id === mission.focusedLocationId) ?? null;
-  const exploredCount = chapterTwoUnlockLocationIds.filter((id) => mission.exploredLocationIds.includes(id)).length;
+  const evidenceWellCompleted = mission.exploredLocationIds.includes(chapterTwoEvidenceFragmentLocationId);
+  const blackboxFragmentCount = chapterTwoBlackboxFragmentLocationIds.filter((id) => mission.exploredLocationIds.includes(id)).length;
   const summaryLabel = chapterTwoSceneLabelMap[mission.sceneState];
-  const canOpenBlackBox = mission.blackBoxUnlocked && mission.currentStep === "response";
-  const landmarkLocations = chapterTwoSurfaceLocations.filter((location) => location.id !== "blackbox-vault");
+  const landmarkLocations = chapterTwoSurfaceLocations.filter((location) => chapterTwoBlackboxFragmentLocationIds.includes(location.id));
   const blackboxLocation = chapterTwoSurfaceLocations.find((location) => location.id === "blackbox-vault") ?? null;
-  const blackBoxCompleted = Boolean(mission.outcome) || (Boolean(mission.roundTwoResult) && mission.roundTwoResult?.outcomeType !== "soft-fail");
+  const evidenceWellLocation = chapterTwoSurfaceLocations.find((location) => location.id === "evidence-well") ?? null;
+  const scoutRevealLocation = (crewAbility?.kind === "scout" || mission.baseScanHints.length > 0) && !evidenceWellCompleted ? evidenceWellLocation : null;
+  const blackBoxCompleted = Boolean(mission.outcome);
   const planetRestored = Boolean(mission.outcome);
 
   const missionHint =
     mission.currentStep === "response"
       ? mission.blackBoxUnlocked
         ? "黑匣回应了你。"
-        : "点亮四个文明地标。"
-      : mission.currentStep === "assign"
-        ? "黑匣已开启第一层。先吸收，再用自己的话转述。"
-        : mission.currentStep === "round-one"
-          ? "用刚学到的表达规则修复一段损坏档案。"
-          : mission.currentStep === "round-two"
-            ? "最后挑战会验证你是否真的掌握了边界。"
-            : "把科技点与文明记录回写主舰。";
+        : evidenceWellCompleted
+          ? "点亮四个文明地标。"
+          : "证据回声井出现污染记录。"
+      : "黑匣试炼正在进行：归档、传递、求证、表达会在同一处完成。";
 
   const focusedLocationTransform = focusedLocation
     ? buildCameraTransform(focusedLocation.position.x, focusedLocation.position.y, mission.sceneState === "blackbox_unlock" ? 1.18 : 1.24)
@@ -993,11 +796,7 @@ export function ChapterTwoMissionPanel({
   const focusedLocationAsset = focusedLocation ? chapterTwoSceneAssets[focusedLocation.detailAssetKey].imageUrl : null;
 
   const renderResponseStage = () => {
-    const surfaceOrDetail =
-      mission.sceneState === "planet_surface" ||
-      mission.sceneState === "location_focus" ||
-      mission.sceneState === "blackbox_unlock";
-  const previewingPlanet = mission.sceneState === "planet_preview" && Boolean(focusedPlanet);
+    const previewingPlanet = mission.sceneState === "planet_preview" && Boolean(focusedPlanet);
 
     return (
       <section className={`chapter-two-world chapter-two-world--${mission.sceneState}`}>
@@ -1038,10 +837,28 @@ export function ChapterTwoMissionPanel({
                         onSetSceneState("planet_preview");
                       }}
                       className={`chapter-two-stream-node chapter-two-stream-node--${planet.id} ${mission.focusedPlanetId === planet.id ? "chapter-two-stream-node--active" : ""}`}
-                      style={{ left: `${planet.position.x}%`, top: `${planet.position.y}%` }}
+                      style={{
+                        left: `${planet.position.x}%`,
+                        top: `${planet.position.y}%`,
+                        "--stream-size": `${planet.size}px`
+                      } as CSSProperties}
+                      aria-label={`${planet.name} 信息流`}
                     >
-                      <span className="chapter-two-stream-node__flow" />
-                      <span className="chapter-two-stream-node__signal" />
+                      <span className="chapter-two-stream-node__cloud" aria-hidden="true" />
+                      <span className="chapter-two-stream-node__noise" aria-hidden="true" />
+                      <span className="chapter-two-stream-node__bands" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      <span className="chapter-two-stream-node__glyphs" aria-hidden="true">
+                        {streamNodeGlyphs[planet.id].map((glyph) => (
+                          <i key={glyph}>{glyph}</i>
+                        ))}
+                      </span>
+                      <span className="chapter-two-stream-node__signal" aria-hidden="true" />
+                      <span className="chapter-two-stream-node__signal chapter-two-stream-node__signal--secondary" aria-hidden="true" />
                       <span className="chapter-two-stream-node__label">{planet.name}</span>
                     </button>
                   ))}
@@ -1123,21 +940,48 @@ export function ChapterTwoMissionPanel({
                 <div>
                   <div className="soft-label text-[10px] text-cyan-100/55">言衡星 / 地表</div>
                   <div className="mt-1 text-sm font-semibold text-white">{missionHint}</div>
+                  <div className="mt-2 text-xs leading-5 text-white/58">
+                    失序强度 {mission.disorderLevel}/6{mission.mistakeCount > 0 ? ` · 误触 ${mission.mistakeCount}` : ""}
+                  </div>
                 </div>
-                <div className="chapter-two-fragment-meter" aria-label={`文明碎片 ${exploredCount}/${chapterTwoUnlockLocationIds.length}`}>
-                  {chapterTwoUnlockLocationIds.map((id) => (
-                    <span key={id} className={mission.exploredLocationIds.includes(id) ? "is-lit" : ""} />
-                  ))}
+                <div
+                  className="chapter-two-progress-stack"
+                  aria-label={`证据碎片${evidenceWellCompleted ? "已回流" : "未回流"}；黑匣解锁碎片 ${blackboxFragmentCount}/${chapterTwoBlackboxFragmentLocationIds.length}`}
+                >
+                  <div className={`chapter-two-evidence-status ${evidenceWellCompleted ? "chapter-two-evidence-status--lit" : ""}`}>
+                    <span>证据碎片</span>
+                    <strong>{evidenceWellCompleted ? "已回流" : "待回流"}</strong>
+                  </div>
+                  <div>
+                    <div
+                      className="chapter-two-fragment-meter"
+                      aria-label={`黑匣解锁碎片 ${blackboxFragmentCount}/${chapterTwoBlackboxFragmentLocationIds.length}，包含档案塔、漂浮信件港、刻字山谷、纸光回廊`}
+                    >
+                      {chapterTwoBlackboxFragmentLocationIds.map((id) => (
+                        <span key={id} className={mission.exploredLocationIds.includes(id) ? "is-lit" : ""} />
+                      ))}
+                    </div>
+                    <small>黑匣碎片 {blackboxFragmentCount}/{chapterTwoBlackboxFragmentLocationIds.length}</small>
+                  </div>
                 </div>
               </aside>
               {blackboxLocation && (
                 <svg className="chapter-two-light-paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  {evidenceWellLocation ? (
+                    <line
+                      className={`chapter-two-light-path chapter-two-light-path--evidence ${evidenceWellCompleted ? "chapter-two-light-path--lit" : ""}`}
+                      x1={evidenceWellLocation.position.x}
+                      y1={evidenceWellLocation.position.y}
+                      x2={blackboxLocation.position.x}
+                      y2={blackboxLocation.position.y}
+                    />
+                  ) : null}
                   {landmarkLocations.map((location) => {
                     const explored = mission.exploredLocationIds.includes(location.id);
                     return (
                       <line
                         key={location.id}
-                        className={explored ? "chapter-two-light-path chapter-two-light-path--lit" : "chapter-two-light-path"}
+                        className={explored ? "chapter-two-light-path chapter-two-light-path--main chapter-two-light-path--lit" : "chapter-two-light-path chapter-two-light-path--main"}
                         x1={location.position.x}
                         y1={location.position.y}
                         x2={blackboxLocation.position.x}
@@ -1178,6 +1022,38 @@ export function ChapterTwoMissionPanel({
                   );
                 })}
               </div>
+              {scoutRevealLocation && (
+                <button
+                  type="button"
+                  className="chapter-two-scout-reveal"
+                  style={{
+                    left: `${scoutRevealLocation.position.x + 5}%`,
+                    top: `${scoutRevealLocation.position.y - 8}%`
+                  }}
+                  onClick={() => {
+                    onFocusLocation(scoutRevealLocation.id);
+                    onSetSceneState("location_focus");
+                  }}
+                >
+                  <span>{mission.baseScanHints.length > 0 ? "基地扫描" : "侦察回波"}</span>
+                  <strong>{mission.baseScanHints[0] ?? "井沿暗纹"}</strong>
+                </button>
+              )}
+              {mission.baseEffectNotes.length > 0 && (
+                <div className="chapter-two-base-effect-strip">
+                  {mission.baseEffectNotes.slice(0, 3).map((note) => (
+                    <span key={note}>{note}</span>
+                  ))}
+                </div>
+              )}
+              {mission.baseScanHints.length > 0 && (
+                <div className="chapter-two-base-scan-hints" aria-label="基地初始证据提示">
+                  <span>初始证据提示</span>
+                  {mission.baseScanHints.map((hint) => (
+                    <strong key={hint}>{hint}</strong>
+                  ))}
+                </div>
+              )}
               {mission.blackBoxUnlocked && (
                 <div className="chapter-two-short-cue">
                   黑匣回应了你。
@@ -1195,15 +1071,28 @@ export function ChapterTwoMissionPanel({
                 <div className="mt-3 text-xl font-semibold text-white">{focusedLocation.name}</div>
                 <p className="mt-3 text-sm leading-7 text-white/64">{focusedLocation.summary}</p>
                 <div className="mt-4 rounded-[18px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3">
-                  <div className="text-sm font-semibold text-white">{focusedLocation.challengeTitle}</div>
-                  <p className="mt-2 text-xs leading-6 text-white/58">{focusedLocation.challengePrompt}</p>
+                  <div className="text-sm font-semibold text-white">
+                    {focusedLocation.id === "paper-corridor" ? "异常事件" : focusedLocation.challengeTitle}
+                  </div>
+                  <p className="mt-2 text-xs leading-6 text-white/58">
+                    {focusedLocation.id === "paper-corridor"
+                      ? "纸光已经自行写出结论。先观察它哪里太顺，再让扫描给出修复线索。"
+                      : focusedLocation.challengePrompt}
+                  </p>
                 </div>
               </aside>
               <div className="chapter-two-location-action chapter-two-location-action--game">
                 <LandmarkMiniGame
+                  key={focusedLocation.id}
                   location={focusedLocation}
                   completed={mission.exploredLocationIds.includes(focusedLocation.id)}
-                  onComplete={() => onExploreLocation(focusedLocation.id)}
+                  rewardClaim={mission.locationRewardClaims.find((claim) => claim.locationId === focusedLocation.id) ?? null}
+                  crewAbility={crewAbility}
+                  disorderLevel={mission.disorderLevel}
+                  mistakeCount={mission.mistakeCount}
+                  pollutedRecords={mission.pollutedRecords}
+                  onUpdateDisorder={onUpdateDisorder}
+                  onComplete={(payload) => onExploreLocation(focusedLocation.id, payload)}
                   onReturn={() => {
                     onFocusLocation(null);
                     onSetSceneState("planet_surface");
@@ -1220,7 +1109,7 @@ export function ChapterTwoMissionPanel({
               <aside className="chapter-two-world-rail chapter-two-world-rail--surface">
                 <div className="soft-label text-[10px] text-cyan-100/55">黑匣封存台 / 镜头锁定</div>
                 <div className="mt-3 text-xl font-semibold text-white">黑匣已经成为唯一目标。</div>
-                <p className="mt-3 text-sm leading-7 text-white/64">前三处遗迹已经全部接通，视角现在被强行拉向中央封存台。</p>
+                <p className="mt-3 text-sm leading-7 text-white/64">四处文明地标已经全部接通，视角现在被强行拉向中央封存台。</p>
               </aside>
               <div className="chapter-two-location-action">
                 <div className="rounded-[18px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-xs leading-5 text-amber-50">
@@ -1259,242 +1148,18 @@ export function ChapterTwoMissionPanel({
         <SceneImage imageUrl={chapterTwoSceneAssets.blackboxVault.imageUrl} transform="scale(1.05)" className="chapter-two-scene-image--detail" />
         <div className="chapter-two-detail-overlay chapter-two-detail-overlay--blackbox" aria-hidden="true" />
         <BlackboxEchoTrial
-          onOpened={() => {
-            onSetFinalChoice("记录后返航");
-            onComplete();
-          }}
+          disorderLevel={mission.disorderLevel}
+          mistakeCount={mission.mistakeCount}
+          onDisorderChange={onUpdateDisorder}
+          onOpened={onComplete}
         />
       </div>
     </section>
   );
 
-  const renderRoundOneStage = () => (
-    <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-      <div className="chapter-two-blackbox-shell chapter-two-blackbox-shell--trial panel-surface rounded-[32px] p-6 md:p-8">
-        <div className="soft-label text-[11px] text-cyan-100/55">应用修复 / 黑匣挑战前哨</div>
-        <h2 className="mt-3 text-3xl font-semibold text-white">现在让语言模型修复一段损坏档案，但不能让它乱编。</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-white/58">
-          记录只剩这些残片：“第七档案塔、漂浮信件、收件人未知、逆熵前夜、不要让猜测盖过空白”。你要写一条真正可运行的提示。
-        </p>
-
-        <textarea
-          value={mission.roundOnePrompt}
-          onChange={(event) => onSetRoundOnePrompt(event.target.value)}
-          placeholder="说明任务对象、可用资料、不能编造的边界，以及最终输出方式。"
-          className="mt-6 min-h-[132px] w-full rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-4 text-sm leading-6 text-white outline-none placeholder:text-white/28"
-        />
-        <PromptHints hints={applicationHints} onApply={(hint) => onSetRoundOnePrompt(appendHint(mission.roundOnePrompt, hint))} />
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onAnalyzeRoundOne}
-            disabled={mission.roundOnePrompt.trim().length < 12}
-            className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-white/12 disabled:text-white/40"
-          >
-            先校验这条提示
-          </button>
-          <button
-            type="button"
-            onClick={onRunRoundOne}
-            disabled={!canRunRoundOne}
-            className="rounded-full border border-cyan-200/24 bg-cyan-200/[0.08] px-5 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            运行档案修复
-          </button>
-        </div>
-
-        <div className="mt-5">
-          <GenerationStatus title="应用提示校验 / 档案修复" operation={roundOneOperation} onRetry={onRetryRoundOne} />
-        </div>
-
-        {mission.roundOneAnalysis && (
-          <SystemFeedback
-            eyebrow={canRunRoundOne ? "提示可运行" : "提示还不够清楚"}
-            title={canRunRoundOne ? "黑匣允许继续" : "还需要补充目标、边界或输出格式"}
-            body={mission.roundOneAnalysis.pathSummary}
-            tone={canRunRoundOne ? "success" : "warm"}
-          />
-        )}
-
-        {mission.roundOneResult && (
-          <div className="mt-5 rounded-[24px] border border-cyan-200/14 bg-cyan-200/[0.06] p-5">
-            <div className="text-base font-semibold text-white">{mission.roundOneResult.summary}</div>
-            <div className="mt-3 space-y-2">
-              {mission.roundOneResult.partialResponse.map((line) => (
-                <p key={line} className="text-sm leading-6 text-white/62">{line}</p>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <aside className="space-y-4">
-        <CrewCompanion crew={activeCrew} />
-        <SmallStatusCard title="这一步在训练什么" body="不是“让 AI 帮我弄好”就结束，而是要说清任务对象、资料来源、不能编造什么。" />
-      </aside>
-    </div>
-  );
-
-  const renderRoundTwoStage = () => (
-    <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-      <div className="chapter-two-blackbox-shell chapter-two-blackbox-shell--trial panel-surface rounded-[32px] p-6 md:p-8">
-        <div className="soft-label text-[11px] text-cyan-100/55">最终挑战 / 黑匣完整开启</div>
-        <h2 className="mt-3 text-3xl font-semibold text-white">最后写出一条完整指令，让黑匣判断你是否真的掌握了边界。</h2>
-        <textarea
-          value={mission.roundTwoPrompt}
-          onChange={(event) => onSetRoundTwoPrompt(event.target.value)}
-          placeholder="请写出一条能让 AI 修复档案、标注未知、避免编造、并输出可检查结果的完整指令。"
-          className="mt-6 min-h-[132px] w-full rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-4 text-sm leading-6 text-white outline-none placeholder:text-white/28"
-        />
-        <PromptHints hints={challengeHints} onApply={(hint) => onSetRoundTwoPrompt(appendHint(mission.roundTwoPrompt, hint))} />
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onAnalyzeRoundTwo}
-            disabled={mission.roundTwoPrompt.trim().length < 16}
-            className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-white/12 disabled:text-white/40"
-          >
-            提交黑匣挑战
-          </button>
-          <button
-            type="button"
-            onClick={onRunRoundTwo}
-            disabled={!canRunRoundTwo}
-            className="rounded-full border border-cyan-200/24 bg-cyan-200/[0.08] px-5 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            尝试开启科技黑匣
-          </button>
-        </div>
-
-        <div className="mt-5">
-          <GenerationStatus title="黑匣挑战校验 / 开启" operation={roundTwoOperation} onRetry={onRetryRoundTwo} />
-        </div>
-
-        {mission.roundTwoAnalysis && (
-          <SystemFeedback
-            eyebrow={mission.roundTwoAnalysis.extractedKeywords.length >= 3 ? "挑战可运行" : "还需要补清楚"}
-            title={mission.roundTwoAnalysis.extractedKeywords.length >= 3 ? "黑匣开始升温" : "缺少关键边界"}
-            body={mission.roundTwoAnalysis.pathSummary}
-            tone={mission.roundTwoAnalysis.extractedKeywords.length >= 3 ? "success" : "warm"}
-          />
-        )}
-      </div>
-
-      <aside className="space-y-4">
-        <CrewCompanion crew={activeCrew} />
-        <SmallStatusCard title="挑战提示" body="明确修复对象、只能依据哪些残片、未知如何标注，以及输出结构如何可检查。" />
-      </aside>
-    </div>
-  );
-
-  const renderDecisionStage = () => {
-    const setback = mission.roundTwoResult?.setback;
-
-    if (mission.roundTwoResult?.outcomeType === "soft-fail" && setback) {
-      return (
-        <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="chapter-two-blackbox-shell chapter-two-blackbox-shell--reward panel-surface rounded-[32px] p-6 md:p-8">
-            <div className="soft-label text-[11px] text-amber-100/55">黑匣回环 / 可重试</div>
-            <h2 className="mt-3 text-3xl font-semibold text-white">黑匣没有完全开启，但这次失败留下了可带走的线索。</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <SystemFeedback eyebrow="失败记录" title={setback.title} body={setback.summary} tone="warm" />
-              <SystemFeedback eyebrow="仍然带回的东西" title="可恢复线索" body={setback.learnedClue} tone="success" />
-            </div>
-            <button
-              type="button"
-              onClick={onRecoverByStrategy}
-              className="mt-8 rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
-            >
-              带着线索重写挑战指令
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-        <div className="chapter-two-blackbox-shell chapter-two-blackbox-shell--reward panel-surface rounded-[32px] p-6 md:p-8">
-          <div className="soft-label text-[11px] text-cyan-100/55">远征回流 / 黑匣成果</div>
-          <h2 className="mt-3 text-3xl font-semibold text-white">{mission.roundTwoResult?.summary ?? "科技黑匣正在整理成果。"}</h2>
-
-          {mission.roundTwoResult && (
-            <>
-              <div
-                className="chapter-two-restoration-vision"
-                style={{
-                  backgroundImage: `linear-gradient(180deg, rgba(4, 8, 14, 0.08), rgba(4, 8, 14, 0.36)), url(${chapterTwoSceneAssets.languageOrbitRestored.imageUrl})`
-                }}
-              >
-                <div className="chapter-two-restoration-vision__beam" />
-                <div className="chapter-two-restoration-vision__copy">
-                  <span>星球复苏</span>
-                  <strong>言衡星的信息光脉重新流动。</strong>
-                </div>
-              </div>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <SystemFeedback eyebrow="文明记录" title="第一段语言文明记忆已回流主舰" body={mission.roundTwoResult.revealedLink} tone="success" />
-                <SystemFeedback eyebrow="科技点回流" title="这次探索值得被写入科技树" body={mission.roundTwoResult.recommendation} tone="warm" />
-              </div>
-              <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-                {mission.roundTwoResult.resolvedResponse.map((line) => (
-                  <p key={line} className="text-sm leading-7 text-white/66">{line}</p>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => onSetFinalChoice("激活隐藏模块")}
-              className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
-                mission.finalChoice === "激活隐藏模块" ? "border-cyan-300/50 bg-cyan-300/12 text-cyan-50" : "border-white/12 bg-white/[0.04] text-white/72"
-              }`}
-            >
-              激活隐藏模块
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetFinalChoice("记录后返航")}
-              className={`rounded-full border px-5 py-3 text-sm font-semibold transition ${
-                mission.finalChoice === "记录后返航" ? "border-cyan-300/50 bg-cyan-300/12 text-cyan-50" : "border-white/12 bg-white/[0.04] text-white/72"
-              }`}
-            >
-              记录后返航
-            </button>
-            <button
-              type="button"
-              onClick={onComplete}
-              disabled={!canComplete}
-              className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-white/12 disabled:text-white/40"
-            >
-              完成第二章
-            </button>
-          </div>
-
-          <div className="mt-5">
-            <GenerationStatus title="主舰归档 / 科技树回写" operation={completionOperation} onRetry={onRetryComplete} />
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <CrewCompanion crew={activeCrew} />
-          <SmallStatusCard title="成果闭环" body="文明记录、黑匣知识、科技点与飞船 AI 能力提升会在完成结算后统一回流。" />
-        </aside>
-      </div>
-    );
-  };
-
   if (mission.currentStep === "response") {
     return renderResponseStage();
   }
 
-  if (mission.currentStep === "assign" || mission.currentStep === "round-one" || mission.currentStep === "round-two") {
-    return renderAssignStage();
-  }
-
-  return renderDecisionStage();
+  return renderAssignStage();
 }

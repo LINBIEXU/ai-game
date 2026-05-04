@@ -9,7 +9,7 @@ export function sanitizeProfileName(name: string) {
     .replace(/\s+/g, "-")
     .slice(0, 48);
 
-  return cleaned || "未命名学员";
+  return cleaned || "未命名舰长";
 }
 
 export function getProfileDir(name: string) {

@@ -65,22 +65,22 @@ export function ExperienceResultPanel({
           <span />
         </div>
         <div className="soft-label text-[11px] text-cyan-200/60">首个体验闭环完成</div>
-        <h2 className="mt-4 text-4xl font-semibold text-white">你已经让第一颗星球重新出现在星图上。</h2>
+        <h2 className="mt-4 text-4xl font-semibold text-white">第一颗星球已写入星图。</h2>
         <p className="mt-4 max-w-2xl text-base leading-7 text-white/68">
-          这不是一段填空流程。你定义了星球的环境特征、标志性建筑或景观和整体气质，主舰把它整理成可调用的世界模型，并恢复了导航盘、资源产出和第一处可探索坐标。
+          你完成了星球设定，主舰恢复了导航盘、资源记录和第一处坐标。
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <SystemFeedback
-            eyebrow="孩子完成的创造"
+            eyebrow="你完成的创造"
             title={planet.name}
-            body={`${planet.summary} 标志性建筑或景观：${planet.landmarkFeature || "待补充"}。资源结构为：水源 ${planet.resourceProfile.water}、矿物 ${planet.resourceProfile.mineral}、能源 ${planet.resourceProfile.energy}、生态 ${planet.resourceProfile.ecology}、遗迹数据 ${planet.resourceProfile.relicData}。`}
+            body={`特征：${planet.environmentTrait || "已记录"}。地标：${planet.landmarkFeature || "待补充"}。`}
             tone="success"
           />
           <SystemFeedback
             eyebrow="系统已恢复"
             title="导航盘重新点亮"
-            body={`坐标 ${planet.coordinateLabel} 已写入星图。危险等级：${planet.dangerLabel}。这颗星球之后可以继续用于探索、任务和主舰功能调用。`}
+            body={`坐标 ${planet.coordinateLabel} 已写入。危险等级：${planet.dangerLabel}。`}
           />
         </div>
 
@@ -155,7 +155,7 @@ export function ExperienceResultPanel({
               <img src={planet.imageAsset.imageUrl} alt={`${planet.name} 的星球图`} className="h-64 w-full object-cover" />
             ) : (
               <div className="flex h-64 items-center justify-center px-6 text-center text-sm leading-6 text-white/48">
-                这颗星球的视觉档案仍待补完。老师可以把外部生成好的星球图导入回来。
+                这颗星球的视觉档案仍待补完。可以把外部生成好的星球图导入回来。
               </div>
             )}
           </div>

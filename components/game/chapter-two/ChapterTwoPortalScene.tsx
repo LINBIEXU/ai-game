@@ -38,10 +38,10 @@ export function ChapterTwoPortalScene({
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-20 text-center">
         <div className="chapter-two-portal-title">
-          <div className="soft-label text-[11px] text-cyan-100/60">第二章入口 / 首次外部远征</div>
-          <h2>远航门已经对准新的文明坐标</h2>
+          <div className="soft-label text-[11px] text-cyan-100/60">{completed ? "第二章归档 / 已完成" : "第二章入口 / 首次外部远征"}</div>
+          <h2>{completed ? "语言黑匣记录已归档" : "远航门已经对准新的文明坐标"}</h2>
           <p>
-            {motherName} 已成为远征母星。目标：言衡星。
+            {completed ? `${motherName} 已带回言衡星记录。现在适合回看黑匣，不再提示新大关卡。` : `${motherName} 已成为远征母星。目标：言衡星。`}
           </p>
           <div className="chapter-two-portal-title__meta">
             <span>{coordinate}</span>
@@ -53,7 +53,7 @@ export function ChapterTwoPortalScene({
               onClick={onBegin}
               className="rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200"
             >
-              {completed ? "重看远征场景" : routeLocked ? "继续这次远征" : "从主舰出发"}
+              {completed ? "回看黑匣记录" : routeLocked ? "继续这次远征" : "从主舰出发"}
             </button>
             <button
               type="button"

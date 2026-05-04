@@ -38,6 +38,12 @@ export const emptyChapterTwoState = (): ChapterTwoState => ({
   focusedPlanetId: null,
   focusedLocationId: null,
   exploredLocationIds: [],
+  disorderLevel: 2,
+  mistakeCount: 0,
+  pollutedRecords: [],
+  baseEffectNotes: [],
+  baseScanHints: [],
+  locationRewardClaims: [],
   blackBoxUnlocked: false,
   echo: null,
   truth: null,
@@ -306,7 +312,7 @@ export const bridgeModuleCatalog: Array<{ id: BridgeModuleId; label: string; des
   { id: "task-board", label: "任务台", description: "分配船员执行轻任务，观察不同组合的结果" },
   { id: "star-map", label: "航星星图", description: "记录被重新点亮的坐标与航星" },
   { id: "archive", label: "航海日志舱", description: "存放任务记录、人物档案更新与主舰事件痕迹" },
-  { id: "gate", label: "远航门", description: "下一章的入口仍在等待解锁" }
+  { id: "gate", label: "远航门", description: "记录文明远征与科技黑匣入口" }
 ];
 
 export const shipBootOrder: BridgeModuleId[] = [
@@ -326,7 +332,7 @@ export const shipBootMessages = {
   archive: "航海日志舱归档回路在线",
   "star-map": "星图投射盘恢复照明",
   "task-board": "任务台权限已解封",
-  gate: "远航门等待更深坐标"
+  gate: "远航门等待文明坐标"
 } satisfies Record<BridgeModuleId, string>;
 
 export const shipTaskCatalog: ShipTask[] = [

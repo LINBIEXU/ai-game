@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <linearGradient id="room" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1a2631"/>
+      <stop offset=".55" stop-color="#101622"/>
+      <stop offset="1" stop-color="#070910"/>
+    </linearGradient>
+    <radialGradient id="windowGlow" cx="52%" cy="30%" r="42%">
+      <stop offset="0" stop-color="#b8ecff" stop-opacity=".38"/>
+      <stop offset=".45" stop-color="#6aa7ff" stop-opacity=".13"/>
+      <stop offset="1" stop-color="#6aa7ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="13" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#room)"/>
+  <rect width="2560" height="1440" fill="url(#windowGlow)"/>
+  <path d="M0 930 L590 692 H1970 L2560 930 V1440 H0 Z" fill="#111015"/>
+  <g filter="url(#glow)">
+    <rect x="430" y="610" width="420" height="310" rx="48" fill="#171e27" stroke="#a9e9ff" stroke-width="5"/>
+    <rect x="486" y="698" width="300" height="72" rx="28" fill="#86dfff" opacity=".20"/>
+    <path d="M486 808 h300" stroke="#ffe0b0" stroke-width="22" stroke-linecap="round" opacity=".38"/>
+  </g>
+  <g filter="url(#glow)">
+    <circle cx="1330" cy="452" r="180" fill="#0a1a2a" stroke="#b9efff" stroke-width="6"/>
+    <circle cx="1330" cy="452" r="118" fill="#7fcfff" opacity=".16"/>
+    <path d="M1224 408 C1290 330 1392 334 1440 416 C1372 478 1296 490 1224 408z" fill="#d3f7ff" opacity=".18"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="1848" y="578" width="278" height="420" rx="30" fill="#141923" stroke="#ffd28d" stroke-width="5"/>
+    <rect x="1892" y="640" width="190" height="84" rx="18" fill="#ffd28d" opacity=".18"/>
+    <rect x="1892" y="770" width="190" height="84" rx="18" fill="#a9e9ff" opacity=".16"/>
+  </g>
+  <g opacity=".26" stroke="#b9efff" stroke-width="4">
+    <path d="M480 1082 C900 1018 1660 1018 2080 1082"/>
+    <path d="M720 1210 H1840"/>
+  </g>
+</svg>

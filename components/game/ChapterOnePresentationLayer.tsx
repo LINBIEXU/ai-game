@@ -47,8 +47,10 @@ export function ChapterOnePresentationLayer({
       <button
         type="button"
         onClick={onToggleSound}
+        data-sound-toggle="true"
         className="chapter-one-sound-toggle"
         aria-pressed={soundEnabled}
+        aria-label={soundEnabled ? "关闭声场" : "开启声场"}
         title={soundEnabled ? "关闭第一关音效" : "开启第一关音效"}
       >
         <span>{soundEnabled ? "声场在线" : "静音模式"}</span>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <linearGradient id="wall" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#17202f"/>
+      <stop offset=".55" stop-color="#0b1322"/>
+      <stop offset="1" stop-color="#07090f"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="37%" r="45%">
+      <stop offset="0" stop-color="#d6fff3" stop-opacity=".46"/>
+      <stop offset=".45" stop-color="#64f4ce" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#64f4ce" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#wall)"/>
+  <rect width="2560" height="1440" fill="url(#core)"/>
+  <path d="M0 920 L650 690 H1910 L2560 920 V1440 H0 Z" fill="#101522"/>
+  <path d="M650 690 L0 920 V0 H360 Z" fill="#090d18" opacity=".74"/>
+  <path d="M1910 690 L2560 920 V0 H2200 Z" fill="#090d18" opacity=".74"/>
+  <g filter="url(#glow)">
+    <rect x="1056" y="332" width="448" height="290" rx="46" fill="#0c1d24" stroke="#8fffe0" stroke-width="5"/>
+    <rect x="1118" y="386" width="92" height="180" rx="34" fill="#68ffd2" opacity=".34"/>
+    <rect x="1236" y="362" width="92" height="204" rx="34" fill="#9ef7ff" opacity=".28"/>
+    <rect x="1354" y="396" width="92" height="170" rx="34" fill="#ffe386" opacity=".30"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M526 496 h230 l70 90 -34 260 -238 94 -126 -120 38 -212z" fill="#151c25" stroke="#94f7ff" stroke-width="5"/>
+    <circle cx="650" cy="706" r="82" fill="#8df5ff" opacity=".20"/>
+    <path d="M650 706 L840 568 M650 706 L786 886" stroke="#bafcff" stroke-width="16" stroke-linecap="round" opacity=".62"/>
+  </g>
+  <g filter="url(#glow)">
+    <ellipse cx="1868" cy="826" rx="235" ry="86" fill="#7fffd9" opacity=".18"/>
+    <circle cx="1868" cy="746" r="120" fill="#2b5f5b" stroke="#b8ffe9" stroke-width="5"/>
+    <path d="M1778 746 C1840 664 1922 660 1960 746 C1900 808 1832 818 1778 746z" fill="#a9ffe4" opacity=".24"/>
+  </g>
+  <g opacity=".34" stroke="#72f6d1" stroke-width="4">
+    <path d="M514 1096 H2040"/>
+    <path d="M710 1220 H1850"/>
+    <path d="M1280 690 V1390"/>
+  </g>
+</svg>

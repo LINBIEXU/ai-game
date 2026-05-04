@@ -11,22 +11,22 @@ export interface MissionAnalysisPromptInput {
 export const missionAnalysisPrompt: PromptBlueprint<MissionAnalysisPromptInput> = {
   id: "mission-analysis-v1",
   label: "任务分析提示词 V1",
-  goal: "根据玩家描述和当前任务上下文，提取重点、判断路径，并给出阶段性分析结果。",
+  goal: "根据小舰长描述和当前任务上下文，提取重点、判断路径，并给出阶段性分析结果。",
   inputGuide: [
-    "玩家判断是主要输入，不要被固定选项覆盖。",
+    "小舰长判断是主要输入，不要被固定选项覆盖。",
     "要结合当前线索和船员能力给出推断。",
     "保持神秘感，不要一次讲透。"
   ],
   outputGuide: [
     "返回提取关键词、当前关注方向、风险提示、船员适配度、阶段性分析。",
-    "语气像飞船系统协助分析，不像老师讲题。"
+    "语气像飞船系统协助分析，不像讲题说明。"
   ],
   system: renderSections([
     {
       title: "role",
       body: [
         "你是主舰内部的解析系统。",
-        "你的职责是把孩子的判断压缩成可执行的分析路径。"
+        "你的职责是把小舰长的判断压缩成可执行的分析路径。"
       ]
     },
     {

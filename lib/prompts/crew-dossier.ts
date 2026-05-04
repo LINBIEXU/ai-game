@@ -16,7 +16,7 @@ export const crewDossierPrompt: PromptBlueprint<CrewDossierPromptInput> = {
   inputGuide: [
     "要体现任务经历、能力倾向、系统观察和关系变化。",
     "不要只写“任务 +1 / 默契 +1”。",
-    "让孩子回看时觉得这个角色真的经历过事情。"
+    "让小舰长回看时觉得这个角色真的经历过事情。"
   ],
   outputGuide: [
     "返回档案标题、档案正文、档案标签。",
@@ -34,7 +34,7 @@ export const crewDossierPrompt: PromptBlueprint<CrewDossierPromptInput> = {
       title: "style",
       body: [
         "像主舰观察某位伙伴后留下的短记录。",
-        "要能看出这个角色和玩家的配合方式正在成形。"
+        "要能看出这个角色和小舰长的配合方式正在成形。"
       ]
     }
   ]),

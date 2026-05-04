@@ -4,6 +4,7 @@ import type { CloudSaveStatus } from "@/types/cloud-save";
 import type { ChapterTwoOutcome, CrewMember, FaultRunState, PlanetModel, ShipLogEntry } from "@/types/game";
 
 import { CrewPortrait } from "@/components/game/CrewPortrait";
+import { KidLearningCard } from "@/components/game/KidLearningCard";
 
 interface TrialResultPanelProps {
   crew: CrewMember | null;
@@ -33,7 +34,7 @@ function formatSaveTime(timestamp: number | null) {
 function saveLabel(status: CloudSaveStatus) {
   if (status === "saved") return "成果已保存";
   if (status === "saving") return "主舰正在写入本地档案";
-  if (status === "error") return "本地保存异常，课堂记忆仍保留";
+  if (status === "error") return "本地保存异常，主舰记忆仍保留";
   if (status === "disabled") return "本地记忆已保留";
   return "存档准备中";
 }
@@ -130,7 +131,7 @@ export function TrialResultPanel({
               </div>
             </div>
           ) : (
-            <div className="mt-4 text-sm text-white/56">第二章还没有完成黑匣挑战。老师可以从试听控制直接进入文明远征。</div>
+            <div className="mt-4 text-sm text-white/56">第二章还没有完成黑匣挑战。可从领航控制直接进入文明远征。</div>
           )}
         </div>
 
@@ -141,6 +142,8 @@ export function TrialResultPanel({
             {latestUnlocks.length > 0 ? latestUnlocks.join(" / ") : "基础理解"}。
           </div>
         </div>
+
+        <KidLearningCard className="mt-5" />
 
         <div className="mt-8 flex flex-wrap gap-3">
           <button

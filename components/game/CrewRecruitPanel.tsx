@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { formTypeOptions, labelMap, roleOptions, talentOptions, temperamentOptions } from "@/lib/game-constants";
 import { shipSecondarySceneAssets } from "@/lib/ship-secondary-scenes";
 import type { AIOperationState } from "@/types/ai";
@@ -33,40 +35,62 @@ function buildSourceKey(form: RecruitForm) {
   return [form.description.trim(), form.notes.trim()].filter(Boolean).join("｜");
 }
 
-function ChoiceGroup<Value extends string>({
+function OptionalChoiceGroup<Value extends string>({
+  open,
   title,
+  activeLabel,
   value,
   options,
+  onToggle,
   onChange
 }: {
+  open: boolean;
   title: string;
+  activeLabel: string;
   value: Value | null;
   options: Array<{ value: Value; label: string; hint: string }>;
+  onToggle: () => void;
   onChange: (value: Value) => void;
 }) {
   return (
-    <div>
-      <div className="mb-3 text-sm font-semibold text-white/84">{title}</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {options.map((option) => {
-          const active = value === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onChange(option.value)}
-              className={`rounded-[20px] border px-4 py-4 text-left transition ${
-                active
-                  ? "border-cyan-300/60 bg-cyan-300/12 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
-                  : "border-white/10 bg-white/[0.03] hover:border-cyan-300/28 hover:bg-cyan-300/6"
-              }`}
-            >
-              <div className="text-sm font-semibold text-white">{option.label}</div>
-              <div className="mt-2 text-xs leading-5 text-white/54">{option.hint}</div>
-            </button>
-          );
-        })}
-      </div>
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.025]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+      >
+        <span>
+          <span className="block text-sm font-semibold text-white">{title}</span>
+          <span className="mt-1 block text-xs text-white/46">{activeLabel}</span>
+        </span>
+        <span className="rounded-full border border-cyan-200/14 bg-cyan-200/[0.06] px-3 py-1 text-xs text-cyan-50/68">
+          {open ? "收起" : "调整"}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="grid gap-2 border-t border-white/8 p-3 sm:grid-cols-2">
+          {options.map((option) => {
+            const active = value === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onChange(option.value)}
+                className={`rounded-[18px] border px-4 py-3 text-left transition ${
+                  active
+                    ? "border-cyan-300/60 bg-cyan-300/12 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]"
+                    : "border-white/10 bg-white/[0.03] hover:border-cyan-300/28 hover:bg-cyan-300/6"
+                }`}
+              >
+                <div className="text-sm font-semibold text-white">{option.label}</div>
+                <div className="mt-1 text-xs leading-5 text-white/54">{option.hint}</div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -84,16 +108,17 @@ export function CrewRecruitPanel({
   onRetryAnalyze,
   onRetryGenerate
 }: CrewRecruitPanelProps) {
+  const [openTuningGroup, setOpenTuningGroup] = useState<"formType" | "role" | "temperament" | "talent" | null>(null);
   const analysisFresh = analysis?.sourceText === buildSourceKey(form);
   const activeAnalysis = analysisFresh ? analysis : null;
   const previewFormType = form.formType ?? activeAnalysis?.inferredFormType ?? null;
   const previewRole = form.role ?? activeAnalysis?.inferredRole ?? null;
-  const missingSelections = [
-    !form.formType ? "形态" : null,
-    !form.role ? "职责" : null,
-    !form.temperament ? "气质" : null,
-    !form.talent ? "专长" : null
-  ].filter(Boolean) as string[];
+  const selectedSummary = [
+    form.formType ? `形态：${labelMap.formType[form.formType]}` : null,
+    form.role ? `职责：${labelMap.role[form.role]}` : null,
+    form.temperament ? `气质：${labelMap.temperament[form.temperament]}` : null,
+    form.talent ? `专长：${labelMap.talent[form.talent]}` : null
+  ].filter(Boolean);
 
   return (
     <section className="scene-reveal ship-secondary-stage">
@@ -144,15 +169,59 @@ export function CrewRecruitPanel({
         </div>
 
         <div className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.03] p-5 md:p-6">
-          <div className="text-sm font-semibold text-white">这次由你来定轮廓</div>
+          <div className="text-sm font-semibold text-white">可选微调</div>
           <p className="mt-2 text-sm leading-6 text-white/56">
-            系统只负责理解描述和补一点气质细节，不再默认把角色锁成能量体或侦查方向。真正生成前，先把这位伙伴的基础设定定下来。
+            不必每项都选。你可以先点一个想调整的部分，再在里面挑一种方向；不选时，系统会按描述推断。
           </p>
-          <div className="mt-5 space-y-5">
-            <ChoiceGroup title="伙伴形态" value={form.formType} options={formTypeOptions} onChange={(value) => onChange("formType", value)} />
-            <ChoiceGroup title="主要职责" value={form.role} options={roleOptions} onChange={(value) => onChange("role", value)} />
-            <ChoiceGroup title="整体气质" value={form.temperament} options={temperamentOptions} onChange={(value) => onChange("temperament", value)} />
-            <ChoiceGroup title="核心专长" value={form.talent} options={talentOptions} onChange={(value) => onChange("talent", value)} />
+          <div className="mt-5 grid gap-3">
+            <OptionalChoiceGroup
+              open={openTuningGroup === "formType"}
+              title="伙伴形态"
+              activeLabel={form.formType ? labelMap.formType[form.formType] : "不调整，由描述推断"}
+              value={form.formType}
+              options={formTypeOptions}
+              onToggle={() => setOpenTuningGroup((current) => (current === "formType" ? null : "formType"))}
+              onChange={(value) => {
+                onChange("formType", value);
+                setOpenTuningGroup(null);
+              }}
+            />
+            <OptionalChoiceGroup
+              open={openTuningGroup === "role"}
+              title="主要职责"
+              activeLabel={form.role ? labelMap.role[form.role] : "不调整，由描述推断"}
+              value={form.role}
+              options={roleOptions}
+              onToggle={() => setOpenTuningGroup((current) => (current === "role" ? null : "role"))}
+              onChange={(value) => {
+                onChange("role", value);
+                setOpenTuningGroup(null);
+              }}
+            />
+            <OptionalChoiceGroup
+              open={openTuningGroup === "temperament"}
+              title="整体气质"
+              activeLabel={form.temperament ? labelMap.temperament[form.temperament] : "不调整，由描述推断"}
+              value={form.temperament}
+              options={temperamentOptions}
+              onToggle={() => setOpenTuningGroup((current) => (current === "temperament" ? null : "temperament"))}
+              onChange={(value) => {
+                onChange("temperament", value);
+                setOpenTuningGroup(null);
+              }}
+            />
+            <OptionalChoiceGroup
+              open={openTuningGroup === "talent"}
+              title="核心专长"
+              activeLabel={form.talent ? labelMap.talent[form.talent] : "不调整，由描述推断"}
+              value={form.talent}
+              options={talentOptions}
+              onToggle={() => setOpenTuningGroup((current) => (current === "talent" ? null : "talent"))}
+              onChange={(value) => {
+                onChange("talent", value);
+                setOpenTuningGroup(null);
+              }}
+            />
           </div>
         </div>
 
@@ -166,16 +235,8 @@ export function CrewRecruitPanel({
             <SystemFeedback eyebrow="系统已识别你的招募意图" title={activeAnalysis.summary} body={`${activeAnalysis.roleSummary} · ${activeAnalysis.styleSummary}`} tone="success" />
 
             <div className="rounded-[22px] border border-cyan-200/14 bg-cyan-200/8 px-4 py-3 text-sm text-cyan-50">
-              当前由你锁定：
-              {" "}
-              {form.formType ? labelMap.formType[form.formType] : "待选形态"}
-              {" · "}
-              {form.role ? labelMap.role[form.role] : "待选职责"}
-              {" · "}
-              {form.temperament ? labelMap.temperament[form.temperament] : "待选气质"}
-              {" · "}
-              {form.talent ? labelMap.talent[form.talent] : "待选专长"}
-              。系统理解只做辅助，最终生成以你的选择为准。
+              {selectedSummary.length > 0 ? `你已微调：${selectedSummary.join(" · ")}。` : "你还没有微调，系统会按描述推断轮廓。"}
+              系统理解只做辅助，最终生成以你的描述为准。
             </div>
 
             <div>
@@ -197,14 +258,12 @@ export function CrewRecruitPanel({
             >
               创建这位伙伴
             </button>
-            {missingSelections.length > 0 ? (
-              <div className="text-xs text-amber-100/72">还需要你先选好：{missingSelections.join("、")}。</div>
-            ) : null}
-            <div className="mt-3 text-xs text-white/48">这节课会留下：角色名字、设定、档案、导入图像和登船记录。</div>
+            <div className="text-xs text-cyan-100/64">微调不是必选项；描述已经被理解后就可以创建。</div>
+            <div className="mt-3 text-xs text-white/48">这次招募会留下：角色名字、设定、档案、导入图像和登船记录。</div>
           </div>
         ) : (
           <div className="mt-7 rounded-[24px] border border-dashed border-white/12 bg-white/[0.02] px-5 py-4 text-sm leading-6 text-white/46">
-            先让系统读一遍你的招募信号。读完后就可以继续创建课堂档案。
+            先让系统读一遍你的招募信号。读完后就可以继续创建主舰档案。
           </div>
         )}
       </div>
@@ -219,7 +278,7 @@ export function CrewRecruitPanel({
               <div className="absolute inset-6 rounded-full bg-gradient-to-br from-cyan-300/18 via-sky-300/8 to-transparent blur-3xl" />
               <div className="relative max-w-xs text-center">
                 <div className="text-lg font-semibold text-white">轮廓还没完全锁定</div>
-                <div className="mt-3 text-sm leading-6 text-white/52">先在左侧选好伙伴形态和职责，预览才会按你的决定收拢，不再默认跳到系统推断。</div>
+                <div className="mt-3 text-sm leading-6 text-white/52">先写一句描述，再让系统理解。可选微调只在你想指定方向时打开。</div>
               </div>
             </div>
           )}

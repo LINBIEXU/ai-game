@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#14091e"/>
+      <stop offset=".48" stop-color="#07172c"/>
+      <stop offset="1" stop-color="#050711"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="15" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#bg)"/>
+  <path d="M0 934 L610 686 H1950 L2560 934 V1440 H0 Z" fill="#0d0d18"/>
+  <path d="M380 250 C920 142 1630 142 2180 250" fill="none" stroke="#ff78dd" stroke-width="8" opacity=".20"/>
+  <path d="M500 340 C940 252 1580 252 2060 340" fill="none" stroke="#5be7ff" stroke-width="5" opacity=".25"/>
+  <g filter="url(#glow)">
+    <rect x="424" y="618" width="300" height="290" rx="34" fill="#211126" stroke="#ff91df" stroke-width="5"/>
+    <path d="M486 684 h176 M486 746 h126 M486 808 h206" stroke="#ffd2f3" stroke-width="11" stroke-linecap="round" opacity=".55"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M1060 450 h512 l-58 168 h-396z" fill="#0d2232" stroke="#83f0ff" stroke-width="5"/>
+    <circle cx="1280" cy="534" r="68" fill="#83f0ff" opacity=".22"/>
+    <path d="M780 390 C1060 310 1500 310 1780 390" fill="none" stroke="#83f0ff" stroke-width="9" opacity=".38"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="1830" y="680" width="310" height="240" rx="46" fill="#10182c" stroke="#ffd166" stroke-width="5"/>
+    <path d="M1922 748 l118 76 -118 76z" fill="#ffd166" opacity=".38"/>
+  </g>
+  <g opacity=".30" stroke="#ff91df" stroke-width="4">
+    <path d="M520 1060 H2040"/>
+    <path d="M860 1192 H1700"/>
+  </g>
+</svg>

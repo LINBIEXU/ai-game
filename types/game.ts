@@ -46,7 +46,29 @@ export type ChapterTwoSceneState =
   | "boss_trial"
   | "chapter_reward";
 export type ChapterTwoPlanetId = "mother" | "language";
-export type ChapterTwoLocationId = "archive-tower" | "letter-port" | "engraved-valley" | "paper-corridor" | "blackbox-vault";
+export type ChapterTwoLocationId =
+  | "semantic-dispatch"
+  | "evidence-well"
+  | "boundary-beacon"
+  | "archive-tower"
+  | "letter-port"
+  | "engraved-valley"
+  | "paper-corridor"
+  | "blackbox-vault";
+
+export type ChapterTwoCrewAbilityKind = "record" | "repair" | "scout" | "expression";
+
+export interface ChapterTwoCrewAbility {
+  kind: ChapterTwoCrewAbilityKind;
+  label: string;
+  triggerLabel: string;
+  description: string;
+  intervention: string;
+  sourceMarker?: string;
+  hiddenHint?: string;
+  stableTemplate?: string;
+  repairAmount?: number;
+}
 
 export type CrewFormType = "mechanical" | "biological" | "energy" | "hybrid";
 export type CrewRole = "scout" | "repair" | "record" | "pilot";
@@ -186,6 +208,49 @@ export interface HomePlanetGalleryItem {
   createdAt: number;
 }
 
+export interface HomePlanetArchiveRecord {
+  id: string;
+  title: string;
+  tag: string;
+  summary: string;
+  evidenceLines: string[];
+  locationId?: ChapterTwoLocationId;
+  mistakeCount?: number;
+  disorderLevel?: number;
+  createdAt: number;
+}
+
+export interface HomePlanetRuleCard {
+  id: string;
+  title: string;
+  body: string;
+  source: string;
+  createdAt: number;
+}
+
+export type ChapterTwoRewardKind =
+  | "civilization-fragment"
+  | "technology-point"
+  | "crew-bond"
+  | "home-resource"
+  | "blackbox-rule-card"
+  | "ship-log"
+  | "home-archive-record";
+
+export interface ChapterTwoLocationReward {
+  id: string;
+  kind: ChapterTwoRewardKind;
+  label: string;
+  detail: string;
+}
+
+export interface ChapterTwoLocationRewardClaim {
+  locationId: ChapterTwoLocationId;
+  locationName: string;
+  rewards: ChapterTwoLocationReward[];
+  createdAt: number;
+}
+
 export interface HomePlanetHubState {
   resources: HomePlanetResources;
   unlockedFeatures: HomePlanetFeatureId[];
@@ -195,6 +260,8 @@ export interface HomePlanetHubState {
   storyboardProjects: HomePlanetStoryboardProject[];
   commissionWorks: HomePlanetCommissionWork[];
   galleryItems: HomePlanetGalleryItem[];
+  archiveRecords: HomePlanetArchiveRecord[];
+  ruleCards: HomePlanetRuleCard[];
 }
 
 export interface CrewBackstory {
@@ -647,6 +714,12 @@ export interface ChapterTwoState {
   focusedPlanetId: ChapterTwoPlanetId | null;
   focusedLocationId: ChapterTwoLocationId | null;
   exploredLocationIds: ChapterTwoLocationId[];
+  disorderLevel: number;
+  mistakeCount: number;
+  pollutedRecords: string[];
+  baseEffectNotes: string[];
+  baseScanHints: string[];
+  locationRewardClaims: ChapterTwoLocationRewardClaim[];
   blackBoxUnlocked: boolean;
   echo: ChapterTwoEcho | null;
   truth: ChapterTwoTruth | null;
@@ -673,11 +746,22 @@ export interface ChapterTwoState {
   outcome: ChapterTwoOutcome | null;
 }
 
+export interface ChapterTwoLocationCompletionPayload {
+  finalDisorderLevel?: number;
+  mistakeCount?: number;
+  pollutedRecords?: string[];
+  crewAbilityKind?: ChapterTwoCrewAbilityKind;
+  crewIntervention?: string;
+  evidenceLines?: string[];
+}
+
 export interface ShipLogEntry {
   id: string;
   title: string;
   body: string;
   tag: string;
+  rewardSummary?: string;
+  rewards?: string[];
 }
 
 export interface SignalMissionState {

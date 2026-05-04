@@ -9,7 +9,7 @@ export async function POST() {
       ok: false,
       providerMode: "classroom-local",
       providerId: "disabled",
-      error: "课堂本地版已关闭实时 AI 文本调用。请在课堂流程中记录设定，必要时由老师外部处理后再归档。"
+      error: "本地主舰版已关闭实时 AI 文本调用。请先在流程中记录设定，必要时由外部工具处理后再归档。"
     },
     { status: 410 }
   );

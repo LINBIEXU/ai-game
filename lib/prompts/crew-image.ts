@@ -40,7 +40,7 @@ export function buildCrewImageNegativePrompt() {
 export const crewImagePrompt: PromptBlueprint<CrewImagePromptInput> = {
   id: "crew-image-raw-test",
   label: "船员形象生成提示词 Raw Test",
-  goal: "临时关闭角色生图提示词工程，只把玩家原始描述交给图像模型。",
+  goal: "临时关闭角色生图提示词工程，只把原始描述交给图像模型。",
   inputGuide: [],
   outputGuide: [],
   system: "",

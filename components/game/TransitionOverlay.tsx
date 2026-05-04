@@ -30,6 +30,18 @@ export function TransitionOverlay({ visible, title, detail, mode = "scan" }: Tra
 
   return (
     <div className={`transition-overlay transition-overlay--${cameraMode} fixed inset-0 z-30 flex items-center justify-center bg-[#01040a]/76 px-6 backdrop-blur-md`}>
+      {cameraMode === "dive" ? (
+        <div className="transition-warp-tunnel" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      ) : null}
+
       <div className="particle-column">
         {Array.from({ length: 16 }).map((_, index) => (
           <span

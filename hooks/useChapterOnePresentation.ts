@@ -31,6 +31,7 @@ interface ChapterOneAudioGraph {
 }
 
 const BACKGROUND_MUSIC_SRC = "/audio/e5d210871dd2a69c123ce0682be73704_HQ.mp3";
+const SOUND_PREFERENCE_KEY = "ai-game:sound-enabled";
 
 const stageCueMap: Record<ChapterOnePresentationStage, string> = {
   boot_dark: "全舰故障广播断续中",
@@ -54,6 +55,7 @@ export function useChapterOnePresentation({ state, operations }: UseChapterOnePr
   const bgmRef = useRef<HTMLAudioElement | null>(null);
   const lastStageRef = useRef<ChapterOnePresentationStage | null>(null);
   const hasPrimedAudioRef = useRef(false);
+  const [soundPreferenceLoaded, setSoundPreferenceLoaded] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [audioReady, setAudioReady] = useState(false);
 
@@ -323,6 +325,10 @@ export function useChapterOnePresentation({ state, operations }: UseChapterOnePr
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
       const target = event.target;
+      if (target instanceof HTMLElement && target.closest("[data-sound-toggle='true']")) {
+        return;
+      }
+
       if (target instanceof HTMLElement && target.closest("button")) {
         void primeAudio().then(() => {
           playTone(360, 0.06, 0.09, "triangle");
@@ -340,6 +346,25 @@ export function useChapterOnePresentation({ state, operations }: UseChapterOnePr
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedPreference = window.localStorage.getItem(SOUND_PREFERENCE_KEY);
+    if (storedPreference === "false") {
+      setSoundEnabled(false);
+    }
+    if (storedPreference === "true") {
+      setSoundEnabled(true);
+    }
+    setSoundPreferenceLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!soundPreferenceLoaded || typeof window === "undefined") return;
+
+    window.localStorage.setItem(SOUND_PREFERENCE_KEY, soundEnabled ? "true" : "false");
+  }, [soundEnabled, soundPreferenceLoaded]);
+
+  useEffect(() => {
     const bgm = bgmRef.current;
     const graph = audioRef.current;
 
@@ -352,6 +377,7 @@ export function useChapterOnePresentation({ state, operations }: UseChapterOnePr
     if (!bgm) return;
 
     if (!soundEnabled) {
+      bgm.volume = 0;
       bgm.pause();
       return;
     }

@@ -14,7 +14,7 @@ export const shipLogPrompt: PromptBlueprint<ShipLogPromptInput> = {
   label: "主舰日志提示词 V1",
   goal: "把一次任务经历生成成世界内的主舰事件记录，而不是后台流水。",
   inputGuide: [
-    "要记住玩家这次关注了什么。",
+    "要记住这次关注了什么。",
     "要体现哪位船员如何参与。",
     "要明确留下的世界变化。"
   ],

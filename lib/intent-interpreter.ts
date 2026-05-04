@@ -240,7 +240,7 @@ function inferWardrobeDirection(text: string, crew: CrewMember) {
   ].filter((item) => text.includes(item));
 
   if (clothingMatches.length > 0) {
-    return `服装严格优先采用玩家写到的“${clothingMatches.slice(0, 3).join("、")}”方向，并按角色身份补细节；不要改成宇航服、机甲、机械装甲或统一飞船制服`;
+    return `服装严格优先采用原始描述写到的“${clothingMatches.slice(0, 3).join("、")}”方向，并按角色身份补细节；不要改成宇航服、机甲、机械装甲或统一飞船制服`;
   }
 
   if (includesAny(text, ["水手服"])) {
@@ -256,11 +256,11 @@ function inferWardrobeDirection(text: string, crew: CrewMember) {
   }
 
   if (includesAny(text, ["校服", "制服"])) {
-    return "服装优先按玩家提到的制服方向理解，不要自动升级成科技舱制服";
+    return "服装优先按原始描述提到的制服方向理解，不要自动升级成科技舱制服";
   }
 
   if (includesAny(text, ["铠甲", "盔甲", "战甲", "装甲"])) {
-    return "只有在玩家明确提到时才使用护甲或装甲，并保持与角色身份匹配";
+    return "只有在原始描述明确提到时才使用护甲或装甲，并保持与角色身份匹配";
   }
 
   if (includesAny(text, ["法袍", "长袍", "斗篷"])) {
@@ -268,18 +268,18 @@ function inferWardrobeDirection(text: string, crew: CrewMember) {
   }
 
   if (crew.role === "scout") {
-    return "若玩家未写明服装，就按轻便旅行服、户外常服或角色职业服自然推断；明确不要默认宇航服、太空服、飞船制服或机甲";
+    return "若原始描述未写明服装，就按轻便旅行服、户外常服或角色职业服自然推断；明确不要默认宇航服、太空服、飞船制服或机甲";
   }
 
   if (crew.role === "repair") {
-    return "若玩家未写明服装，就按轻便工具服、围裙、工装或角色常服自然推断；明确不要默认机械装甲、外骨骼、宇航服";
+    return "若原始描述未写明服装，就按轻便工具服、围裙、工装或角色常服自然推断；明确不要默认机械装甲、外骨骼、宇航服";
   }
 
   if (crew.role === "record") {
-    return "若玩家未写明服装，就按档案官、学者、旅行记录者或研究者常服自然推断；明确不要默认科技战甲、宇航服或飞船制服";
+    return "若原始描述未写明服装，就按档案官、学者、旅行记录者或研究者常服自然推断；明确不要默认科技战甲、宇航服或飞船制服";
   }
 
-  return "若玩家未写明服装，就按角色身份自然推断常服、旅行服、职业服或礼装；明确不要默认宇航服、太空服、机甲、机械装甲或统一飞船制服";
+  return "若原始描述未写明服装，就按角色身份自然推断常服、旅行服、职业服或礼装；明确不要默认宇航服、太空服、机甲、机械装甲或统一飞船制服";
 }
 
 function inferNegativeHints(text: string, visualSubject: string) {

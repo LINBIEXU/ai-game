@@ -24,7 +24,7 @@ export function useClassroomProfile({
 }) {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "saving" | "saved" | "error">("idle");
-  const [message, setMessage] = useState("请输入学员姓名，接入本地课堂档案。");
+  const [message, setMessage] = useState("请输入舰长代号，接入本地主舰档案。");
   const loadedRef = useRef(false);
   const skipNextSaveRef = useRef(false);
 
@@ -46,7 +46,7 @@ export function useClassroomProfile({
       }
 
       setStatus("loading");
-      setMessage("正在读取本地课堂档案...");
+      setMessage("正在读取本地主舰档案...");
 
       try {
         const response = await fetch(`/api/classroom-profile?name=${encodeURIComponent(trimmed)}`, { cache: "no-store" });
@@ -57,7 +57,7 @@ export function useClassroomProfile({
         if (savedState) {
           skipNextSaveRef.current = true;
           replaceState(savedState as GameState);
-          setMessage(`已接续 ${nextName} 的本地课堂档案。`);
+          setMessage(`已接续 ${nextName} 的本地主舰档案。`);
         } else {
           skipNextSaveRef.current = true;
           replaceState(createInitialGameState());
@@ -71,7 +71,7 @@ export function useClassroomProfile({
       } catch (error) {
         console.warn("Failed to load classroom profile", error);
         setStatus("error");
-        setMessage("本地课堂档案读取失败，请确认本地服务正在运行。");
+        setMessage("本地主舰档案读取失败，请确认本地服务正在运行。");
       }
     },
     [replaceState]
@@ -82,7 +82,7 @@ export function useClassroomProfile({
     loadedRef.current = false;
     setProfileName(null);
     setStatus("idle");
-    setMessage("已退出当前课堂档案。");
+    setMessage("已退出当前主舰档案。");
   }, []);
 
   useEffect(() => {
@@ -104,11 +104,11 @@ export function useClassroomProfile({
           body: JSON.stringify({ name: profileName, state })
         });
         setStatus("saved");
-        setMessage(`${profileName} 的课堂档案已保存到本地文件夹。`);
+        setMessage(`${profileName} 的主舰档案已保存到本地文件夹。`);
       } catch (error) {
         console.warn("Failed to save classroom profile", error);
         setStatus("error");
-        setMessage("本地课堂档案保存失败。");
+        setMessage("本地主舰档案保存失败。");
       }
     }, 650);
 
@@ -118,7 +118,7 @@ export function useClassroomProfile({
   const uploadImage = useCallback(
     async ({ kind, ownerId, file }: UploadOptions) => {
       if (!profileName) {
-        throw new Error("请先输入学员姓名，接入课堂档案。");
+        throw new Error("请先输入舰长代号，接入主舰档案。");
       }
 
       const formData = new FormData();
@@ -137,7 +137,7 @@ export function useClassroomProfile({
         throw new Error(data.error ?? "图片导入失败");
       }
 
-      setMessage("图像已导入本地课堂档案。");
+      setMessage("图像已导入本地主舰档案。");
       return data.asset;
     },
     [profileName]

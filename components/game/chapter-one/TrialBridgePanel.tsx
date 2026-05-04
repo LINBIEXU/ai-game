@@ -74,7 +74,7 @@ export function TrialBridgePanel({ crew, planet, onEnterFaultRun, onBackToFirstR
         <SystemFeedback
           eyebrow="第二关要练到什么"
           title="不是看知识页，而是用输出开启黑匣"
-          body="孩子会用自己的话解释语言模型，再用清楚提示修复档案，体验 AI 为什么需要目标、语境和边界。"
+          body="你会用自己的话解释语言模型，再用清楚提示修复档案，体验 AI 为什么需要目标、语境和边界。"
           tone="warm"
         />
       </div>

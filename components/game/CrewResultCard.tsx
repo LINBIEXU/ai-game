@@ -41,15 +41,15 @@ export function CrewResultCard({ crew, onBoard, onReroll, isGenerating, imageOpe
           <CrewPortrait formType={crew.formType} role={crew.role} seed={crew.portraitSeed} imageUrl={crew.portraitAsset?.imageUrl ?? null} alt={`${crew.name} 的船员形象`} />
         </div>
         <div className="mt-4">
-          <GenerationStatus title="课堂图像归档" operation={imageOperation} onRetry={onRetryImage} />
+          <GenerationStatus title="图像归档" operation={imageOperation} onRetry={onRetryImage} />
           <ImageImportControl
             label="角色图"
             hasImage={Boolean(crew.portraitAsset)}
-            emptyLabel="角色设定已记录，等待老师导入外部生成图。"
+            emptyLabel="角色设定已记录，等待导入外部生成图。"
             onImport={(file) => onImportCrewImage(crew.id, file)}
           />
           <p className="mt-3 text-xs leading-6 text-white/46">
-            名字、职责和能力已经记录。老师可以稍后把外部生成好的高质量角色图导入回来。
+            名字、职责和能力已经记录。稍后可以把外部生成好的高质量角色图导入回来。
           </p>
           <div className="mt-4 rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
             <div className="text-xs tracking-[0.18em] text-white/38">外形提示补充</div>

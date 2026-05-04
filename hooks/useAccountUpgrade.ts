@@ -40,7 +40,7 @@ export function useAccountUpgrade({ session, onUpgraded }: UseAccountUpgradeOpti
 
     setStage("sending");
     setError(null);
-    setMessage("正在把验证码送往家长邮箱。");
+    setMessage("正在把验证码送往绑定邮箱。");
 
     try {
       const result = await (auth as any).signUp({
@@ -61,7 +61,7 @@ export function useAccountUpgrade({ session, onUpgraded }: UseAccountUpgradeOpti
       setVerifyOtp(() => nextVerifyOtp);
       setPendingEmail(email);
       setStage("code-sent");
-      setMessage("验证码已送出。请让家长打开邮箱，把 6 位验证码带回来。");
+      setMessage("验证码已送出。请打开绑定邮箱，把 6 位验证码带回来。");
     } catch (requestError) {
       const nextError = requestError instanceof Error ? requestError.message : "验证码发送失败。";
       setStage("error");

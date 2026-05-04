@@ -21,7 +21,7 @@ export function ImageImportControl({ label, emptyLabel, hasImage = false, disabl
     if (!file) return;
 
     setBusy(true);
-    setMessage("正在写入本地课堂档案...");
+    setMessage("正在写入本地主舰档案...");
     try {
       await onImport(file);
       setMessage("图像已归档");

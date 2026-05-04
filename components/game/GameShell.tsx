@@ -55,9 +55,6 @@ export function GameShell() {
     canContinueFaultRun,
     canFinalizeChapterOne,
     canRunTask,
-    canRunChapterTwoRoundOne,
-    canRunChapterTwoRoundTwo,
-    canCompleteChapterTwo,
     awaken,
     returnToHub,
     completeHubBriefing,
@@ -74,31 +71,15 @@ export function GameShell() {
     setChapterTwoSceneState,
     focusChapterTwoPlanet,
     focusChapterTwoLocation,
+    updateChapterTwoDisorder,
     exploreChapterTwoLocation,
     advanceChapterTwoStep,
-    setChapterTwoResponsePrompt,
-    analyzeChapterTwoResponse,
-    setChapterTwoCrew,
-    setChapterTwoDuty,
-    setChapterTwoAssignmentPrompt,
-    analyzeChapterTwoAssignment,
-    setChapterTwoRoundOneFocus,
-    setChapterTwoRoundOnePrompt,
-    analyzeChapterTwoRoundOne,
-    runChapterTwoFirstPass,
-    setChapterTwoRefinement,
-    setChapterTwoSupportMode,
-    setChapterTwoRoundTwoPrompt,
-    analyzeChapterTwoRoundTwo,
-    runChapterTwoSecondPass,
-    setChapterTwoFinalChoice,
     completeChapterTwo,
     activateHomePlanetFeature,
     buildHomePlanetStructure,
     saveHomePlanetCommission,
     saveHomePlanetDialogue,
     saveHomePlanetStoryboard,
-    resolveChapterTwoSetback,
     updateRecruitForm,
     analyzeRecruitInput,
     generateCrewMember,
@@ -297,9 +278,9 @@ export function GameShell() {
               <div className="mt-2 text-lg font-semibold text-white">{state.currentScene === "hub" ? "失落航星" : "主舰内操作"}</div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/55">
                 <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-cyan-100/90">
-                  {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+                  {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "本地主舰模式"}
                 </span>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">学员 {classroomProfile.profileName}</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">舰长 {classroomProfile.profileName}</span>
               </div>
               <div className={`mt-3 text-xs leading-5 ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/56"}`}>
                 {classroomProfile.message}
@@ -309,10 +290,10 @@ export function GameShell() {
 
           {utilityPanelOpen === "control" && (
             <div>
-            <div className="soft-label text-[10px] text-white/40">课堂本地档案</div>
+            <div className="soft-label text-[10px] text-white/40">本地主舰档案</div>
             <div className="mt-2 text-sm font-semibold text-white">{classroomProfile.profileName}</div>
             <div className="mt-1 text-xs text-white/55">
-              {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+              {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "本地主舰模式"}
             </div>
             <div className={`mt-2 text-xs leading-5 ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/48"}`}>
               {classroomProfile.message}
@@ -351,13 +332,13 @@ export function GameShell() {
                   }}
                   className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
                 >
-                  切换学员
+                  切换舰长
                 </button>
               </div>
             </div>
 
             <div className="mt-4 border-t border-white/8 pt-4">
-              <div className="soft-label text-[10px] text-white/36">教师快捷</div>
+              <div className="soft-label text-[10px] text-white/36">领航控制</div>
               <div className="mt-3 grid gap-2">
                 <button
                   type="button"
@@ -366,7 +347,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "试听流程重新开始",
-                        detail: "主舰会回到开场状态，方便老师重新带一轮完整体验。",
+                        detail: "主舰会回到开场状态，方便重新开启一轮完整体验。",
                         mode: "arrival"
                       },
                       startTrialFromBeginning,
@@ -402,7 +383,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "准备第二章",
-                        detail: "主舰会准备文明远征入口；如果缺少星球结果，会生成一个课堂演示用母星坐标。",
+                        detail: "主舰会准备文明远征入口；如果缺少星球结果，会生成一个演示用母星坐标。",
                         mode: "jump"
                       },
                       jumpToSecondLevel,
@@ -420,7 +401,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "四处地标已点亮",
-                        detail: "课堂救场：直接保留四枚文明碎片，并开启黑匣入口。",
+                        detail: "领航控制：直接保留四枚文明碎片，并开启黑匣入口。",
                         mode: "unlock"
                       },
                       teacherCompleteChapterTwoLandmarks,
@@ -438,7 +419,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "进入黑匣试炼",
-                        detail: "课堂救场：直接进入失序回声最终战。",
+                        detail: "领航控制：直接进入失序回声最终战。",
                         mode: "scan"
                       },
                       teacherEnterBlackboxTrial,
@@ -456,7 +437,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "言衡星复苏完成",
-                        detail: "课堂救场：直接写入第二章成果、科技点和飞船 AI 升级。",
+                        detail: "领航控制：直接写入第二章成果、科技点和飞船 AI 升级。",
                         mode: "unlock"
                       },
                       teacherTriggerPlanetRestoration,
@@ -492,7 +473,7 @@ export function GameShell() {
                     void runTransition(
                       {
                         title: "当前试听流程已重置",
-                        detail: "只重置这轮课堂演示状态，保留项目的身份与存档结构。",
+                        detail: "只重置这轮演示状态，保留项目的身份与存档结构。",
                         mode: "arrival"
                       },
                       resetTrialFlow,
@@ -517,9 +498,9 @@ export function GameShell() {
             <div className="mt-1 text-xl font-semibold text-white">{state.currentScene === "hub" ? "失落航星" : "主舰内操作"}</div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/55">
               <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-cyan-100/90">
-                {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "课堂本地模式"}
+                {classroomProfile.status === "saving" ? "本地档案保存中" : classroomProfile.status === "saved" ? "本地档案已保存" : "本地主舰模式"}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">学员 {classroomProfile.profileName}</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">舰长 {classroomProfile.profileName}</span>
             </div>
             <div className={`mt-2 text-xs ${classroomProfile.status === "error" ? "text-amber-200/80" : "text-white/56"}`}>
               {classroomProfile.message}
@@ -626,7 +607,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "档案舱正在展开",
-                    detail: "主舰正在按学员姓名调出本地课堂档案：船员、星球、导入图片和最近成果都会在这里回看。",
+                    detail: "主舰正在按舰长代号调出本地主舰档案：船员、星球、导入图片和最近成果都会在这里回看。",
                     mode: "scan"
                   },
                   openArchive,
@@ -658,9 +639,11 @@ export function GameShell() {
               onOpenChapterTwoPortal={() =>
                 runTransition(
                   {
-                    title: "远航门正在展开",
-                    detail: "主舰正在沿着第一章留下的坐标，把视野推向更远的未知区域。",
-                    mode: "jump"
+                    title: state.chapterTwoComplete ? "黑匣记录正在展开" : "远航门正在展开",
+                    detail: state.chapterTwoComplete
+                      ? "第二章已完成。主舰会把语言黑匣、远征记录和母星整理入口收在归档里。"
+                      : "主舰正在沿着第一章留下的坐标，从母星出发前往语言与信息文明星。",
+                    mode: state.chapterTwoComplete ? "scan" : "jump"
                   },
                   openChapterTwoPortal,
                   980
@@ -740,99 +723,12 @@ export function GameShell() {
             <ChapterTwoMissionPanel
               mission={state.chapterTwo}
               crewRoster={state.crewRoster}
-              canRunRoundOne={canRunChapterTwoRoundOne}
-              canRunRoundTwo={canRunChapterTwoRoundTwo}
-              canComplete={canCompleteChapterTwo}
-              responseOperation={operations["chapter-two-response"]}
-              assignmentOperation={operations["chapter-two-assignment"]}
-              roundOneOperation={operations["chapter-two-round-one"]}
-              roundTwoOperation={operations["chapter-two-round-two"]}
-              completionOperation={operations["chapter-two-complete"]}
               onSetSceneState={setChapterTwoSceneState}
               onFocusPlanet={focusChapterTwoPlanet}
               onFocusLocation={focusChapterTwoLocation}
+              onUpdateDisorder={updateChapterTwoDisorder}
               onExploreLocation={exploreChapterTwoLocation}
               onAdvance={advanceChapterTwoStep}
-              onSetResponsePrompt={setChapterTwoResponsePrompt}
-              onAnalyzeResponse={() =>
-                runTransition(
-                  {
-                    title: "黑匣正在校验你的理解",
-                    detail: "主舰会判断你是否说清了语言模型的能力、边界和容易出错的地方。",
-                    mode: "scan"
-                  },
-                  analyzeChapterTwoResponse,
-                  1180
-                )
-              }
-              onRetryAnalyzeResponse={analyzeChapterTwoResponse}
-              onSetCrew={setChapterTwoCrew}
-              onSetDuty={setChapterTwoDuty}
-              onSetAssignmentPrompt={setChapterTwoAssignmentPrompt}
-              onAnalyzeAssignment={() =>
-                runTransition(
-                  {
-                    title: "黑匣接近路线正在排布",
-                    detail: "系统会把这次外部远征收拢成可执行的黑匣学习流程。",
-                    mode: "arrival"
-                  },
-                  analyzeChapterTwoAssignment,
-                  1180
-                )
-              }
-              onRetryAnalyzeAssignment={analyzeChapterTwoAssignment}
-              onSetRoundOneFocus={setChapterTwoRoundOneFocus}
-              onSetRoundOnePrompt={setChapterTwoRoundOnePrompt}
-              onAnalyzeRoundOne={() =>
-                runTransition(
-                  {
-                    title: "应用提示正在校验",
-                    detail: "科技黑匣会检查你的指令是否包含任务、语境、边界和输出方式。",
-                    mode: "scan"
-                  },
-                  analyzeChapterTwoRoundOne,
-                  1180
-                )
-              }
-              onRunRoundOne={() =>
-                runTransition(
-                  {
-                    title: "文明档案正在修复",
-                    detail: "主舰会按你的清晰提示整理损坏记录，并标出不能编造的缺口。",
-                    mode: "scan"
-                  },
-                  runChapterTwoFirstPass,
-                  1280
-                )
-              }
-              onRetryRoundOne={runChapterTwoFirstPass}
-              onSetRefinement={setChapterTwoRefinement}
-              onSetSupportMode={setChapterTwoSupportMode}
-              onSetRoundTwoPrompt={setChapterTwoRoundTwoPrompt}
-              onAnalyzeRoundTwo={() =>
-                runTransition(
-                  {
-                    title: "黑匣挑战正在校验",
-                    detail: "这一步会验证你是否能写出一条真正可用、不会诱发乱编的 AI 指令。",
-                    mode: "arrival"
-                  },
-                  analyzeChapterTwoRoundTwo,
-                  1180
-                )
-              }
-              onRunRoundTwo={() =>
-                runTransition(
-                  {
-                    title: "科技黑匣正在开启",
-                    detail: "语言文明的核心知识正在回流主舰，科技点即将写入 AI 成长系统。",
-                    mode: "arrival"
-                  },
-                  runChapterTwoSecondPass,
-                  1480
-                )
-              }
-              onRetryRoundTwo={runChapterTwoSecondPass}
-              onSetFinalChoice={setChapterTwoFinalChoice}
               onComplete={() =>
                 runTransition(
                   {
@@ -842,29 +738,6 @@ export function GameShell() {
                   },
                   completeChapterTwo,
                   1380
-                )
-              }
-              onRetryComplete={completeChapterTwo}
-              onRecoverBySwap={() =>
-                runTransition(
-                  {
-                    title: "误判已归档",
-                    detail: "主舰把这次失败记了下来。你可以回去换一位更适合的船员，再重新靠近这段回应。",
-                    mode: "arrival"
-                  },
-                  () => resolveChapterTwoSetback("swap-crew"),
-                  980
-                )
-              }
-              onRecoverByStrategy={() =>
-                runTransition(
-                  {
-                    title: "黑匣挑战重新打开",
-                    detail: "主舰保留了失败留下的线索。你可以直接改写最终指令，再试一次。",
-                    mode: "scan"
-                  },
-                  () => resolveChapterTwoSetback("retry-strategy"),
-                  980
                 )
               }
             />
@@ -1089,7 +962,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "体验说明页正在展开",
-                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示给老师与家长。",
+                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示出来。",
                     mode: "arrival"
                   },
                   openParentSummary,
@@ -1151,8 +1024,8 @@ export function GameShell() {
               onStartFaultRun={() =>
                 runTransition(
                   {
-                    title: "旧信息库回溯链正在展开",
-                    detail: "旧信息库回路已经打开，这一轮会生成一条短演算链，用来补齐早期主舰资料。",
+                    title: "可选旧档案挑战正在展开",
+                    detail: "这不是第二章主线，而是一条短演算链，用来补齐早期主舰资料。",
                     mode: "jump"
                   },
                   startFaultRun,
@@ -1201,7 +1074,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "返回主舰",
-                    detail: "试听成果已经留在主舰档案里，可以继续查看存档或准备下一位孩子体验。",
+                    detail: "试听成果已经留在主舰档案里，可以继续查看存档或准备下一次体验。",
                     mode: "arrival"
                   },
                   returnToHub,
@@ -1212,7 +1085,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "试听流程重新开始",
-                    detail: "主舰会回到开场状态，方便老师重新带一轮完整体验。",
+                    detail: "主舰会回到开场状态，方便重新开启一轮完整体验。",
                     mode: "arrival"
                   },
                   startTrialFromBeginning,
@@ -1223,7 +1096,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "体验说明页正在展开",
-                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示给老师与家长。",
+                    detail: "这页会把本轮体验的学习价值和作品沉淀集中展示出来。",
                     mode: "arrival"
                   },
                   openParentSummary,
@@ -1249,7 +1122,7 @@ export function GameShell() {
                 runTransition(
                   {
                     title: "返回成果页",
-                    detail: "主舰正在收起说明层，回到孩子完成的任务成果。",
+                    detail: "主舰正在收起说明层，回到已经完成的任务成果。",
                     mode: "arrival"
                   },
                   state.chapterTwo.outcome ? openTrialResult : openFirstExperienceResult,

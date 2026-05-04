@@ -145,7 +145,7 @@ export const providerPromptBindings: ProviderPromptBindings = {
       styleDirection:
         interpreted?.styleDirection ?? "高质量游戏角色设定插画，重视主体与服装，不默认二次元，也不默认写实写真",
       wardrobeDirection:
-        interpreted?.wardrobeDirection ?? "服装按玩家描述和角色身份自然推断，不默认宇航服、机甲或机械装甲",
+        interpreted?.wardrobeDirection ?? "服装按原始描述和角色身份自然推断，不默认宇航服、机甲或机械装甲",
       portraitDirection: interpreted?.portraitDirection,
       portraitAestheticSystem: interpreted?.portraitAestheticSystem,
       portraitTemperamentFrame: interpreted?.portraitTemperamentFrame,

@@ -125,7 +125,7 @@ export function CrewBayPanel({
                   onImport={(file) => onImportCrewImage(activeCrew.id, file)}
                 />
                 <p className="text-xs leading-6 text-white/46">
-                  老师可以用外部工具生成高质量角色图，再导入这里；名字、职责和能力倾向都不会被改写。
+                  可用外部工具生成高质量角色图，再导入这里；名字、职责和能力倾向都不会被改写。
                 </p>
                 <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
                   <div className="text-xs tracking-[0.18em] text-white/38">外形提示补充</div>

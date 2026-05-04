@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <defs>
+    <radialGradient id="vault" cx="50%" cy="35%" r="80%">
+      <stop offset="0" stop-color="#2d4e54"/>
+      <stop offset=".42" stop-color="#101a24"/>
+      <stop offset="1" stop-color="#05070d"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="13" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#vault)"/>
+  <path d="M0 922 L620 700 H1940 L2560 922 V1440 H0 Z" fill="#0b0e14"/>
+  <g opacity=".22" stroke="#9df7ff" stroke-width="4">
+    <path d="M360 160 V900 M520 120 V800 M2040 120 V800 M2200 160 V900"/>
+    <path d="M300 262 H2260 M300 412 H2260 M300 562 H2260"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="430" y="456" width="360" height="360" rx="26" fill="#0c1820" stroke="#97f4ff" stroke-width="5"/>
+    <rect x="498" y="522" width="94" height="104" rx="12" fill="#97f4ff" opacity=".24"/>
+    <rect x="626" y="522" width="94" height="104" rx="12" fill="#d5ffc2" opacity=".20"/>
+    <rect x="498" y="662" width="222" height="46" rx="14" fill="#97f4ff" opacity=".18"/>
+  </g>
+  <g filter="url(#glow)">
+    <rect x="1110" y="780" width="420" height="220" rx="42" fill="#10151c" stroke="#bdf7ff" stroke-width="5"/>
+    <path d="M1184 836 h272 M1208 898 h224" stroke="#bdf7ff" stroke-width="12" stroke-linecap="round" opacity=".54"/>
+    <circle cx="1320" cy="742" r="96" fill="#bdf7ff" opacity=".16"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M1922 300 l168 84 v410 l-168 84 -168-84 V384z" fill="#141722" stroke="#ffe39b" stroke-width="5"/>
+    <path d="M1840 516 h164 M1840 600 h164" stroke="#ffe39b" stroke-width="12" stroke-linecap="round" opacity=".52"/>
+  </g>
+</svg>

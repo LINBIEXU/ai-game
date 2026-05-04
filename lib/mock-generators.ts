@@ -371,7 +371,7 @@ function inferDefaultVisualSubject(formType: RecruitForm["formType"]) {
     return "生物伙伴";
   }
 
-  return "玩家原创伙伴";
+  return "原创伙伴";
 }
 
 function inferFormTypeFromSubjectText(text: string): RecruitForm["formType"] | null {
@@ -396,7 +396,7 @@ function extractOriginalVisualSubject(description: string) {
     return null;
   }
 
-  return `玩家描述的原创伙伴：${shortenText(normalized, 24)}`;
+  return `原始描述中的原创伙伴：${shortenText(normalized, 24)}`;
 }
 
 export function inferCrewVisualProfile(input: {
@@ -416,9 +416,9 @@ export function inferCrewVisualProfile(input: {
       visualSubject: humanSubject,
       visualGuardrails: [
         `主体必须保持${humanSubject}，不要改成动物、人外或混种主体`,
-        "若玩家未明确提出，不要自动添加猫耳、狐耳、兽尾、角、翅膀、鳞片或非人器官",
-        "若玩家未明确提出，不要默认加入机械装甲、外骨骼、宇航服或重科技制服",
-        "服装和背景可以变化，但要优先服从玩家对身份、气质和服装的描述"
+        "若原始描述未明确提出，不要自动添加猫耳、狐耳、兽尾、角、翅膀、鳞片或非人器官",
+        "若原始描述未明确提出，不要默认加入机械装甲、外骨骼、宇航服或重科技制服",
+        "服装和背景可以变化，但要优先服从原始描述中的身份、气质和服装"
       ]
     };
   }
@@ -429,7 +429,7 @@ export function inferCrewVisualProfile(input: {
     if (humanoidRequested) {
       guardrails.push("允许轻度拟人站姿，但物种必须仍然一眼可辨");
     } else {
-      guardrails.push("若玩家未明确要求拟人化，则保持非人主体，不要添加人类脸或人类四肢比例");
+      guardrails.push("若原始描述未明确要求拟人化，则保持非人主体，不要添加人类脸或人类四肢比例");
     }
 
     return {
@@ -442,9 +442,9 @@ export function inferCrewVisualProfile(input: {
   const visualGuardrails = [
     `主体必须严格贴合${visualSubject}，不要改成通用人形船员`,
     "名字、职责、能力和角色气质必须维持一致",
-    "服饰与背景可以自由变化，但不要偏离玩家原始招募描述",
-    "除非玩家明确要求拟人化，否则不要自动加入人类脸或人类比例",
-    "除非玩家明确提到宇航服、机甲或装甲，否则不要自动套科幻制服或机械外壳"
+    "服饰与背景可以自由变化，但不要偏离原始招募描述",
+    "除非原始描述明确要求拟人化，否则不要自动加入人类脸或人类比例",
+    "除非原始描述明确提到宇航服、机甲或装甲，否则不要自动套科幻制服或机械外壳"
   ];
 
   return {

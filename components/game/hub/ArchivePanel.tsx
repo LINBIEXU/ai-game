@@ -132,7 +132,7 @@ export function ArchivePanel({
       return upgradeMessage;
     }
 
-    return "绑定家长邮箱后，这艘船会把当前船员、作品、日志和关卡进度一起升级为正式存档。";
+    return "绑定邮箱后，这艘船会把当前船员、作品、日志和关卡进度一起升级为正式存档。";
   }, [upgradeError, upgradeMessage]);
 
   useEffect(() => {
@@ -151,12 +151,12 @@ export function ArchivePanel({
       <div className="fleet-broadcast panel-surface rounded-full px-4 py-2">
         <div className="fleet-broadcast-track">
           {[
-            didRestoreHistory ? "已接续上次课堂档案" : isClassroomLocal ? "新的课堂档案已建立" : "新的探索航线已建立",
+            didRestoreHistory ? "已接续上次主舰档案" : isClassroomLocal ? "新的主舰档案已建立" : "新的探索航线已建立",
             statusMessage,
             `最近保存 ${formatTime(lastSavedAt)}`,
-            isClassroomLocal ? "当前使用本地课堂档案" : isAnonymousAccount ? "当前仍是匿名航线" : "主舰存档已升级为正式账号",
-            didRestoreHistory ? "主舰记得你来过这里" : "本次课堂会从这里开始",
-            didRestoreHistory ? "已接续上次课堂档案" : isClassroomLocal ? "新的课堂档案已建立" : "新的探索航线已建立",
+            isClassroomLocal ? "当前使用本地主舰档案" : isAnonymousAccount ? "当前仍是匿名航线" : "主舰存档已升级为正式账号",
+            didRestoreHistory ? "主舰记得你来过这里" : "本次航行会从这里开始",
+            didRestoreHistory ? "已接续上次主舰档案" : isClassroomLocal ? "新的主舰档案已建立" : "新的探索航线已建立",
             statusMessage
           ].map((item, index) => (
             <span key={`${item}-${index}`} className="fleet-broadcast-item">
@@ -176,16 +176,16 @@ export function ArchivePanel({
               <div className="text-sm font-semibold text-white">当前身份</div>
               <div className="mt-3 text-sm leading-6 text-white/64">
                 {loginType === "CLASSROOM_LOCAL"
-                  ? "身份类型：课堂本地档案"
+                  ? "身份类型：本地主舰档案"
                   : isAnonymousAccount
                     ? "身份类型：匿名探索者"
-                    : `身份类型：${loginType === "EMAIL" ? "已绑定家长邮箱" : loginType ?? "正式账号"}`}
+                    : `身份类型：${loginType === "EMAIL" ? "已绑定邮箱" : loginType ?? "正式账号"}`}
               </div>
               <div className="mt-2 text-sm leading-6 text-white/64">
-                {authUid ? `${isClassroomLocal ? "学员姓名" : isAnonymousAccount ? "匿名编号" : "主舰编号"}：${authUid}` : "尚未接入课堂档案"}
+                {authUid ? `${isClassroomLocal ? "舰长代号" : isAnonymousAccount ? "匿名编号" : "主舰编号"}：${authUid}` : "尚未接入主舰档案"}
               </div>
               <div className="mt-2 text-sm leading-6 text-white/64">
-                {isClassroomLocal ? "保存方式：本地文件夹" : accountEmail ? `已绑定邮箱：${accountEmail}` : "尚未绑定家长邮箱"}
+                {isClassroomLocal ? "保存方式：本地文件夹" : accountEmail ? `已绑定邮箱：${accountEmail}` : "尚未绑定邮箱"}
               </div>
               {saveSummary?.activeCrewName && (
                 <div className="mt-2 text-sm leading-6 text-white/64">当前活跃船员：{saveSummary.activeCrewName}</div>
@@ -193,7 +193,7 @@ export function ArchivePanel({
               <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/68">
                 {saveStatus === "saving"
                   ? isClassroomLocal
-                    ? "主舰正在写入本地课堂档案"
+                    ? "主舰正在写入本地主舰档案"
                     : "主舰正在同步"
                   : saveStatus === "error"
                     ? isClassroomLocal
@@ -205,14 +205,14 @@ export function ArchivePanel({
 
             {canShowUpgrade ? (
               <div className="rounded-[24px] border border-amber-200/16 bg-amber-200/[0.05] p-5">
-                <div className="text-sm font-semibold text-white">绑定家长邮箱，永久保存作品</div>
+                <div className="text-sm font-semibold text-white">绑定邮箱，永久保存作品</div>
                 <div className="mt-3 text-sm leading-6 text-white/62">{upgradeHint}</div>
                 <div className="mt-4 space-y-3">
                   <input
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="家长邮箱"
+                    placeholder="绑定邮箱"
                     className="w-full rounded-[16px] border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-cyan-200/35"
                   />
                   <div className="flex flex-col gap-3 sm:flex-row">
@@ -245,11 +245,11 @@ export function ArchivePanel({
               </div>
             ) : (
               <div className="rounded-[24px] border border-emerald-200/14 bg-emerald-200/[0.05] p-5">
-                <div className="text-sm font-semibold text-white">{loginType === "CLASSROOM_LOCAL" ? "课堂本地档案已启用" : "正式存档已启用"}</div>
+                <div className="text-sm font-semibold text-white">{loginType === "CLASSROOM_LOCAL" ? "本地主舰档案已启用" : "正式存档已启用"}</div>
                 <div className="mt-3 text-sm leading-6 text-white/62">
                   {loginType === "CLASSROOM_LOCAL"
-                    ? "船员、星球、日志、导入图片和课堂成果会按学员姓名保存到本地文件夹。下次输入同一个姓名即可接回记录。"
-                    : "船员档案、作品、日志和关卡进度已经绑定到家长邮箱。后续即使换设备，只要继续用这条邮箱接回账号，主舰也会认得你。"}
+                    ? "船员、星球、日志、导入图片和航行成果会按舰长代号保存到本地文件夹。下次输入同一个代号即可接回记录。"
+                    : "船员档案、作品、日志和关卡进度已经绑定到邮箱。后续即使换设备，只要继续用这条邮箱接回账号，主舰也会认得你。"}
                 </div>
               </div>
             )}
@@ -262,7 +262,7 @@ export function ArchivePanel({
                 ))}
               </div>
               <div className="mt-4 text-xs text-white/45">
-                最近一次保存：{formatTime(lastSavedAt)} · {didRestoreHistory ? "本次进入已恢复历史进度" : "本次是新的课堂起点"}
+                最近一次保存：{formatTime(lastSavedAt)} · {didRestoreHistory ? "本次进入已恢复历史进度" : "本次是新的航行起点"}
                 {saveSummary?.checkpointStage ? ` · 当前检查点 ${saveSummary.checkpointStage}` : ""}
               </div>
             </div>
@@ -303,11 +303,11 @@ export function ArchivePanel({
             </div>
 
             <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-              <div className="text-sm font-semibold text-white">课堂成果图</div>
+              <div className="text-sm font-semibold text-white">航行成果图</div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {state.classroomArtifacts.length === 0 && (
                   <div className="rounded-[18px] border border-dashed border-white/14 bg-white/[0.02] p-4 text-sm leading-6 text-white/56">
-                    还没有导入成果图。完成角色或星球设定后，老师可以把外部生成好的图片导入回来。
+                    还没有导入成果图。完成角色或星球设定后，可以把外部生成好的图片导入回来。
                   </div>
                 )}
                 {state.classroomArtifacts.slice(0, 8).map((artifact) => (
@@ -316,7 +316,7 @@ export function ArchivePanel({
                     <img src={artifact.imageAsset.imageUrl} alt={artifact.title} className="h-36 w-full object-cover" />
                     <div className="p-4">
                       <div className="text-sm font-semibold text-white">{artifact.title}</div>
-                      <div className="mt-2 text-xs leading-5 text-white/50">{artifact.notes ?? "课堂导入成果图"}</div>
+                      <div className="mt-2 text-xs leading-5 text-white/50">{artifact.notes ?? "导入成果图"}</div>
                     </div>
                   </article>
                 ))}

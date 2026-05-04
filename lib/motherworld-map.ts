@@ -35,7 +35,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     id: "civilization-gallery",
     name: "文明展厅",
     shortName: "文明展厅",
-    mapNote: "作品、黑匣记录与课堂成果会在这里归档。",
+    mapNote: "作品、黑匣记录与航行成果会在这里归档。",
     activeHint: "文明展厅已点亮",
     lockedHint: "第一章完成后可用",
     position: { x: 25, y: 28 },
@@ -43,8 +43,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(4% 0, 40% 0, 40% 39%, 33% 47%, 9% 45%, 3% 27%)",
     overlayFeatherClipPaths: ["polygon(4% 0, 44% 0, 44% 50%, 16% 56%, 4% 38%)"],
     activationCost: { water: 7, minerals: 8, energy: 7, fragments: 0 },
-    interiorImageUrl: "/images/home-planet/interiors/civilization-gallery.png",
-    interiorMood: "记忆展柜与文明晶体正在同步课堂成果。"
+    interiorImageUrl: "/images/home-planet/interiors-v2/civilization-gallery.png",
+    interiorMood: "记忆展柜与文明晶体正在同步航行成果。"
   },
   {
     id: "planet-workshop",
@@ -58,7 +58,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(3% 50%, 34% 49%, 36% 83%, 8% 89%, 0 72%)",
     overlayFeatherClipPaths: ["polygon(1% 54%, 36% 52%, 38% 90%, 5% 94%, 0 74%)"],
     activationCost: { water: 8, minerals: 9, energy: 8, fragments: 0 },
-    interiorImageUrl: "/images/home-planet/interiors/planet-workshop.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/planet-workshop.png",
     interiorMood: "星球模型台、资源罐和建造机械臂已经待命。"
   },
   {
@@ -73,7 +73,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(40% 35%, 62% 33%, 63% 59%, 39% 61%)",
     overlayFeatherClipPaths: ["polygon(38% 31%, 66% 30%, 66% 66%, 38% 70%)"],
     activationCost: { water: 6, minerals: 6, energy: 5, fragments: 1 },
-    interiorImageUrl: "/images/home-planet/interiors/commission-board.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/commission-board.png",
     interiorMood: "任务墙、写作桌和项目灯正在等待新的作品委托。"
   },
   {
@@ -88,7 +88,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(42% 58%, 58% 57%, 59% 96%, 42% 97%)",
     overlayFeatherClipPaths: ["polygon(39% 52%, 62% 52%, 62% 100%, 39% 100%)"],
     activationCost: { water: 6, minerals: 4, energy: 6, fragments: 1 },
-    interiorImageUrl: "/images/home-planet/interiors/character-dialogue-room.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/character-dialogue-room.png",
     interiorMood: "环形对话台把问题、回应和复盘分成清楚的回路。"
   },
   {
@@ -103,7 +103,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(41% 0, 67% 0, 67% 38%, 41% 39%)",
     overlayFeatherClipPaths: ["polygon(38% 0, 70% 0, 70% 45%, 38% 47%)"],
     activationCost: { water: 7, minerals: 7, energy: 6, fragments: 2 },
-    interiorImageUrl: "/images/home-planet/interiors/animation-studio.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/animation-studio.png",
     interiorMood: "分镜光带、镜头轨道和三幕故事台缓慢亮起。"
   },
   {
@@ -118,7 +118,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(62% 42%, 88% 41%, 90% 69%, 62% 70%)",
     overlayFeatherClipPaths: ["polygon(59% 37%, 93% 38%, 93% 76%, 59% 78%)"],
     activationCost: { water: 6, minerals: 10, energy: 7, fragments: 0 },
-    interiorImageUrl: "/images/home-planet/interiors/civilization-archive.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/civilization-archive.png",
     interiorMood: "黑匣资料、语言光流和文明知识卡被安静归档。"
   },
   {
@@ -133,7 +133,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(63% 62%, 98% 60%, 99% 92%, 62% 93%)",
     overlayFeatherClipPaths: ["polygon(60% 55%, 100% 55%, 100% 97%, 60% 98%)"],
     activationCost: { water: 8, minerals: 5, energy: 8, fragments: 0 },
-    interiorImageUrl: "/images/home-planet/interiors/crew-dormitory.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/crew-dormitory.png",
     interiorMood: "船员舱室、个人储物柜和舷窗星光保持低亮度值守。"
   },
   {
@@ -148,7 +148,7 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     overlayClipPath: "polygon(70% 0, 100% 0, 100% 43%, 68% 43%)",
     overlayFeatherClipPaths: ["polygon(67% 0, 100% 0, 100% 48%, 67% 50%)"],
     activationCost: { water: 8, minerals: 6, energy: 7, fragments: 2 },
-    interiorImageUrl: "/images/home-planet/interiors/expedition-planning.png",
+    interiorImageUrl: "/images/home-planet/interiors-v2/expedition-planning.png",
     interiorMood: "星图桌和路线投影正在为下一次远征预留轨道。"
   }
 ];

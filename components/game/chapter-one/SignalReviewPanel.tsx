@@ -78,8 +78,8 @@ export function SignalReviewPanel({
       <div className="fleet-broadcast panel-surface rounded-full px-4 py-2">
         <div className="fleet-broadcast-track">
           {[
-            "旧信息库补档演算",
-            "这里是早期主舰资料的短回路校准",
+            "可选旧档案挑战",
+            "这里是早期主舰资料的短回路校准，不是第二章主线",
             `${crew.name} 的能力会直接影响节点收益`,
             "稳定度、证据清晰度、时间窗口会一起推动局势"
           ].map((item, index) => (
@@ -92,9 +92,9 @@ export function SignalReviewPanel({
 
       <div className="grid gap-4 md:grid-cols-[0.96fr_1.04fr]">
         <SystemFeedback
-          eyebrow="旧信息库补档"
-          title="校准主舰早期事故资料"
-          body="这一段保留为旧资料补档，不再作为新的第二章主线。当前第二章主线会从母星出发，进入语言与信息文明星寻找科技黑匣。"
+          eyebrow="可选旧档案挑战"
+          title="补一段主舰早期事故资料"
+          body="这一段是旧资料补档，用来练证据选择和风险判断；它不是第二章主线。第二章主线会从母星出发，进入语言与信息文明星寻找科技黑匣。"
           tone="warm"
         />
         <div className="fault-memory-panel rounded-[26px] border border-white/8 bg-white/[0.03] p-5">
@@ -122,7 +122,7 @@ export function SignalReviewPanel({
 
       {faultRun.status !== "running" && (
         <div className="fault-memory-panel panel-surface rounded-[32px] p-6 md:p-8">
-          <div className="soft-label text-[11px] text-white/42">回溯入口</div>
+          <div className="soft-label text-[11px] text-white/42">可选旧档案入口</div>
           <h2 className="mt-3 text-3xl font-semibold text-white">
             {faultRun.status === "resolved" ? "这一轮回溯已经结算，可以归档或快速重试。" : "开局会随机抽到一种故障种子，然后沿着 5 个节点向前跑。"}
           </h2>
@@ -215,7 +215,7 @@ export function SignalReviewPanel({
                     : "bg-cyan-300 text-slate-950 hover:scale-[1.02] hover:bg-cyan-200"
                 }`}
               >
-                开始这一轮回溯
+                开始可选旧档案挑战
               </button>
             )}
             <button
@@ -233,7 +233,7 @@ export function SignalReviewPanel({
         <div className="fault-memory-panel panel-surface rounded-[32px] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="soft-label text-[10px] text-amber-100/45">进入旧资料校准层</div>
+              <div className="soft-label text-[10px] text-amber-100/45">进入可选旧档案校准层</div>
               <h2 className="mt-2 text-3xl font-semibold text-white">{faultRun.activeSeed?.title ?? "旧资料演算链"}</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/58">{faultRun.activeSeed?.summary}</p>
             </div>
@@ -322,7 +322,7 @@ export function SignalReviewPanel({
           )}
 
           <div className="mt-5">
-            <GenerationStatus title="旧资料补档演算" operation={operation} />
+            <GenerationStatus title="可选旧档案补档演算" operation={operation} />
           </div>
         </div>
       )}

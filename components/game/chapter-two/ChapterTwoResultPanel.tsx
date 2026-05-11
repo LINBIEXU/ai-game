@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChapterTwoOutcome, CrewMember } from "@/types/game";
+import type { ChapterTwoOutcome, ChapterTwoRepairReadings, ChapterTwoSystemReadings, CrewMember } from "@/types/game";
 
 import { KidLearningCard } from "@/components/game/KidLearningCard";
 import { SystemFeedback } from "@/components/game/SystemFeedback";
@@ -13,9 +13,50 @@ interface ChapterTwoResultPanelProps {
   onReturn: () => void;
 }
 
+const emptyRepairReadings: ChapterTwoRepairReadings = {
+  goalClarity: 0,
+  evidenceIntegrity: 0,
+  unknownMarking: 0,
+  boundaryAwareness: 0
+};
+
+const emptySystemReadings: ChapterTwoSystemReadings = {
+  languageStability: 0,
+  evidenceChainIntegrity: 0,
+  echoInterferenceResidue: 100,
+  blackBoxSyncRate: 0
+};
+
+const systemReadingItems: Array<{
+  key: keyof ChapterTwoSystemReadings;
+  label: string;
+  detail: string;
+  mode: "high" | "low";
+}> = [
+  { key: "languageStability", label: "语言稳定度", detail: "提示、表达与回应光路的稳定读数", mode: "high" },
+  { key: "evidenceChainIntegrity", label: "证据链完整度", detail: "来源分层是否闭合", mode: "high" },
+  { key: "echoInterferenceResidue", label: "回声干扰残留", detail: "失序回声仍残留的噪声比例", mode: "low" },
+  { key: "blackBoxSyncRate", label: "黑匣同步率", detail: "语言黑匣与主舰 AI 的接入程度", mode: "high" }
+];
+
+const repairReadingItems: Array<{
+  key: keyof ChapterTwoRepairReadings;
+  label: string;
+  detail: string;
+}> = [
+  { key: "goalClarity", label: "目标清楚度", detail: "任务方向与输出目标" },
+  { key: "evidenceIntegrity", label: "证据完整度", detail: "来源、事实与复查线" },
+  { key: "unknownMarking", label: "未知标注", detail: "缺口是否保留" },
+  { key: "boundaryAwareness", label: "边界意识", detail: "协助范围是否清楚" }
+];
+
 export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn }: ChapterTwoResultPanelProps) {
   const knowledge = outcome.blackBoxKnowledge ?? [];
   const fragments = outcome.fragments ?? ["归档碎片", "传递碎片", "求证碎片", "表达碎片"];
+  const repairReadings = outcome.repairReadings ?? emptyRepairReadings;
+  const systemReadings = outcome.systemReadings ?? emptySystemReadings;
+  const settlementLines = outcome.settlementLogs?.[0]?.reportLines ?? [];
+  const crewAssistRecords = outcome.crewAssistRecords ?? [];
   const finalLetter = outcome.finalLetter ?? [
     "我们曾经拥有无数答案。",
     "却忘了怎样提出问题。",
@@ -70,8 +111,61 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
           </div>
         </div>
 
+        <div className="mt-6 rounded-[28px] border border-cyan-200/14 bg-cyan-200/[0.06] p-5">
+          <div className="text-lg font-semibold text-white">主舰结算回报</div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {systemReadingItems.map((item) => {
+              const value = Math.max(0, Math.min(100, systemReadings[item.key]));
+              const tone = item.mode === "low" ? (value <= 25 ? "text-emerald-100" : "text-amber-100") : value >= 75 ? "text-emerald-100" : "text-cyan-50";
+              return (
+                <div key={item.key} className="rounded-[18px] border border-white/8 bg-white/[0.035] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-white">{item.label}</span>
+                    <strong className={`text-xs ${tone}`}>{value}%</strong>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <span className="block h-full rounded-full bg-cyan-200" style={{ width: `${value}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-white/52">{item.detail}</p>
+                </div>
+              );
+            })}
+          </div>
+          {settlementLines.length > 0 ? (
+            <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/56">
+              {settlementLines.slice(0, 4).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-6 rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
+          <div className="text-lg font-semibold text-white">修复指标明细</div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {repairReadingItems.map((item) => {
+              const value = Math.max(0, Math.min(4, repairReadings[item.key]));
+              return (
+                <div key={item.key} className="rounded-[18px] border border-white/8 bg-white/[0.035] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-white">{item.label}</span>
+                    <strong className="text-xs text-cyan-50">{value}/4</strong>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <span className="block h-full rounded-full bg-cyan-200" style={{ width: `${(value / 4) * 100}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-white/52">{item.detail}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="mt-8 rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
           <div className="text-lg font-semibold text-white">船员协作记录</div>
+          <div className="mt-2 text-xs leading-6 text-white/52">
+            {outcome.crewAssistSummary ?? "船员以远征伙伴身份留下旁路提示。"}
+          </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
               <div className="text-sm font-semibold text-white">{leadCrew?.name ?? "同行船员"}</div>
@@ -81,6 +175,20 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
               <div className="text-sm font-semibold text-white">{supportCrew?.name ?? "记录支援"}</div>
               <div className="mt-2 text-xs leading-6 text-white/54">{outcome.supportDossierNote}</div>
             </div>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {crewAssistRecords.length > 0 ? (
+              crewAssistRecords.slice().reverse().map((record) => (
+                <div key={record.id} className="rounded-[18px] border border-cyan-200/12 bg-cyan-200/[0.05] px-4 py-3">
+                  <div className="text-xs font-semibold text-cyan-50">{record.targetName} · {record.crewName}</div>
+                  <p className="mt-1 text-xs leading-6 text-white/56">{record.hint}</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-6 text-white/50">
+                本次远征没有使用船员提示。船员仍作为同行见证者参与归档。
+              </div>
+            )}
           </div>
         </div>
 
@@ -114,7 +222,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
               ))
             ) : (
               <div className="rounded-[20px] border border-cyan-200/16 bg-cyan-200/10 px-4 py-4 text-sm leading-6 text-white">
-                语言模型需要清楚目标、上下文和不能编造的边界。
+                语言黑匣规则已写入远征档案。
               </div>
             )}
           </div>
@@ -125,7 +233,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         <div className="panel-surface rounded-[28px] p-5">
           <div className="soft-label text-[11px] text-white/42">主舰 AI 回写</div>
           <p className="mt-3 text-sm leading-7 text-white/62">
-            {outcome.aiUpgrade ?? "语言黑匣已写入。以后，我会更努力听清你的意思。但我也会提醒你：不要让我替你思考。"}
+            {outcome.aiUpgrade ?? "语言黑匣已写入。主舰语言回路更稳定。"}
           </p>
           <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/50">
             归档提示：第二章已经完成。现在可以回看黑匣记录，或返回母星整理作品。

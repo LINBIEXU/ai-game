@@ -342,9 +342,28 @@ export function ArchivePanel({
                   <div className="mt-3 rounded-[16px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/54">
                     {state.chapterTwo.outcome.finalLetter?.join(" ") ?? "让 AI 帮助你，而不是替代你。"}
                   </div>
+                  <div className="mt-3 rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.05] px-4 py-3 text-xs leading-6 text-white/54">
+                    船员协作记录：{state.chapterTwo.outcome.crewAssistSummary ?? "本次远征未使用船员提示。"}
+                  </div>
                   <div className="mt-3 text-xs leading-6 text-white/48">
                     飞船 AI 模块：{state.chapterTwo.outcome.unlockedModule ?? "语言理解 Level 1"}
                   </div>
+                  {state.chapterTwo.outcome.systemReadings ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3 py-2 text-[11px] text-white/54">
+                        语言稳定度：{state.chapterTwo.outcome.systemReadings.languageStability}%
+                      </div>
+                      <div className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3 py-2 text-[11px] text-white/54">
+                        证据链完整度：{state.chapterTwo.outcome.systemReadings.evidenceChainIntegrity}%
+                      </div>
+                      <div className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3 py-2 text-[11px] text-white/54">
+                        回声干扰残留：{state.chapterTwo.outcome.systemReadings.echoInterferenceResidue}%
+                      </div>
+                      <div className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3 py-2 text-[11px] text-white/54">
+                        黑匣同步率：{state.chapterTwo.outcome.systemReadings.blackBoxSyncRate}%
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-4 rounded-[18px] border border-dashed border-white/14 bg-white/[0.02] p-4 text-sm leading-6 text-white/56">

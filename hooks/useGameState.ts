@@ -4,9 +4,20 @@ import { useEffect, useMemo } from "react";
 
 import { mockGenerationProvider } from "@/lib/ai/mock-provider";
 import { chapterTwoSurfaceLocations, chapterTwoUnlockLocationIds } from "@/lib/chapter-two-exploration";
-import { createInitialGameState, emptyChapterTwoState, emptyRecruitForm, emptySignalMission, labelMap, shipTaskCatalog, STORAGE_KEY } from "@/lib/game-constants";
+import {
+  createInitialGameState,
+  emptyChapterTwoRepairReadings,
+  emptyChapterTwoState,
+  emptyChapterTwoSystemReadings,
+  emptyRecruitForm,
+  emptySignalMission,
+  labelMap,
+  shipTaskCatalog,
+  STORAGE_KEY
+} from "@/lib/game-constants";
 import {
   canBuildAdjustedStructure,
+  emptyHomePlanetBuildingBenefits,
   emptyHomePlanetHubState,
   getAdjustedHomePlanetStructureCost,
   getAdjustedMotherworldActivationCost,
@@ -48,6 +59,8 @@ import { useGenerationRuntime } from "@/hooks/useGenerationRuntime";
 import type {
   ChapterTwoDuty,
   ChapterTwoEcho,
+  ChapterTwoCrewAssistRecord,
+  ChapterTwoCrewAssistRequest,
   ChapterTwoFinalChoice,
   ChapterTwoFocus,
   ChapterTwoLocationCompletionPayload,
@@ -56,16 +69,23 @@ import type {
   ChapterTwoOutcome,
   ChapterTwoPlanetId,
   ChapterTwoRefinement,
+  ChapterTwoRepairReadingLog,
+  ChapterTwoRepairReadings,
+  ChapterTwoSettlementLog,
   ChapterTwoSceneState,
   ChapterTwoSetback,
+  ChapterTwoSystemReadings,
   ClassroomImageAsset,
   ChapterTwoTruth,
   CrewDossierEntry,
   CrewMember,
   FaultCaseRecord,
   GameState,
+  HomePlanetBuildingBenefits,
+  HomePlanetArchiveRecord,
   HomePlanetCommissionWork,
   HomePlanetDialogueCard,
+  HomePlanetExpeditionPlan,
   HomePlanetFeatureId,
   HomePlanetGalleryItem,
   HomePlanetHubState,
@@ -190,6 +210,75 @@ function normalizeTaskResult(result: TaskResult | null): TaskResult | null {
   };
 }
 
+function normalizeHomePlanetBuildingBenefits(
+  input: Partial<HomePlanetBuildingBenefits> | null | undefined,
+  activeFeatureIds: HomePlanetFeatureId[]
+): HomePlanetBuildingBenefits {
+  const base = emptyHomePlanetBuildingBenefits();
+  const activeFeatures = new Set(activeFeatureIds);
+  const expeditionPlan =
+    input?.expeditionPlan &&
+    typeof input.expeditionPlan.goal === "string" &&
+    typeof input.expeditionPlan.risk === "string" &&
+    typeof input.expeditionPlan.recordPlan === "string"
+      ? {
+          goal: input.expeditionPlan.goal,
+          risk: input.expeditionPlan.risk,
+          recordPlan: input.expeditionPlan.recordPlan,
+          createdAt: typeof input.expeditionPlan.createdAt === "number" ? input.expeditionPlan.createdAt : Date.now()
+        }
+      : null;
+
+  return {
+    galleryReviewCount: Math.max(0, typeof input?.galleryReviewCount === "number" ? input.galleryReviewCount : base.galleryReviewCount),
+    lastGalleryReviewAt: typeof input?.lastGalleryReviewAt === "number" ? input.lastGalleryReviewAt : null,
+    workshopEfficiencyLevel: Math.max(
+      activeFeatures.has("planet-workshop") ? 1 : 0,
+      typeof input?.workshopEfficiencyLevel === "number" ? input.workshopEfficiencyLevel : base.workshopEfficiencyLevel
+    ),
+    commissionResourceClaims: Math.max(0, typeof input?.commissionResourceClaims === "number" ? input.commissionResourceClaims : 0),
+    dialogueReflectionCount: Math.max(0, typeof input?.dialogueReflectionCount === "number" ? input.dialogueReflectionCount : 0),
+    storyboardArchiveCount: Math.max(0, typeof input?.storyboardArchiveCount === "number" ? input.storyboardArchiveCount : 0),
+    equippedRuleCardIds: Array.isArray(input?.equippedRuleCardIds) ? input.equippedRuleCardIds.filter((id) => typeof id === "string").slice(0, 2) : [],
+    crewAssistLevel: Math.max(
+      activeFeatures.has("crew-dormitory") ? 1 : 0,
+      typeof input?.crewAssistLevel === "number" ? input.crewAssistLevel : base.crewAssistLevel
+    ),
+    expeditionPlan,
+    benefitLogs: Array.isArray(input?.benefitLogs)
+      ? input.benefitLogs
+          .filter((log) => log && typeof log.id === "string" && typeof log.featureId === "string")
+          .map((log) => ({
+            id: log.id,
+            featureId: log.featureId as HomePlanetFeatureId,
+            title: log.title ?? "母星收益记录",
+            summary: log.summary ?? "",
+            createdAt: typeof log.createdAt === "number" ? log.createdAt : Date.now()
+          }))
+          .slice(0, 12)
+      : []
+  };
+}
+
+function createHomePlanetBenefitLog(featureId: HomePlanetFeatureId, title: string, summary: string, createdAt = Date.now()) {
+  return {
+    id: `home-benefit-${featureId}-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+    featureId,
+    title,
+    summary,
+    createdAt
+  };
+}
+
+function appendHomePlanetBenefitLog(benefits: HomePlanetBuildingBenefits, log: HomePlanetBuildingBenefits["benefitLogs"][number]) {
+  return {
+    ...benefits,
+    benefitLogs: [log, ...benefits.benefitLogs].slice(0, 12)
+  };
+}
+
+const homePlanetCommissionResourceClaimCap = 3;
+
 function normalizePlanetInput(input: Partial<PlanetInputState> | null | undefined): PlanetInputState {
   return {
     name: input?.name ?? "",
@@ -207,6 +296,7 @@ function normalizeFaultCaseRecords(input: FaultCaseRecord[] | null | undefined) 
 function normalizeHomePlanetHub(input: HomePlanetHubState | null | undefined, technologyPoints: number, inferredFragments = 0): HomePlanetHubState {
   const base = emptyHomePlanetHubState();
   const resources = input?.resources ?? base.resources;
+  const activeFeatures = Array.isArray(input?.activeFeatures) ? input.activeFeatures : base.activeFeatures;
 
   return {
     ...base,
@@ -219,14 +309,15 @@ function normalizeHomePlanetHub(input: HomePlanetHubState | null | undefined, te
       techPoints: technologyPoints
     },
     unlockedFeatures: Array.isArray(input?.unlockedFeatures) ? input.unlockedFeatures : base.unlockedFeatures,
-    activeFeatures: Array.isArray(input?.activeFeatures) ? input.activeFeatures : base.activeFeatures,
+    activeFeatures,
     builtStructures: Array.isArray(input?.builtStructures) ? input.builtStructures : [],
     dialogueCards: Array.isArray(input?.dialogueCards) ? input.dialogueCards : [],
     storyboardProjects: Array.isArray(input?.storyboardProjects) ? input.storyboardProjects : [],
     commissionWorks: Array.isArray(input?.commissionWorks) ? input.commissionWorks : [],
     galleryItems: Array.isArray(input?.galleryItems) ? input.galleryItems : [],
     archiveRecords: Array.isArray(input?.archiveRecords) ? input.archiveRecords : [],
-    ruleCards: Array.isArray(input?.ruleCards) ? input.ruleCards : []
+    ruleCards: Array.isArray(input?.ruleCards) ? input.ruleCards : [],
+    benefits: normalizeHomePlanetBuildingBenefits(input?.benefits, activeFeatures)
   };
 }
 
@@ -274,6 +365,241 @@ function reconcileMotherworldActiveFeatures(activeFeatureIds: HomePlanetFeatureI
   return reconciled;
 }
 
+const chapterTwoRepairReadingKeys = [
+  "goalClarity",
+  "evidenceIntegrity",
+  "unknownMarking",
+  "boundaryAwareness"
+] as const;
+
+const chapterTwoRepairReadingCap = 4;
+
+function clampPercent(value: unknown) {
+  return Math.max(0, Math.min(100, typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0));
+}
+
+const maxChapterTwoRepairReadings = (): ChapterTwoRepairReadings => ({
+  goalClarity: chapterTwoRepairReadingCap,
+  evidenceIntegrity: chapterTwoRepairReadingCap,
+  unknownMarking: chapterTwoRepairReadingCap,
+  boundaryAwareness: chapterTwoRepairReadingCap
+});
+
+function clampRepairReading(value: unknown) {
+  return Math.max(0, Math.min(chapterTwoRepairReadingCap, typeof value === "number" && Number.isFinite(value) ? value : 0));
+}
+
+function normalizeChapterTwoRepairReadings(input: Partial<ChapterTwoRepairReadings> | null | undefined): ChapterTwoRepairReadings {
+  const base = emptyChapterTwoRepairReadings();
+
+  return {
+    goalClarity: clampRepairReading(input?.goalClarity ?? base.goalClarity),
+    evidenceIntegrity: clampRepairReading(input?.evidenceIntegrity ?? base.evidenceIntegrity),
+    unknownMarking: clampRepairReading(input?.unknownMarking ?? base.unknownMarking),
+    boundaryAwareness: clampRepairReading(input?.boundaryAwareness ?? base.boundaryAwareness)
+  };
+}
+
+function normalizeChapterTwoSystemReadings(input: Partial<ChapterTwoSystemReadings> | null | undefined): ChapterTwoSystemReadings {
+  const base = emptyChapterTwoSystemReadings();
+
+  return {
+    languageStability: clampPercent(input?.languageStability ?? base.languageStability),
+    evidenceChainIntegrity: clampPercent(input?.evidenceChainIntegrity ?? base.evidenceChainIntegrity),
+    echoInterferenceResidue: clampPercent(input?.echoInterferenceResidue ?? base.echoInterferenceResidue),
+    blackBoxSyncRate: clampPercent(input?.blackBoxSyncRate ?? base.blackBoxSyncRate)
+  };
+}
+
+function createChapterTwoSystemReadings({
+  repairReadings,
+  disorderLevel,
+  mistakeCount,
+  exploredLocationIds,
+  blackBoxUnlocked
+}: {
+  repairReadings: ChapterTwoRepairReadings;
+  disorderLevel: number;
+  mistakeCount: number;
+  exploredLocationIds: ChapterTwoLocationId[];
+  blackBoxUnlocked: boolean;
+}): ChapterTwoSystemReadings {
+  const coreFragmentCount = chapterTwoUnlockLocationIds.filter((id) => exploredLocationIds.includes(id)).length;
+  const repairTotal = chapterTwoRepairReadingKeys.reduce((total, key) => total + repairReadings[key], 0);
+
+  return {
+    languageStability: clampPercent(30 + repairReadings.goalClarity * 11 + repairReadings.boundaryAwareness * 7 + coreFragmentCount * 3 - disorderLevel * 4 - mistakeCount * 2),
+    evidenceChainIntegrity: clampPercent(24 + repairReadings.evidenceIntegrity * 12 + repairReadings.unknownMarking * 8 + coreFragmentCount * 4 - mistakeCount * 3),
+    echoInterferenceResidue: clampPercent(92 - repairReadings.unknownMarking * 10 - repairReadings.boundaryAwareness * 9 - repairReadings.evidenceIntegrity * 5 + disorderLevel * 6 + mistakeCount * 4),
+    blackBoxSyncRate: clampPercent(repairTotal * 5 + coreFragmentCount * 5 + (blackBoxUnlocked ? 12 : 0) - disorderLevel * 2 - mistakeCount)
+  };
+}
+
+function createSystemReportLines(readings: ChapterTwoSystemReadings, scope: ChapterTwoSettlementLog["scope"]) {
+  const residueLine =
+    readings.echoInterferenceResidue <= 20
+      ? "回声干扰已压入低噪层。"
+      : readings.echoInterferenceResidue <= 45
+        ? "回声干扰仍有余波，复查提示保持开启。"
+        : "回声干扰残留偏高，主舰保留警戒扫描。";
+  const syncLine =
+    readings.blackBoxSyncRate >= 90
+      ? "黑匣同步率达到深层接入。"
+      : readings.blackBoxSyncRate >= 65
+        ? "黑匣同步率达到稳定接入。"
+        : "黑匣同步率仍在爬升。";
+
+  return [
+    `语言稳定度 ${readings.languageStability}%：表达光路${readings.languageStability >= 75 ? "稳定" : "继续校准"}。`,
+    `证据链完整度 ${readings.evidenceChainIntegrity}%：来源接口${readings.evidenceChainIntegrity >= 75 ? "已闭合" : "保留复查"}。`,
+    `回声干扰残留 ${readings.echoInterferenceResidue}%：${residueLine}`,
+    scope === "location" ? `黑匣同步率 ${readings.blackBoxSyncRate}%：地点回流已写入地表导览。` : `黑匣同步率 ${readings.blackBoxSyncRate}%：${syncLine}`
+  ];
+}
+
+function normalizeChapterTwoSettlementLogs(input: ChapterTwoSettlementLog[] | null | undefined): ChapterTwoSettlementLog[] {
+  return Array.isArray(input)
+    ? input
+        .filter((log) => log && typeof log.id === "string" && typeof log.sourceName === "string")
+        .map((log) => ({
+          ...log,
+          scope: log.scope ?? "location",
+          readings: normalizeChapterTwoSystemReadings(log.readings),
+          reportLines: Array.isArray(log.reportLines) ? log.reportLines : [],
+          createdAt: typeof log.createdAt === "number" ? log.createdAt : Date.now()
+        }))
+        .slice(0, 16)
+    : [];
+}
+
+function createChapterTwoSettlementLog({
+  scope,
+  sourceId,
+  sourceName,
+  readings,
+  createdAt = Date.now()
+}: {
+  scope: ChapterTwoSettlementLog["scope"];
+  sourceId?: ChapterTwoSettlementLog["sourceId"];
+  sourceName: string;
+  readings: ChapterTwoSystemReadings;
+  createdAt?: number;
+}): ChapterTwoSettlementLog {
+  return {
+    id: `settlement-${scope}-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+    scope,
+    sourceId,
+    sourceName,
+    readings,
+    reportLines: createSystemReportLines(readings, scope),
+    createdAt
+  };
+}
+
+function normalizeRepairReadingDelta(delta: Partial<ChapterTwoRepairReadings> | null | undefined): ChapterTwoRepairReadings {
+  const base = emptyChapterTwoRepairReadings();
+
+  if (!delta) {
+    return base;
+  }
+
+  return {
+    goalClarity: Math.max(0, typeof delta.goalClarity === "number" ? delta.goalClarity : 0),
+    evidenceIntegrity: Math.max(0, typeof delta.evidenceIntegrity === "number" ? delta.evidenceIntegrity : 0),
+    unknownMarking: Math.max(0, typeof delta.unknownMarking === "number" ? delta.unknownMarking : 0),
+    boundaryAwareness: Math.max(0, typeof delta.boundaryAwareness === "number" ? delta.boundaryAwareness : 0)
+  };
+}
+
+function hasRepairReadingDelta(delta: ChapterTwoRepairReadings) {
+  return chapterTwoRepairReadingKeys.some((key) => delta[key] > 0);
+}
+
+function normalizeChapterTwoRepairReadingLogs(input: ChapterTwoRepairReadingLog[] | null | undefined): ChapterTwoRepairReadingLog[] {
+  return Array.isArray(input)
+    ? input
+        .filter((log) => log && typeof log.id === "string" && typeof log.source === "string")
+        .map((log) => ({
+          ...log,
+          note: log.note ?? "",
+          delta: normalizeRepairReadingDelta(log.delta),
+          createdAt: typeof log.createdAt === "number" ? log.createdAt : Date.now()
+        }))
+        .slice(0, 16)
+    : [];
+}
+
+function normalizeChapterTwoCrewAssistRecords(input: ChapterTwoCrewAssistRecord[] | null | undefined): ChapterTwoCrewAssistRecord[] {
+  return Array.isArray(input)
+    ? input
+        .filter((record) => record && typeof record.targetId === "string" && typeof record.hint === "string")
+        .map((record) => ({
+          ...record,
+          id: typeof record.id === "string" ? record.id : `crew-assist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          targetName: record.targetName ?? "言衡星地点",
+          crewId: typeof record.crewId === "string" ? record.crewId : null,
+          crewName: record.crewName ?? "同行船员",
+          createdAt: typeof record.createdAt === "number" ? record.createdAt : Date.now()
+        }))
+        .slice(0, 16)
+    : [];
+}
+
+function createCrewAssistSummary(records: ChapterTwoCrewAssistRecord[]) {
+  if (records.length === 0) {
+    return "本次远征没有请求船员提示，所有判断由小舰长独立完成。";
+  }
+
+  const targetNames = records
+    .slice()
+    .reverse()
+    .map((record) => record.targetName);
+
+  return `本次远征使用 ${records.length} 次船员协助提示：${targetNames.join("、")}。提示只记录检查方向，没有替小舰长选择答案。`;
+}
+
+function addChapterTwoRepairReadingLog({
+  repairReadings,
+  repairReadingLogs,
+  delta,
+  source,
+  note,
+  createdAt = Date.now()
+}: {
+  repairReadings: ChapterTwoRepairReadings;
+  repairReadingLogs: ChapterTwoRepairReadingLog[];
+  delta?: Partial<ChapterTwoRepairReadings> | null;
+  source?: string;
+  note?: string;
+  createdAt?: number;
+}) {
+  const normalizedDelta = normalizeRepairReadingDelta(delta);
+
+  if (!hasRepairReadingDelta(normalizedDelta)) {
+    return { repairReadings, repairReadingLogs };
+  }
+
+  const nextRepairReadings = chapterTwoRepairReadingKeys.reduce(
+    (readings, key) => ({
+      ...readings,
+      [key]: Math.min(chapterTwoRepairReadingCap, repairReadings[key] + normalizedDelta[key])
+    }),
+    repairReadings
+  );
+  const nextLog: ChapterTwoRepairReadingLog = {
+    id: `repair-reading-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+    source: source ?? "言衡星修复读数",
+    note: note ?? "飞船记录到一段稳定判断读数。",
+    delta: normalizedDelta,
+    createdAt
+  };
+
+  return {
+    repairReadings: nextRepairReadings,
+    repairReadingLogs: [nextLog, ...repairReadingLogs].slice(0, 16)
+  };
+}
+
 function normalizeGameState(input: GameState): GameState {
   const base = createInitialGameState();
   const rawScene: string | undefined = (input as { currentScene?: string }).currentScene;
@@ -286,6 +612,7 @@ function normalizeGameState(input: GameState): GameState {
       ? [normalizedGeneratedCrew]
       : [];
   const canUseGeneratedCrewId = Boolean(normalizedGeneratedCrew && input.activeCrewId === normalizedGeneratedCrew.id);
+  const chapterTwoCrewAssistRecords = normalizeChapterTwoCrewAssistRecords(input.chapterTwo?.crewAssistRecords);
 
   const activeCrewId =
     input.activeCrewId && (normalizedRoster.some((member) => member.id === input.activeCrewId) || canUseGeneratedCrewId)
@@ -384,10 +711,27 @@ function normalizeGameState(input: GameState): GameState {
       baseEffectNotes: Array.isArray(input.chapterTwo?.baseEffectNotes) ? input.chapterTwo.baseEffectNotes : [],
       baseScanHints: Array.isArray(input.chapterTwo?.baseScanHints) ? input.chapterTwo.baseScanHints : [],
       locationRewardClaims: Array.isArray(input.chapterTwo?.locationRewardClaims) ? input.chapterTwo.locationRewardClaims : [],
+      repairReadings: normalizeChapterTwoRepairReadings(input.chapterTwo?.repairReadings),
+      repairReadingLogs: normalizeChapterTwoRepairReadingLogs(input.chapterTwo?.repairReadingLogs),
+      systemReadings: normalizeChapterTwoSystemReadings(input.chapterTwo?.systemReadings ?? input.chapterTwo?.outcome?.systemReadings),
+      settlementLogs: normalizeChapterTwoSettlementLogs(input.chapterTwo?.settlementLogs ?? input.chapterTwo?.outcome?.settlementLogs),
+      crewAssistRecords: chapterTwoCrewAssistRecords,
       blackBoxUnlocked: input.chapterTwo?.blackBoxUnlocked ?? false,
       truth: input.chapterTwo?.truth ?? null,
       attemptCount: typeof input.chapterTwo?.attemptCount === "number" ? input.chapterTwo.attemptCount : 0,
-      lastSetback: input.chapterTwo?.lastSetback ?? null
+      lastSetback: input.chapterTwo?.lastSetback ?? null,
+      outcome: input.chapterTwo?.outcome
+        ? {
+            ...input.chapterTwo.outcome,
+            repairReadings: normalizeChapterTwoRepairReadings(input.chapterTwo.outcome.repairReadings ?? input.chapterTwo?.repairReadings),
+            repairReadingLogs: normalizeChapterTwoRepairReadingLogs(input.chapterTwo.outcome.repairReadingLogs ?? input.chapterTwo?.repairReadingLogs),
+            systemReadings: normalizeChapterTwoSystemReadings(input.chapterTwo.outcome.systemReadings ?? input.chapterTwo?.systemReadings),
+            settlementLogs: normalizeChapterTwoSettlementLogs(input.chapterTwo.outcome.settlementLogs ?? input.chapterTwo?.settlementLogs),
+            crewAssistRecords: normalizeChapterTwoCrewAssistRecords(input.chapterTwo.outcome.crewAssistRecords ?? chapterTwoCrewAssistRecords),
+            crewAssistUsed: input.chapterTwo.outcome.crewAssistUsed ?? chapterTwoCrewAssistRecords.length > 0,
+            crewAssistSummary: input.chapterTwo.outcome.crewAssistSummary ?? createCrewAssistSummary(chapterTwoCrewAssistRecords)
+          }
+        : null
     },
     homePlanetHub: normalizeHomePlanetHub(
       input.homePlanetHub,
@@ -594,11 +938,182 @@ const chapterTwoLocationRewardPlans: Partial<Record<ChapterTwoLocationId, Chapte
   }
 };
 
+const chapterTwoLocationRepairReadingPlans: Partial<Record<ChapterTwoLocationId, {
+  delta: Partial<ChapterTwoRepairReadings>;
+  note: string;
+}>> = {
+  "semantic-dispatch": {
+    delta: { goalClarity: 1 },
+    note: "分流庭把对象、任务、限制和输出方式接入导航读数。"
+  },
+  "evidence-well": {
+    delta: { evidenceIntegrity: 1, unknownMarking: 2 },
+    note: "证据回声井确认事实、推测和未知分仓保存。"
+  },
+  "boundary-beacon": {
+    delta: { boundaryAwareness: 2, unknownMarking: 1 },
+    note: "边界灯标写入资料范围、不能编造和保留缺口。"
+  },
+  "archive-tower": {
+    delta: { evidenceIntegrity: 2, unknownMarking: 1 },
+    note: "档案塔把可复查来源接回归档光柱。"
+  },
+  "letter-port": {
+    delta: { goalClarity: 1, unknownMarking: 1, boundaryAwareness: 1 },
+    note: "信件港完成对象、任务、限制和输出形式的送达校准。"
+  },
+  "engraved-valley": {
+    delta: { evidenceIntegrity: 1, unknownMarking: 1, boundaryAwareness: 2 },
+    note: "刻字山谷凿除越界断言，保留可检查边界。"
+  },
+  "paper-corridor": {
+    delta: { goalClarity: 1, evidenceIntegrity: 1, unknownMarking: 1, boundaryAwareness: 1 },
+    note: "纸光回廊锁定目标、依据、未知和边界的稳定表达。"
+  }
+};
+
 function createLocationRewards(locationId: ChapterTwoLocationId, plan: ChapterTwoLocationRewardPlan, createdAt: number) {
   return plan.rewards.map((reward, index) => ({
     id: `reward-${locationId}-${createdAt}-${index}`,
     ...reward
   }));
+}
+
+function mergeHomePlanetArchiveRecords(
+  currentRecords: HomePlanetArchiveRecord[],
+  incomingRecords: Array<HomePlanetArchiveRecord | null | undefined>,
+  limit = 20
+) {
+  const incoming = incomingRecords.filter(Boolean) as HomePlanetArchiveRecord[];
+  const incomingIds = new Set(incoming.map((record) => record.id));
+
+  return [...incoming, ...currentRecords.filter((record) => !incomingIds.has(record.id))].slice(0, limit);
+}
+
+function summarizeLocationRewards(rewardLabels: string[], resourceDelta?: ChapterTwoRewardResourceDelta, technologyPoints = 0) {
+  const resourceLabels = [
+    resourceDelta?.water ? `水源 +${resourceDelta.water}` : null,
+    resourceDelta?.minerals ? `矿物 +${resourceDelta.minerals}` : null,
+    resourceDelta?.energy ? `能源 +${resourceDelta.energy}` : null,
+    resourceDelta?.fragments ? `文明碎片 +${resourceDelta.fragments}` : null,
+    technologyPoints ? `科技点 +${technologyPoints}` : null
+  ].filter(Boolean) as string[];
+  const labels = Array.from(new Set([...rewardLabels, ...resourceLabels]));
+
+  return labels.length > 0 ? labels.join(" / ") : "无新增资源，节点职能已写入导览档案。";
+}
+
+const locationUnknownArchiveLines: Partial<Record<ChapterTwoLocationId, string>> = {
+  "semantic-dispatch": "仍需标记的未知：分流庭只确认任务拆分方式，未出现的资料来源不能补写。",
+  "evidence-well": "仍需标记的未知：井壁缺失来源、残缺收件人和污染段落继续封存为未知。",
+  "boundary-beacon": "仍需标记的未知：超出资料范围的结论、责任判断和最终选择仍由小舰长保留。",
+  "archive-tower": "仍需标记的未知：档案塔没有提供证据来源的位置，不能写成事实。",
+  "letter-port": "仍需标记的未知：断裂信件的寄件人、收件人和未送达段落继续标为未知。",
+  "engraved-valley": "仍需标记的未知：缺少依据的刻痕只保留为待证，不进入结论层。",
+  "paper-corridor": "仍需标记的未知：顺口但无来源的纸光结论继续保留复查标记。",
+  "blackbox-vault": "仍需标记的未知：黑匣未开放的深层科技与未验证外部星区仍保持未知。"
+};
+
+function formatSystemReadingLine(readings: ChapterTwoSystemReadings) {
+  return `飞船读数：语言稳定度 ${readings.languageStability}% / 证据链 ${readings.evidenceChainIntegrity}% / 回声残留 ${readings.echoInterferenceResidue}% / 黑匣同步 ${readings.blackBoxSyncRate}%`;
+}
+
+function createLocationExpeditionArchiveRecord({
+  locationId,
+  location,
+  rewardLabels,
+  resourceDelta,
+  technologyPoints,
+  repairReadingNote,
+  evidenceLines,
+  crewAssistRecord,
+  leadCrew,
+  crewIntervention,
+  systemReadings,
+  mistakeCount,
+  disorderLevel,
+  createdAt
+}: {
+  locationId: ChapterTwoLocationId;
+  location: (typeof chapterTwoSurfaceLocations)[number];
+  rewardLabels: string[];
+  resourceDelta?: ChapterTwoRewardResourceDelta;
+  technologyPoints?: number;
+  repairReadingNote?: string;
+  evidenceLines: string[];
+  crewAssistRecord?: ChapterTwoCrewAssistRecord | null;
+  leadCrew?: CrewMember | null;
+  crewIntervention?: string;
+  systemReadings: ChapterTwoSystemReadings;
+  mistakeCount?: number;
+  disorderLevel?: number;
+  createdAt: number;
+}): HomePlanetArchiveRecord {
+  const crewLine = crewAssistRecord
+    ? `船员协作记录：${crewAssistRecord.crewName} 在${crewAssistRecord.targetName}留下提示：“${crewAssistRecord.hint}”。`
+    : crewIntervention
+      ? `船员协作记录：${crewIntervention}`
+      : leadCrew
+        ? `船员协作记录：${leadCrew.name} 随队完成节点回收，判断权仍由小舰长保留。`
+        : "船员协作记录：主舰基础引导完成记录，未调用额外伙伴提示。";
+
+  return {
+    id: `archive-expedition-${locationId}`,
+    title: `远征归档卡：${location.name}`,
+    tag: "远征归档",
+    summary: `${location.name} 已写回母星文明展厅。${location.discovery}`,
+    evidenceLines: [
+      `恢复的文明节点：${location.name} / ${location.fragmentName}`,
+      `关键判断：${repairReadingNote ?? location.detail}`,
+      locationUnknownArchiveLines[locationId] ?? "仍需标记的未知：没有来源、超出残片范围或无法验证的内容继续标为未知。",
+      `获得资源：${summarizeLocationRewards(rewardLabels, resourceDelta, technologyPoints)}`,
+      crewLine,
+      formatSystemReadingLine(systemReadings),
+      `主舰状态：失序 ${disorderLevel ?? 0}/6 · 误触 ${mistakeCount ?? 0}`,
+      ...evidenceLines.slice(0, 3).map((line) => `节点证据：${line}`)
+    ],
+    locationId,
+    mistakeCount,
+    disorderLevel,
+    createdAt
+  };
+}
+
+function createBlackboxExpeditionArchiveRecord({
+  outcome,
+  leadCrew,
+  supportCrew,
+  createdAt
+}: {
+  outcome: ChapterTwoOutcome;
+  leadCrew: CrewMember;
+  supportCrew: CrewMember;
+  createdAt: number;
+}): HomePlanetArchiveRecord {
+  const readings = outcome.systemReadings ?? emptyChapterTwoSystemReadings();
+  const supportLine =
+    supportCrew.id === leadCrew.id
+      ? `${leadCrew.name} 完成前线校验、碎片归档与返航记录。`
+      : `${leadCrew.name} 完成黑匣开启，${supportCrew.name} 协助校验表达边界。`;
+
+  return {
+    id: "archive-expedition-blackbox-trial",
+    title: "远征归档卡：语言黑匣试炼",
+    tag: "远征归档",
+    summary: `${outcome.blackBoxTitle ?? "语言黑匣"} 已带回母星文明展厅。${outcome.summary}`,
+    evidenceLines: [
+      `恢复的文明节点：黑匣封存台 / ${outcome.blackBoxTitle ?? "语言黑匣"}`,
+      "关键判断：让 AI 帮助整理、推测和表达，但事实核查、边界设定与最终判断仍由小舰长完成。",
+      "仍需标记的未知：未给出资料来源、残片缺口和无法验证的外部结论继续保留为未知。",
+      `获得资源：水源 +${languagePlanetResourceReward.water} / 矿物 +${languagePlanetResourceReward.minerals} / 能源 +${languagePlanetResourceReward.energy} / 文明碎片 +${languagePlanetResourceReward.fragments} / 科技点 +${outcome.technologyPointsAwarded ?? 0}`,
+      `船员协作记录：${supportLine}`,
+      outcome.crewAssistSummary ? `船员协作记录：${outcome.crewAssistSummary}` : null,
+      formatSystemReadingLine(readings),
+      `黑匣回信：${outcome.finalLetter?.join(" / ") ?? "让 AI 帮助你，而不是替代你。"}`
+    ].filter(Boolean) as string[],
+    locationId: "blackbox-vault",
+    createdAt
+  };
 }
 
 function createSetbackLog(setback: ChapterTwoSetback, action: "swap-crew" | "retry-strategy"): ShipLogEntry {
@@ -750,11 +1265,23 @@ function scoreLanguageApplication(text: string) {
   };
 }
 
+function createRepairReadingsFromPrompt(
+  score: ReturnType<typeof scoreLanguageApplication>,
+  understanding?: ReturnType<typeof scoreLanguageUnderstanding>
+): Partial<ChapterTwoRepairReadings> {
+  return {
+    goalClarity: score.hasTask || score.hasOutput || understanding?.clarity ? 1 : 0,
+    evidenceIntegrity: score.hasContext || understanding?.evidence ? 1 : 0,
+    unknownMarking: score.hasBoundary ? 1 : 0,
+    boundaryAwareness: score.hasBoundary || understanding?.boundary ? 1 : 0
+  };
+}
+
 function createChapterTwoShipLog(outcome: ChapterTwoOutcome): ShipLogEntry {
   return {
     id: `log-language-civ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: outcome.title,
-    body: `${outcome.summary} ${outcome.civilizationRecord ?? outcome.logSummary}`,
+    body: `${outcome.summary} ${outcome.civilizationRecord ?? outcome.logSummary}${outcome.crewAssistSummary ? ` ${outcome.crewAssistSummary}` : ""}`,
     tag: "文明远征"
   };
 }
@@ -769,6 +1296,21 @@ function createChapterTwoDossier(member: CrewMember, outcome: ChapterTwoOutcome)
 }
 
 function createResolvedChapterTwoOutcome(): ChapterTwoOutcome {
+  const resolvedRepairReadings = maxChapterTwoRepairReadings();
+  const resolvedSystemReadings = createChapterTwoSystemReadings({
+    repairReadings: resolvedRepairReadings,
+    disorderLevel: 0,
+    mistakeCount: 0,
+    exploredLocationIds: chapterTwoUnlockLocationIds,
+    blackBoxUnlocked: true
+  });
+  const resolvedSettlementLog = createChapterTwoSettlementLog({
+    scope: "chapter",
+    sourceId: "blackbox-trial",
+    sourceName: "言衡星最终回流",
+    readings: resolvedSystemReadings
+  });
+
   return {
     title: "第一枚科技黑匣已开启",
     summary: "你点亮四个文明地标，击退失序回声，开启语言黑匣，找回了前文明留下的最后一封信。",
@@ -799,6 +1341,13 @@ function createResolvedChapterTwoOutcome(): ChapterTwoOutcome {
       "后来者，不要复制我们的失败。",
       "让 AI 帮助你，而不是替代你。"
     ],
+    repairReadings: resolvedRepairReadings,
+    repairReadingLogs: [],
+    systemReadings: resolvedSystemReadings,
+    settlementLogs: [resolvedSettlementLog],
+    crewAssistUsed: false,
+    crewAssistSummary: createCrewAssistSummary([]),
+    crewAssistRecords: [],
     completedAt: Date.now()
   };
 }
@@ -1073,6 +1622,26 @@ export function useGameState() {
       if (!hotspot || (!unlockedFeatures.includes(featureId) && !canPreview)) return current;
       const activationCost = getAdjustedMotherworldActivationCost(current, hotspot.activationCost);
       if (!canActivateMotherworldFeature(current.homePlanetHub.resources, activationCost)) return current;
+      const createdAt = Date.now();
+      const activatedFeatures = [...current.homePlanetHub.activeFeatures, featureId];
+      const activationBenefit =
+        featureId === "planet-workshop"
+          ? appendHomePlanetBenefitLog(
+              {
+                ...current.homePlanetHub.benefits,
+                workshopEfficiencyLevel: Math.max(1, current.homePlanetHub.benefits.workshopEfficiencyLevel)
+              },
+              createHomePlanetBenefitLog("planet-workshop", "建设效率已接入", "后续点亮建筑和建设结构时，能源消耗会降低 1。", createdAt)
+            )
+          : featureId === "crew-dormitory"
+            ? appendHomePlanetBenefitLog(
+                {
+                  ...current.homePlanetHub.benefits,
+                  crewAssistLevel: Math.max(1, current.homePlanetHub.benefits.crewAssistLevel)
+                },
+                createHomePlanetBenefitLog("crew-dormitory", "船员协助提示已接入", "远征准备中会出现一条伙伴协助提示。", createdAt)
+              )
+            : current.homePlanetHub.benefits;
 
       return {
         ...current,
@@ -1086,7 +1655,8 @@ export function useGameState() {
             fragments: current.homePlanetHub.resources.fragments - activationCost.fragments
           },
           unlockedFeatures: unlockedFeatures.includes(featureId) ? unlockedFeatures : [...unlockedFeatures, featureId],
-          activeFeatures: [...current.homePlanetHub.activeFeatures, featureId]
+          activeFeatures: activatedFeatures,
+          benefits: activationBenefit
         },
         shipStatusNote: `${hotspot.name} 已在母星基地点亮`
       };
@@ -1120,11 +1690,37 @@ export function useGameState() {
     });
   };
 
+  const markHomePlanetGalleryReview = () => {
+    updateState((current) => {
+      if (!current.homePlanetHub.activeFeatures.includes("civilization-gallery")) return current;
+      const createdAt = Date.now();
+      const benefits = appendHomePlanetBenefitLog(
+        {
+          ...current.homePlanetHub.benefits,
+          galleryReviewCount: current.homePlanetHub.benefits.galleryReviewCount + 1,
+          lastGalleryReviewAt: createdAt
+        },
+        createHomePlanetBenefitLog("civilization-gallery", "成果复盘已完成", "最近作品、黑匣记录和远征成果已被标记为复盘材料。", createdAt)
+      );
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          benefits
+        },
+        shipStatusNote: "文明展厅已完成一次成果复盘，远征成果会更容易回看。"
+      };
+    });
+  };
+
   const saveHomePlanetCommission = (work: Omit<HomePlanetCommissionWork, "id" | "createdAt">) => {
     updateState((current) => {
       const createdAt = Date.now();
       const id = `commission-${createdAt}`;
       const nextWork: HomePlanetCommissionWork = { ...work, id, createdAt };
+      const boardActive = current.homePlanetHub.activeFeatures.includes("commission-board");
+      const canClaimResource = boardActive && current.homePlanetHub.benefits.commissionResourceClaims < homePlanetCommissionResourceClaimCap;
       const galleryItem: HomePlanetGalleryItem = {
         id: `gallery-${id}`,
         type: "commission",
@@ -1133,15 +1729,49 @@ export function useGameState() {
         sourceId: id,
         createdAt
       };
+      const archiveRecord = boardActive
+        ? {
+            id: `archive-commission-${createdAt}`,
+            title: `委托归档卡：${work.title}`,
+            tag: "作品委托",
+            summary: work.output.slice(0, 96) || "这份委托作品已转成可回看的母星归档卡。",
+            evidenceLines: [`练习能力：${work.ability}`, `资源回流：${canClaimResource ? "能源 +1" : "本次只归档，不再重复领取资源"}`],
+            createdAt
+          }
+        : null;
+      const nextBenefits = boardActive
+        ? appendHomePlanetBenefitLog(
+            {
+              ...current.homePlanetHub.benefits,
+              commissionResourceClaims: current.homePlanetHub.benefits.commissionResourceClaims + (canClaimResource ? 1 : 0)
+            },
+            createHomePlanetBenefitLog(
+              "commission-board",
+              canClaimResource ? "委托作品回流能源" : "委托作品生成归档卡",
+              canClaimResource ? "作品保存后生成归档卡，并回流能源 +1。" : "作品保存后继续生成归档卡，资源回流已达到本轮上限。",
+              createdAt
+            )
+          )
+        : current.homePlanetHub.benefits;
 
       return {
         ...current,
         homePlanetHub: {
           ...current.homePlanetHub,
+          resources: {
+            ...current.homePlanetHub.resources,
+            energy: current.homePlanetHub.resources.energy + (canClaimResource ? 1 : 0)
+          },
           commissionWorks: [nextWork, ...current.homePlanetHub.commissionWorks],
-          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems],
+          archiveRecords: archiveRecord ? [archiveRecord, ...current.homePlanetHub.archiveRecords].slice(0, 12) : current.homePlanetHub.archiveRecords,
+          benefits: nextBenefits
         },
-        shipStatusNote: "母星委托作品已写入文明展厅"
+        shipStatusNote: boardActive
+          ? canClaimResource
+            ? "委托作品已写入文明展厅，并回流能源 +1。"
+            : "委托作品已生成归档卡。"
+          : "母星委托作品已写入文明展厅"
       };
     });
   };
@@ -1159,15 +1789,46 @@ export function useGameState() {
         sourceId: id,
         createdAt
       };
+      const roomActive = current.homePlanetHub.activeFeatures.includes("character-dialogue-room");
+      const nextRepairReadingState = roomActive
+        ? addChapterTwoRepairReadingLog({
+            repairReadings: current.chapterTwo.repairReadings,
+            repairReadingLogs: current.chapterTwo.repairReadingLogs,
+            delta: { unknownMarking: 1, boundaryAwareness: 1 },
+            source: "角色对话室",
+            note: "对话复盘卡把边界和未知提示重新校准。",
+            createdAt
+          })
+        : {
+            repairReadings: current.chapterTwo.repairReadings,
+            repairReadingLogs: current.chapterTwo.repairReadingLogs
+          };
+      const nextBenefits = roomActive
+        ? appendHomePlanetBenefitLog(
+            {
+              ...current.homePlanetHub.benefits,
+              dialogueReflectionCount: current.homePlanetHub.benefits.dialogueReflectionCount + 1
+            },
+            createHomePlanetBenefitLog("character-dialogue-room", "边界复盘读数提升", "对话收获卡让未知标记和边界意识读数各校准 1 格。", createdAt)
+          )
+        : current.homePlanetHub.benefits;
 
       return {
         ...current,
+        chapterTwo: roomActive
+          ? {
+              ...current.chapterTwo,
+              repairReadings: nextRepairReadingState.repairReadings,
+              repairReadingLogs: nextRepairReadingState.repairReadingLogs
+            }
+          : current.chapterTwo,
         homePlanetHub: {
           ...current.homePlanetHub,
           dialogueCards: [nextCard, ...current.homePlanetHub.dialogueCards],
-          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems],
+          benefits: nextBenefits
         },
-        shipStatusNote: "对话收获卡已写入文明展厅"
+        shipStatusNote: roomActive ? "对话收获卡已提升边界与未知相关反馈。" : "对话收获卡已写入文明展厅"
       };
     });
   };
@@ -1185,15 +1846,120 @@ export function useGameState() {
         sourceId: id,
         createdAt
       };
+      const studioActive = current.homePlanetHub.activeFeatures.includes("animation-studio");
+      const archiveRecord = studioActive
+        ? {
+            id: `archive-storyboard-${createdAt}`,
+            title: `故事归档：${project.title || "迷你动画分镜册"}`,
+            tag: "故事归档",
+            summary: project.acts.map((act) => `${act.label}：${act.text || "待补画面"}`).join(" / "),
+            evidenceLines: project.acts.map((act) => `${act.label}：${act.text || "保留空镜头"}`),
+            createdAt
+          }
+        : null;
+      const nextBenefits = studioActive
+        ? appendHomePlanetBenefitLog(
+            {
+              ...current.homePlanetHub.benefits,
+              storyboardArchiveCount: current.homePlanetHub.benefits.storyboardArchiveCount + 1
+            },
+            createHomePlanetBenefitLog("animation-studio", "三幕故事已归档", "分镜册保存后生成一条故事归档，可在文明档案馆回看。", createdAt)
+          )
+        : current.homePlanetHub.benefits;
 
       return {
         ...current,
         homePlanetHub: {
           ...current.homePlanetHub,
           storyboardProjects: [nextProject, ...current.homePlanetHub.storyboardProjects],
-          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems]
+          galleryItems: [galleryItem, ...current.homePlanetHub.galleryItems],
+          archiveRecords: archiveRecord ? [archiveRecord, ...current.homePlanetHub.archiveRecords].slice(0, 12) : current.homePlanetHub.archiveRecords,
+          benefits: nextBenefits
         },
-        shipStatusNote: "迷你动画分镜册已写入文明展厅"
+        shipStatusNote: studioActive ? "迷你动画分镜册已生成故事归档。" : "迷你动画分镜册已写入文明展厅"
+      };
+    });
+  };
+
+  const equipHomePlanetRuleCard = (cardId: string) => {
+    updateState((current) => {
+      if (!cardId || !current.homePlanetHub.activeFeatures.includes("civilization-archive")) return current;
+      const createdAt = Date.now();
+      const equipped = current.homePlanetHub.benefits.equippedRuleCardIds;
+      const alreadyEquipped = equipped.includes(cardId);
+      const nextEquipped = alreadyEquipped ? equipped.filter((id) => id !== cardId) : [cardId, ...equipped.filter((id) => id !== cardId)].slice(0, 2);
+      const benefits = appendHomePlanetBenefitLog(
+        {
+          ...current.homePlanetHub.benefits,
+          equippedRuleCardIds: nextEquipped
+        },
+        createHomePlanetBenefitLog(
+          "civilization-archive",
+          alreadyEquipped ? "文明卡已卸下" : "文明卡已装备",
+          alreadyEquipped ? "这张文明卡已从远征提示栏移除。" : "这张文明卡会加入下一次远征前的原则提示。",
+          createdAt
+        )
+      );
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          benefits
+        },
+        shipStatusNote: alreadyEquipped ? "文明卡已卸下。" : "文明卡已装备到远征准备提示。"
+      };
+    });
+  };
+
+  const tuneHomePlanetCrewAssist = () => {
+    updateState((current) => {
+      if (!current.homePlanetHub.activeFeatures.includes("crew-dormitory")) return current;
+      const createdAt = Date.now();
+      const benefits = appendHomePlanetBenefitLog(
+        {
+          ...current.homePlanetHub.benefits,
+          crewAssistLevel: Math.max(1, current.homePlanetHub.benefits.crewAssistLevel)
+        },
+        createHomePlanetBenefitLog("crew-dormitory", "伙伴协助提示已整理", "下一次远征会显示一条船员协助提示，提醒你保留未知和检查边界。", createdAt)
+      );
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          benefits
+        },
+        shipStatusNote: "船员宿舍已整理伙伴协助提示。"
+      };
+    });
+  };
+
+  const saveHomePlanetExpeditionPlan = (plan: Omit<HomePlanetExpeditionPlan, "createdAt">) => {
+    updateState((current) => {
+      if (!current.homePlanetHub.activeFeatures.includes("expedition-planning")) return current;
+      const goal = plan.goal.trim();
+      const risk = plan.risk.trim();
+      const recordPlan = plan.recordPlan.trim();
+
+      if (!goal || !risk || !recordPlan) return current;
+      const createdAt = Date.now();
+      const expeditionPlan: HomePlanetExpeditionPlan = { goal, risk, recordPlan, createdAt };
+      const benefits = appendHomePlanetBenefitLog(
+        {
+          ...current.homePlanetHub.benefits,
+          expeditionPlan
+        },
+        createHomePlanetBenefitLog("expedition-planning", "远征计划已写入", "下一次远征会读取目标和风险，并降低初始失序 1 级。", createdAt)
+      );
+
+      return {
+        ...current,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          benefits
+        },
+        shipStatusNote: "探险计划室已保存目标、风险和复盘计划。"
       };
     });
   };
@@ -1244,17 +2010,86 @@ export function useGameState() {
     mistakeCount?: number;
     pollutedRecords?: string[];
     statusNote?: string;
+    repairReadingDelta?: Partial<ChapterTwoRepairReadings>;
+    repairReadingSource?: string;
+    repairReadingNote?: string;
   }) => {
-    updateState((current) => ({
-      ...current,
-      chapterTwo: {
-        ...current.chapterTwo,
-        disorderLevel: typeof next.disorderLevel === "number" ? next.disorderLevel : current.chapterTwo.disorderLevel,
-        mistakeCount: typeof next.mistakeCount === "number" ? next.mistakeCount : current.chapterTwo.mistakeCount,
-        pollutedRecords: Array.isArray(next.pollutedRecords) ? next.pollutedRecords : current.chapterTwo.pollutedRecords
-      },
-      shipStatusNote: next.statusNote ?? current.shipStatusNote
-    }));
+    updateState((current) => {
+      const nextRepairReadingState = addChapterTwoRepairReadingLog({
+        repairReadings: current.chapterTwo.repairReadings,
+        repairReadingLogs: current.chapterTwo.repairReadingLogs,
+        delta: next.repairReadingDelta,
+        source: next.repairReadingSource,
+        note: next.repairReadingNote
+      });
+      const nextDisorderLevel = typeof next.disorderLevel === "number" ? next.disorderLevel : current.chapterTwo.disorderLevel;
+      const nextMistakeCount = typeof next.mistakeCount === "number" ? next.mistakeCount : current.chapterTwo.mistakeCount;
+      const nextSystemReadings = createChapterTwoSystemReadings({
+        repairReadings: nextRepairReadingState.repairReadings,
+        disorderLevel: nextDisorderLevel,
+        mistakeCount: nextMistakeCount,
+        exploredLocationIds: current.chapterTwo.exploredLocationIds,
+        blackBoxUnlocked: current.chapterTwo.blackBoxUnlocked
+      });
+      const shouldWriteSettlement = Boolean(next.repairReadingDelta && next.repairReadingSource);
+      const blackboxSettlement = shouldWriteSettlement
+        ? createChapterTwoSettlementLog({
+            scope: "blackbox",
+            sourceId: "blackbox-trial",
+            sourceName: next.repairReadingSource ?? "黑匣试炼",
+            readings: nextSystemReadings
+          })
+        : null;
+
+      return {
+        ...current,
+        chapterTwo: {
+          ...current.chapterTwo,
+          disorderLevel: nextDisorderLevel,
+          mistakeCount: nextMistakeCount,
+          pollutedRecords: Array.isArray(next.pollutedRecords) ? next.pollutedRecords : current.chapterTwo.pollutedRecords,
+          repairReadings: nextRepairReadingState.repairReadings,
+          repairReadingLogs: nextRepairReadingState.repairReadingLogs,
+          systemReadings: nextSystemReadings,
+          settlementLogs: blackboxSettlement ? [blackboxSettlement, ...current.chapterTwo.settlementLogs].slice(0, 16) : current.chapterTwo.settlementLogs
+        },
+        shipStatusNote: next.statusNote ?? current.shipStatusNote
+      };
+    });
+  };
+
+  const useChapterTwoCrewAssist = (request: ChapterTwoCrewAssistRequest) => {
+    updateState((current) => {
+      if (current.chapterTwo.crewAssistRecords.some((record) => record.targetId === request.targetId)) {
+        return current;
+      }
+
+      const crew =
+        current.crewRoster.find((member) => member.id === request.crewId) ??
+        current.crewRoster.find((member) => member.id === current.chapterTwo.leadCrewId) ??
+        current.crewRoster.find((member) => member.id === current.activeCrewId) ??
+        current.generatedCrew;
+      const createdAt = Date.now();
+      const record: ChapterTwoCrewAssistRecord = {
+        id: `crew-assist-${request.targetId}-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+        targetId: request.targetId,
+        targetName: request.targetName,
+        crewId: request.crewId ?? crew?.id ?? null,
+        crewName: request.crewName ?? crew?.name ?? "同行船员",
+        abilityKind: request.abilityKind,
+        hint: request.hint,
+        createdAt
+      };
+
+      return {
+        ...current,
+        chapterTwo: {
+          ...current.chapterTwo,
+          crewAssistRecords: [record, ...current.chapterTwo.crewAssistRecords].slice(0, 16)
+        },
+        shipStatusNote: `${record.crewName} 在${record.targetName}留下了一次同行提示。`
+      };
+    });
   };
 
   const exploreChapterTwoLocation = (locationId: ChapterTwoLocationId, payload?: ChapterTwoLocationCompletionPayload) => {
@@ -1267,6 +2102,17 @@ export function useGameState() {
       const location = chapterTwoSurfaceLocations.find((item) => item.id === locationId) ?? null;
       const createdAt = Date.now();
       const rewardPlan = !alreadyExplored ? chapterTwoLocationRewardPlans[locationId] ?? null : null;
+      const repairReadingPlan = !alreadyExplored ? chapterTwoLocationRepairReadingPlans[locationId] ?? null : null;
+      const repairReadingDelta = !alreadyExplored ? payload?.repairReadingDelta ?? repairReadingPlan?.delta : undefined;
+      const repairReadingState = addChapterTwoRepairReadingLog({
+        repairReadings: current.chapterTwo.repairReadings,
+        repairReadingLogs: current.chapterTwo.repairReadingLogs,
+        delta: repairReadingDelta,
+        source: payload?.repairReadingSource ?? location?.name,
+        note: payload?.repairReadingNote ?? repairReadingPlan?.note,
+        createdAt
+      });
+      const repairReadingUpdated = repairReadingState.repairReadingLogs !== current.chapterTwo.repairReadingLogs;
       const locationRewards = rewardPlan ? createLocationRewards(locationId, rewardPlan, createdAt) : [];
       const rewardLabels = locationRewards.map((reward) => reward.label);
       const expeditionEffects = getHomePlanetExpeditionEffects(current);
@@ -1403,6 +2249,7 @@ export function useGameState() {
         plannedArchiveRecord ? "母星档案馆新增地点回流记录。" : null,
         ruleCard || plannedRuleCard ? "规则卡已写入母星。" : null,
         writeCrewMemory || rewardPlan?.crewTrust ? "同行共同经历已写入。" : null,
+        repairReadingUpdated ? "飞船修复读数已校准。" : null,
         rewardPlan?.technologyPoints ? `科技点 +${rewardPlan.technologyPoints}。` : null
       ].filter(Boolean);
       const locationStatusNote =
@@ -1447,6 +2294,59 @@ export function useGameState() {
               ...current.chapterTwo.locationRewardClaims
             ].slice(0, 12)
           : current.chapterTwo.locationRewardClaims;
+      const nextDisorderLevel = typeof payload?.finalDisorderLevel === "number" ? payload.finalDisorderLevel : current.chapterTwo.disorderLevel;
+      const nextMistakeCount = typeof payload?.mistakeCount === "number" ? payload.mistakeCount : current.chapterTwo.mistakeCount;
+      const nextSystemReadings = createChapterTwoSystemReadings({
+        repairReadings: repairReadingState.repairReadings,
+        disorderLevel: nextDisorderLevel,
+        mistakeCount: nextMistakeCount,
+        exploredLocationIds,
+        blackBoxUnlocked
+      });
+      const locationSettlement =
+        !alreadyExplored && location
+          ? createChapterTwoSettlementLog({
+              scope: "location",
+              sourceId: locationId,
+              sourceName: location.name,
+              readings: nextSystemReadings,
+              createdAt
+            })
+          : null;
+      const locationCrewAssistRecord = current.chapterTwo.crewAssistRecords.find((record) => record.targetId === locationId) ?? null;
+      const expeditionArchiveRecord =
+        !alreadyExplored && location
+          ? createLocationExpeditionArchiveRecord({
+              locationId,
+              location,
+              rewardLabels,
+              resourceDelta,
+              technologyPoints: rewardPlan?.technologyPoints ?? 0,
+              repairReadingNote: payload?.repairReadingNote ?? repairReadingPlan?.note,
+              evidenceLines,
+              crewAssistRecord: locationCrewAssistRecord,
+              leadCrew,
+              crewIntervention: payload?.crewIntervention,
+              systemReadings: nextSystemReadings,
+              mistakeCount: nextMistakeCount,
+              disorderLevel: nextDisorderLevel,
+              createdAt
+            })
+          : null;
+      const nextArchiveRecordsWithExpedition = mergeHomePlanetArchiveRecords(nextArchiveRecords, [expeditionArchiveRecord]);
+      const nextRewardClaimsWithSettlement =
+        locationSettlement
+          ? [
+              {
+                locationId,
+                locationName: location?.name ?? locationId,
+                rewards: locationRewards,
+                settlement: locationSettlement,
+                createdAt
+              },
+              ...current.chapterTwo.locationRewardClaims
+            ].slice(0, 12)
+          : nextRewardClaims;
 
       return {
         ...current,
@@ -1456,19 +2356,23 @@ export function useGameState() {
           ...current.chapterTwo,
           exploredLocationIds,
           focusedLocationId: blackBoxUnlocked ? null : locationId,
-          disorderLevel: typeof payload?.finalDisorderLevel === "number" ? payload.finalDisorderLevel : current.chapterTwo.disorderLevel,
-          mistakeCount: typeof payload?.mistakeCount === "number" ? payload.mistakeCount : current.chapterTwo.mistakeCount,
+          disorderLevel: nextDisorderLevel,
+          mistakeCount: nextMistakeCount,
           pollutedRecords: Array.isArray(payload?.pollutedRecords) ? payload.pollutedRecords : current.chapterTwo.pollutedRecords,
-          locationRewardClaims: nextRewardClaims,
+          locationRewardClaims: nextRewardClaimsWithSettlement,
+          repairReadings: repairReadingState.repairReadings,
+          repairReadingLogs: repairReadingState.repairReadingLogs,
+          systemReadings: nextSystemReadings,
+          settlementLogs: locationSettlement ? [locationSettlement, ...current.chapterTwo.settlementLogs].slice(0, 16) : current.chapterTwo.settlementLogs,
           blackBoxUnlocked,
           sceneState: blackBoxUnlocked ? "planet_surface" : "location_focus"
         },
         homePlanetHub:
-          archiveRecord || archiveAppendixRecord || plannedArchiveRecord || ruleCard || plannedRuleCard || rewardPlan
+          archiveRecord || archiveAppendixRecord || plannedArchiveRecord || expeditionArchiveRecord || ruleCard || plannedRuleCard || rewardPlan
             ? {
                 ...current.homePlanetHub,
                 resources: nextHomeResources,
-                archiveRecords: nextArchiveRecords,
+                archiveRecords: nextArchiveRecordsWithExpedition,
                 ruleCards: nextRuleCards
               }
             : current.homePlanetHub,
@@ -1804,17 +2708,44 @@ export function useGameState() {
       })
     });
 
-    updateState((stateCurrent) => ({
-      ...stateCurrent,
-      chapterTwo: {
-        ...stateCurrent.chapterTwo,
-        currentStep: "round-two",
-        sceneState: "boss_trial",
-        roundOneResult,
-        roundTwoRefinement: stateCurrent.chapterTwo.roundTwoRefinement ?? "强化区域描述",
-        roundTwoSupportMode: stateCurrent.chapterTwo.roundTwoSupportMode ?? "让支援船员介入"
-      }
-    }));
+    updateState((stateCurrent) => {
+      const repairReadingState = addChapterTwoRepairReadingLog({
+        repairReadings: stateCurrent.chapterTwo.repairReadings,
+        repairReadingLogs: stateCurrent.chapterTwo.repairReadingLogs,
+        delta: createRepairReadingsFromPrompt(score),
+        source: "黑匣损坏档案修复",
+        note: score.passed ? "损坏档案修复指令写入清楚目标和边界。" : "损坏档案修复指令只写入部分可用读数。"
+      });
+      const nextSystemReadings = createChapterTwoSystemReadings({
+        repairReadings: repairReadingState.repairReadings,
+        disorderLevel: stateCurrent.chapterTwo.disorderLevel,
+        mistakeCount: stateCurrent.chapterTwo.mistakeCount,
+        exploredLocationIds: stateCurrent.chapterTwo.exploredLocationIds,
+        blackBoxUnlocked: stateCurrent.chapterTwo.blackBoxUnlocked
+      });
+      const settlementLog = createChapterTwoSettlementLog({
+        scope: "blackbox",
+        sourceId: "blackbox-trial",
+        sourceName: "黑匣损坏档案修复",
+        readings: nextSystemReadings
+      });
+
+      return {
+        ...stateCurrent,
+        chapterTwo: {
+          ...stateCurrent.chapterTwo,
+          currentStep: "round-two",
+          sceneState: "boss_trial",
+          roundOneResult,
+          roundTwoRefinement: stateCurrent.chapterTwo.roundTwoRefinement ?? "强化区域描述",
+          roundTwoSupportMode: stateCurrent.chapterTwo.roundTwoSupportMode ?? "让支援船员介入",
+          repairReadings: repairReadingState.repairReadings,
+          repairReadingLogs: repairReadingState.repairReadingLogs,
+          systemReadings: nextSystemReadings,
+          settlementLogs: [settlementLog, ...stateCurrent.chapterTwo.settlementLogs].slice(0, 16)
+        }
+      };
+    });
   };
 
   const setChapterTwoRefinement = (refinement: ChapterTwoRefinement) => {
@@ -1956,16 +2887,43 @@ export function useGameState() {
       })
     });
 
-    updateState((stateCurrent) => ({
-      ...stateCurrent,
-      chapterTwo: {
-        ...stateCurrent.chapterTwo,
-        currentStep: "decision",
-        sceneState: "chapter_reward",
-        roundTwoResult,
-        lastSetback: roundTwoResult.setback
-      }
-    }));
+    updateState((stateCurrent) => {
+      const repairReadingState = addChapterTwoRepairReadingLog({
+        repairReadings: stateCurrent.chapterTwo.repairReadings,
+        repairReadingLogs: stateCurrent.chapterTwo.repairReadingLogs,
+        delta: createRepairReadingsFromPrompt(score, understanding),
+        source: "黑匣最终指令校验",
+        note: roundTwoResult.outcomeType === "soft-fail" ? "最终指令仍有缺口，只写入已确认读数。" : "最终指令通过资料边界和输出格式校验。"
+      });
+      const nextSystemReadings = createChapterTwoSystemReadings({
+        repairReadings: repairReadingState.repairReadings,
+        disorderLevel: stateCurrent.chapterTwo.disorderLevel,
+        mistakeCount: stateCurrent.chapterTwo.mistakeCount,
+        exploredLocationIds: stateCurrent.chapterTwo.exploredLocationIds,
+        blackBoxUnlocked: stateCurrent.chapterTwo.blackBoxUnlocked
+      });
+      const settlementLog = createChapterTwoSettlementLog({
+        scope: "blackbox",
+        sourceId: "blackbox-trial",
+        sourceName: "黑匣最终指令校验",
+        readings: nextSystemReadings
+      });
+
+      return {
+        ...stateCurrent,
+        chapterTwo: {
+          ...stateCurrent.chapterTwo,
+          currentStep: "decision",
+          sceneState: "chapter_reward",
+          roundTwoResult,
+          lastSetback: roundTwoResult.setback,
+          repairReadings: repairReadingState.repairReadings,
+          repairReadingLogs: repairReadingState.repairReadingLogs,
+          systemReadings: nextSystemReadings,
+          settlementLogs: [settlementLog, ...stateCurrent.chapterTwo.settlementLogs].slice(0, 16)
+        }
+      };
+    });
   };
 
   const setChapterTwoFinalChoice = (choice: ChapterTwoFinalChoice) => {
@@ -2003,6 +2961,21 @@ export function useGameState() {
       return;
     }
     const technologyPointsAwarded = 1;
+    const crewAssistRecords = current.chapterTwo.crewAssistRecords;
+    const finalSystemReadings = createChapterTwoSystemReadings({
+      repairReadings: current.chapterTwo.repairReadings,
+      disorderLevel: current.chapterTwo.disorderLevel,
+      mistakeCount: current.chapterTwo.mistakeCount,
+      exploredLocationIds: current.chapterTwo.exploredLocationIds,
+      blackBoxUnlocked: true
+    });
+    const chapterSettlementLog = createChapterTwoSettlementLog({
+      scope: "chapter",
+      sourceId: "blackbox-trial",
+      sourceName: "言衡星最终回流",
+      readings: finalSystemReadings
+    });
+    const finalSettlementLogs = [chapterSettlementLog, ...current.chapterTwo.settlementLogs].slice(0, 16);
     const outcome: ChapterTwoOutcome = {
       title: roundTwo.outcomeType === "breakthrough" ? "第一枚科技黑匣已开启" : "科技黑匣部分开启",
       summary:
@@ -2041,6 +3014,13 @@ export function useGameState() {
         "后来者，不要复制我们的失败。",
         "让 AI 帮助你，而不是替代你。"
       ],
+      repairReadings: current.chapterTwo.repairReadings,
+      repairReadingLogs: current.chapterTwo.repairReadingLogs,
+      systemReadings: finalSystemReadings,
+      settlementLogs: finalSettlementLogs,
+      crewAssistUsed: crewAssistRecords.length > 0,
+      crewAssistSummary: createCrewAssistSummary(crewAssistRecords),
+      crewAssistRecords,
       completedAt: Date.now()
     };
     const shipLog = createChapterTwoShipLog(outcome);
@@ -2077,6 +3057,12 @@ export function useGameState() {
           dossierEntries: [dossierEntry, ...member.dossierEntries].slice(0, 8)
         };
       });
+      const blackboxArchiveRecord = createBlackboxExpeditionArchiveRecord({
+        outcome: completion.outcome,
+        leadCrew,
+        supportCrew,
+        createdAt: completion.outcome.completedAt ?? Date.now()
+      });
 
       return {
         ...stateCurrent,
@@ -2093,6 +3079,8 @@ export function useGameState() {
           ...stateCurrent.chapterTwo,
           currentStep: "decision",
           sceneState: "chapter_reward",
+          systemReadings: completion.outcome.systemReadings ?? stateCurrent.chapterTwo.systemReadings,
+          settlementLogs: completion.outcome.settlementLogs ?? stateCurrent.chapterTwo.settlementLogs,
           outcome: completion.outcome
         },
         homePlanetHub: {
@@ -2100,9 +3088,10 @@ export function useGameState() {
           resources: {
             ...awardLanguagePlanetResources(stateCurrent.homePlanetHub.resources),
             techPoints: stateCurrent.technologyPoints + (completion.outcome.technologyPointsAwarded ?? 0)
-          }
+          },
+          archiveRecords: mergeHomePlanetArchiveRecords(stateCurrent.homePlanetHub.archiveRecords, [blackboxArchiveRecord])
         },
-        shipStatusNote: completion.outcome.worldChange,
+        shipStatusNote: `${completion.outcome.worldChange} 远征归档卡已写入文明展厅。`,
         shipLogs: appendShipLog(stateCurrent, completion.shipLog)
       };
     });
@@ -2971,6 +3960,15 @@ export function useGameState() {
     setState(createInitialGameState());
   };
 
+  const jumpToShipHub = () => {
+    updateState((current) => ({
+      ...current,
+      currentScene: "hub",
+      systemsRestored: true,
+      shipStatusNote: "领航控制：主舰 Hub 已打开。"
+    }));
+  };
+
   const jumpToFirstLevel = () => {
     updateState((current) => {
       const crew = getActiveVaultCrew(current);
@@ -3029,6 +4027,21 @@ export function useGameState() {
         shipStatusNote: "试听模式：已准备好第二章文明远征入口。"
       };
     });
+  };
+
+  const jumpToLanguagePortal = () => {
+    jumpToSecondLevel();
+  };
+
+  const jumpToLanguageSurface = () => {
+    updateState((current) =>
+      prepareChapterTwoTeacherState(current, {
+        currentStep: "response",
+        sceneState: "planet_surface",
+        focusedLocationId: null,
+        shipStatusNote: "领航控制：已写入言衡星地表入口。"
+      })
+    );
   };
 
   const prepareChapterTwoTeacherState = (
@@ -3124,6 +4137,10 @@ export function useGameState() {
     );
   };
 
+  const completeChapterTwoLandmarksForPilot = () => {
+    teacherCompleteChapterTwoLandmarks();
+  };
+
   const teacherEnterBlackboxTrial = () => {
     updateState((current) =>
       prepareChapterTwoTeacherState(current, {
@@ -3134,6 +4151,66 @@ export function useGameState() {
         shipStatusNote: "领航控制：已直接进入黑匣试炼。"
       })
     );
+  };
+
+  const enterBlackboxTrialForPilot = () => {
+    teacherEnterBlackboxTrial();
+  };
+
+  const maxHomePlanetResources = () => {
+    updateState((current) => ({
+      ...current,
+      technologyPoints: Math.max(current.technologyPoints, 99),
+      homePlanetHub: {
+        ...current.homePlanetHub,
+        resources: {
+          water: 99,
+          minerals: 99,
+          energy: 99,
+          fragments: 99,
+          techPoints: 99
+        }
+      },
+      shipStatusNote: "领航控制：母星资源已写入 99。"
+    }));
+  };
+
+  const setMotherworldBuildingsDark = () => {
+    updateState((current) => ({
+      ...current,
+      homePlanetHub: {
+        ...current.homePlanetHub,
+        activeFeatures: [],
+        builtStructures: [],
+        benefits: emptyHomePlanetBuildingBenefits()
+      },
+      shipStatusNote: "领航控制：母星建筑点亮状态已清空，成果档案保留。"
+    }));
+  };
+
+  const setMotherworldBuildingsLit = () => {
+    updateState((current) => {
+      const featureIds = motherworldHotspots.map((hotspot) => hotspot.id);
+      const structureIds = homePlanetStructures.map((structure) => structure.id);
+
+      return {
+        ...current,
+        firstStarLit: true,
+        chapterComplete: true,
+        homePlanetHub: {
+          ...current.homePlanetHub,
+          unlockedFeatures: Array.from(new Set([...current.homePlanetHub.unlockedFeatures, ...featureIds])),
+          activeFeatures: featureIds,
+          builtStructures: structureIds,
+          benefits: {
+            ...current.homePlanetHub.benefits,
+            workshopEfficiencyLevel: Math.max(1, current.homePlanetHub.benefits.workshopEfficiencyLevel),
+            crewAssistLevel: Math.max(1, current.homePlanetHub.benefits.crewAssistLevel)
+          }
+        },
+        shipStatusNote: "领航控制：母星建筑与连接区已全部点亮。"
+      };
+    });
   };
 
   const teacherTriggerPlanetRestoration = () => {
@@ -3209,6 +4286,8 @@ export function useGameState() {
           exploredLocationIds: Array.from(new Set([...preparedState.chapterTwo.exploredLocationIds, ...chapterTwoUnlockLocationIds])),
           blackBoxUnlocked: true,
           finalChoice: "记录后返航",
+          systemReadings: outcome.systemReadings ?? preparedState.chapterTwo.systemReadings,
+          settlementLogs: outcome.settlementLogs ?? preparedState.chapterTwo.settlementLogs,
           outcome
         },
         shipStatusNote: outcome.worldChange,
@@ -3223,6 +4302,14 @@ export function useGameState() {
             ...awardLanguagePlanetResources(completedState.homePlanetHub.resources),
             techPoints: nextTechnologyPoints
           },
+          archiveRecords: mergeHomePlanetArchiveRecords(completedState.homePlanetHub.archiveRecords, [
+            createBlackboxExpeditionArchiveRecord({
+              outcome,
+              leadCrew,
+              supportCrew,
+              createdAt: outcome.completedAt ?? Date.now()
+            })
+          ]),
           unlockedFeatures: resolveHomePlanetUnlockedFeatures(completedState)
         }
       };
@@ -3288,14 +4375,19 @@ export function useGameState() {
     focusChapterTwoPlanet,
     focusChapterTwoLocation,
     updateChapterTwoDisorder,
+    useChapterTwoCrewAssist,
     exploreChapterTwoLocation,
     advanceChapterTwoStep,
     completeChapterTwo,
     activateHomePlanetFeature,
     buildHomePlanetStructure,
+    markHomePlanetGalleryReview,
     saveHomePlanetCommission,
     saveHomePlanetDialogue,
     saveHomePlanetStoryboard,
+    equipHomePlanetRuleCard,
+    tuneHomePlanetCrewAssist,
+    saveHomePlanetExpeditionPlan,
     updateRecruitForm,
     analyzeRecruitInput,
     generateCrewMember,
@@ -3327,8 +4419,16 @@ export function useGameState() {
     openTrialResult,
     openParentSummary,
     startTrialFromBeginning,
+    jumpToShipHub,
     jumpToFirstLevel,
     jumpToSecondLevel,
+    jumpToLanguagePortal,
+    jumpToLanguageSurface,
+    completeChapterTwoLandmarksForPilot,
+    enterBlackboxTrialForPilot,
+    maxHomePlanetResources,
+    setMotherworldBuildingsDark,
+    setMotherworldBuildingsLit,
     teacherCompleteChapterTwoLandmarks,
     teacherEnterBlackboxTrial,
     teacherTriggerPlanetRestoration,

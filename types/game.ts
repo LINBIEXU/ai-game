@@ -57,6 +57,7 @@ export type ChapterTwoLocationId =
   | "blackbox-vault";
 
 export type ChapterTwoCrewAbilityKind = "record" | "repair" | "scout" | "expression";
+export type ChapterTwoCrewAssistTargetId = ChapterTwoLocationId | "blackbox-trial";
 
 export interface ChapterTwoCrewAbility {
   kind: ChapterTwoCrewAbilityKind;
@@ -68,6 +69,26 @@ export interface ChapterTwoCrewAbility {
   hiddenHint?: string;
   stableTemplate?: string;
   repairAmount?: number;
+}
+
+export interface ChapterTwoCrewAssistRequest {
+  targetId: ChapterTwoCrewAssistTargetId;
+  targetName: string;
+  hint: string;
+  crewId?: string | null;
+  crewName?: string;
+  abilityKind?: ChapterTwoCrewAbilityKind;
+}
+
+export interface ChapterTwoCrewAssistRecord {
+  id: string;
+  targetId: ChapterTwoCrewAssistTargetId;
+  targetName: string;
+  crewId: string | null;
+  crewName: string;
+  abilityKind?: ChapterTwoCrewAbilityKind;
+  hint: string;
+  createdAt: number;
 }
 
 export type CrewFormType = "mechanical" | "biological" | "energy" | "hybrid";
@@ -228,6 +249,34 @@ export interface HomePlanetRuleCard {
   createdAt: number;
 }
 
+export interface HomePlanetExpeditionPlan {
+  goal: string;
+  risk: string;
+  recordPlan: string;
+  createdAt: number;
+}
+
+export interface HomePlanetBenefitLog {
+  id: string;
+  featureId: HomePlanetFeatureId;
+  title: string;
+  summary: string;
+  createdAt: number;
+}
+
+export interface HomePlanetBuildingBenefits {
+  galleryReviewCount: number;
+  lastGalleryReviewAt: number | null;
+  workshopEfficiencyLevel: number;
+  commissionResourceClaims: number;
+  dialogueReflectionCount: number;
+  storyboardArchiveCount: number;
+  equippedRuleCardIds: string[];
+  crewAssistLevel: number;
+  expeditionPlan: HomePlanetExpeditionPlan | null;
+  benefitLogs: HomePlanetBenefitLog[];
+}
+
 export type ChapterTwoRewardKind =
   | "civilization-fragment"
   | "technology-point"
@@ -248,6 +297,7 @@ export interface ChapterTwoLocationRewardClaim {
   locationId: ChapterTwoLocationId;
   locationName: string;
   rewards: ChapterTwoLocationReward[];
+  settlement?: ChapterTwoSettlementLog;
   createdAt: number;
 }
 
@@ -262,6 +312,7 @@ export interface HomePlanetHubState {
   galleryItems: HomePlanetGalleryItem[];
   archiveRecords: HomePlanetArchiveRecord[];
   ruleCards: HomePlanetRuleCard[];
+  benefits: HomePlanetBuildingBenefits;
 }
 
 export interface CrewBackstory {
@@ -705,7 +756,46 @@ export interface ChapterTwoOutcome {
   unlockedModule?: string;
   titleEarned?: string;
   finalLetter?: string[];
+  repairReadings?: ChapterTwoRepairReadings;
+  repairReadingLogs?: ChapterTwoRepairReadingLog[];
+  systemReadings?: ChapterTwoSystemReadings;
+  settlementLogs?: ChapterTwoSettlementLog[];
+  crewAssistUsed?: boolean;
+  crewAssistSummary?: string;
+  crewAssistRecords?: ChapterTwoCrewAssistRecord[];
   completedAt?: number;
+}
+
+export interface ChapterTwoRepairReadings {
+  goalClarity: number;
+  evidenceIntegrity: number;
+  unknownMarking: number;
+  boundaryAwareness: number;
+}
+
+export interface ChapterTwoRepairReadingLog {
+  id: string;
+  source: string;
+  note: string;
+  delta: ChapterTwoRepairReadings;
+  createdAt: number;
+}
+
+export interface ChapterTwoSystemReadings {
+  languageStability: number;
+  evidenceChainIntegrity: number;
+  echoInterferenceResidue: number;
+  blackBoxSyncRate: number;
+}
+
+export interface ChapterTwoSettlementLog {
+  id: string;
+  scope: "location" | "blackbox" | "chapter";
+  sourceId?: ChapterTwoLocationId | "blackbox-trial";
+  sourceName: string;
+  readings: ChapterTwoSystemReadings;
+  reportLines: string[];
+  createdAt: number;
 }
 
 export interface ChapterTwoState {
@@ -720,6 +810,11 @@ export interface ChapterTwoState {
   baseEffectNotes: string[];
   baseScanHints: string[];
   locationRewardClaims: ChapterTwoLocationRewardClaim[];
+  repairReadings: ChapterTwoRepairReadings;
+  repairReadingLogs: ChapterTwoRepairReadingLog[];
+  systemReadings: ChapterTwoSystemReadings;
+  settlementLogs: ChapterTwoSettlementLog[];
+  crewAssistRecords: ChapterTwoCrewAssistRecord[];
   blackBoxUnlocked: boolean;
   echo: ChapterTwoEcho | null;
   truth: ChapterTwoTruth | null;
@@ -753,6 +848,9 @@ export interface ChapterTwoLocationCompletionPayload {
   crewAbilityKind?: ChapterTwoCrewAbilityKind;
   crewIntervention?: string;
   evidenceLines?: string[];
+  repairReadingDelta?: Partial<ChapterTwoRepairReadings>;
+  repairReadingSource?: string;
+  repairReadingNote?: string;
 }
 
 export interface ShipLogEntry {

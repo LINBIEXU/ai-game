@@ -1,5 +1,7 @@
 import type {
   BridgeModuleId,
+  ChapterTwoRepairReadings,
+  ChapterTwoSystemReadings,
   ChapterTwoState,
   CrewFormType,
   CrewRole,
@@ -32,6 +34,20 @@ export const emptySignalMission = (): SignalMissionState => ({
   ...createInitialMemoryVaultState()
 });
 
+export const emptyChapterTwoRepairReadings = (): ChapterTwoRepairReadings => ({
+  goalClarity: 0,
+  evidenceIntegrity: 0,
+  unknownMarking: 0,
+  boundaryAwareness: 0
+});
+
+export const emptyChapterTwoSystemReadings = (): ChapterTwoSystemReadings => ({
+  languageStability: 32,
+  evidenceChainIntegrity: 28,
+  echoInterferenceResidue: 72,
+  blackBoxSyncRate: 0
+});
+
 export const emptyChapterTwoState = (): ChapterTwoState => ({
   currentStep: "response",
   sceneState: "ship_bridge",
@@ -44,6 +60,11 @@ export const emptyChapterTwoState = (): ChapterTwoState => ({
   baseEffectNotes: [],
   baseScanHints: [],
   locationRewardClaims: [],
+  repairReadings: emptyChapterTwoRepairReadings(),
+  repairReadingLogs: [],
+  systemReadings: emptyChapterTwoSystemReadings(),
+  settlementLogs: [],
+  crewAssistRecords: [],
   blackBoxUnlocked: false,
   echo: null,
   truth: null,

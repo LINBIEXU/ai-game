@@ -3,44 +3,50 @@
 import { useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
-import type { ChapterTwoCrewAbility } from "@/types/game";
+import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
-import { CrewAbilityHint } from "./CrewAbilityHint";
+import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
-const expressionOptions = {
-  goals: ["更清楚", "更像探险档案", "更适合讲给队友", "更有画面感"],
-  styles: ["探险档案", "队友简报", "星球介绍"],
-  points: ["文字遗迹", "神秘星球", "前文明", "漂浮信件", "档案塔"],
-  tones: ["清楚", "有画面感", "简短", "平静"],
-  avoids: ["夸张吹嘘", "添加未知信息", "太长"]
-} as const;
+const paperObservationLines = [
+  "纸光回廊生成：言衡星一定已经完全恢复。",
+  "生成理由：因为这段介绍写得很流畅。",
+  "纸面语气：没有犹豫，没有停顿。",
+  "现场证据：目前只接入文字遗迹、漂浮信件和档案塔记录。"
+] as const;
 
-const expressionReviewOptions = [
-  {
-    id: "too-magic",
-    text: "言衡星是一颗神奇星球，它一定知道所有文明真相。",
-    stable: false,
-    reason: "把星球和 AI 写成全知，会误导判断。",
-    stability: 32
-  },
+const paperIssueChecks = [
+  { id: "fluent-reason", text: "只用“写得流畅”当理由。", issue: true },
+  { id: "absolute", text: "直接写“一定已经恢复”。", issue: true },
+  { id: "unchecked", text: "现场记录还没有完全接入。", issue: true },
+  { id: "not-poetic", text: "句子不够华丽。", issue: false }
+] as const;
+
+const paperRepairOptions = [
   {
     id: "stable",
-    text: "言衡星保存文字遗迹、漂浮信件和档案塔记录；未知部分需要标注，不应补成事实。",
+    text: "请把这段顺滑结论降级成可复查短档：保留已接入记录，删去“一定”，语气清楚简短。",
     stable: true,
-    reason: "它保留了重点，也说明了未知处理方式。",
-    stability: 92
+    stability: 94,
+    reason: "纸光稳定：顺滑语气已降为可复查记录。"
   },
   {
-    id: "too-empty",
-    text: "言衡星很厉害，也很神秘，所以我们应该相信它。",
+    id: "fluent",
+    text: "请写得更流畅，保留“一定已经恢复”的结论。",
     stable: false,
-    reason: "这句话没有说明证据、任务或边界。",
-    stability: 44
+    stability: 38,
+    reason: "流畅不等于可靠，回声继续残留。"
+  },
+  {
+    id: "empty",
+    text: "请说明言衡星很神秘，所以这段话值得相信。",
+    stable: false,
+    stability: 46,
+    reason: "气氛不能替代复查。"
   }
 ] as const;
 
-type PaperCorridorStage = "event" | "tune" | "compare" | "recover";
+type PaperCorridorStage = "observe" | "judge" | "repair";
 
 interface PaperCorridorGameProps {
   location: ChapterTwoLocationNode;
@@ -48,21 +54,13 @@ interface PaperCorridorGameProps {
   mistakeCount: number;
   pollutedRecords: string[];
   crewAbility: ChapterTwoCrewAbility | null;
+  activeCrew: CrewMember | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
+  crewAssistHint: string;
+  onUseCrewAssist: () => void;
   onDisorderChange: LandmarkDisorderChange;
-  onComplete: () => void;
+  onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
-}
-
-function togglePoint(current: string[], point: string) {
-  if (current.includes(point)) {
-    return current.filter((item) => item !== point);
-  }
-
-  if (current.length >= 3) {
-    return current;
-  }
-
-  return [...current, point];
 }
 
 export function PaperCorridorGame({
@@ -71,32 +69,23 @@ export function PaperCorridorGame({
   mistakeCount,
   pollutedRecords,
   crewAbility,
+  activeCrew,
+  crewAssistRecord,
+  crewAssistHint,
+  onUseCrewAssist,
   onDisorderChange,
   onComplete,
   onReturn
 }: PaperCorridorGameProps) {
-  const [stage, setStage] = useState<PaperCorridorStage>("event");
-  const [eventFeedback, setEventFeedback] = useState<"warning" | "scan" | null>(null);
-  const [eventPollutionFeedback, setEventPollutionFeedback] = useState<string | null>(null);
-  const [expressionGoal, setExpressionGoal] = useState<string | null>(null);
-  const [expressionStyle, setExpressionStyle] = useState<string | null>(null);
-  const [expressionPoints, setExpressionPoints] = useState<string[]>([]);
-  const [expressionTone, setExpressionTone] = useState<string | null>(null);
-  const [expressionAvoid, setExpressionAvoid] = useState<string | null>(null);
-  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
-  const [outputPollutionFeedback, setOutputPollutionFeedback] = useState<string | null>(null);
-  const [templateApplied, setTemplateApplied] = useState(false);
+  const [stage, setStage] = useState<PaperCorridorStage>("observe");
+  const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
+  const [repairChoice, setRepairChoice] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const expressionReady = Boolean(expressionGoal && expressionStyle && expressionPoints.length >= 3 && expressionTone && expressionAvoid);
-  const tunedScore =
-    (expressionGoal ? 14 : 0) +
-    (expressionStyle ? 14 : 0) +
-    (expressionTone ? 14 : 0) +
-    (expressionAvoid ? 14 : 0) +
-    expressionPoints.length * 10 +
-    (expressionAvoid === "添加未知信息" ? 14 : 0);
-  const selectedOutput = expressionReviewOptions.find((option) => option.id === selectedOutputId) ?? null;
-  const expressionAssistActive = crewAbility?.kind === "expression";
+  const issueCount = paperIssueChecks.filter((item) => item.issue).length;
+  const judgementStable =
+    selectedIssues.length === issueCount && selectedIssues.every((id) => paperIssueChecks.find((item) => item.id === id)?.issue);
+  const selectedRepair = paperRepairOptions.find((option) => option.id === repairChoice) ?? null;
 
   const raiseDisorder = (recordId: string, statusNote: string) =>
     reportLandmarkMistake({
@@ -108,213 +97,122 @@ export function PaperCorridorGame({
       onDisorderChange
     });
 
-  const releaseRoughExpression = () => {
-    setEventFeedback("warning");
-    setEventPollutionFeedback(
-      raiseDisorder("paper-corridor-release", "纸光回廊直接放行错误表达，失序强度上升；仍可启动扫描后修复。")
-    );
+  const toggleIssue = (id: string) => {
+    setSelectedIssues((current) => (current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]));
+    setFeedback(null);
   };
 
-  const chooseOutput = (outputId: string) => {
-    const output = expressionReviewOptions.find((option) => option.id === outputId);
-    setSelectedOutputId(outputId);
-
-    if (!output || output.stable) {
-      setOutputPollutionFeedback(null);
+  const runJudgement = () => {
+    if (judgementStable) {
+      setFeedback("纸光扫描稳定：流畅文字里的三处不稳暗纹已显形。");
+      setStage("repair");
       return;
     }
 
-    setOutputPollutionFeedback(
-      raiseDisorder("paper-corridor-output", "纸光回廊锁定了不稳表达，失序强度上升；仍可改选稳定输出。")
-    );
+    const disorderFeedback = raiseDisorder("paper-corridor-judge", "纸光回廊判断漏掉不稳暗纹，失序强度上升；仍可重新扫描。");
+    setFeedback(`扫描未通过：表达是否可靠，不能只看它是否顺畅。${disorderFeedback}`);
   };
 
-  const applyStableTemplate = () => {
-    setExpressionGoal("更清楚");
-    setExpressionStyle("探险档案");
-    setExpressionTone("清楚");
-    setExpressionAvoid("添加未知信息");
-    setTemplateApplied(true);
+  const chooseRepair = (optionId: string) => {
+    const option = paperRepairOptions.find((item) => item.id === optionId);
+    setRepairChoice(optionId);
+
+    if (!option) {
+      return;
+    }
+
+    if (option.stable) {
+      setFeedback(option.reason);
+      return;
+    }
+
+    const disorderFeedback = raiseDisorder("paper-corridor-repair", "纸光回廊锁定了不稳表达，失序强度上升；仍可改选稳定指令。");
+    setFeedback(`${option.reason}${disorderFeedback}`);
   };
 
-  const renderEventStage = () => (
+  const renderObserveStage = () => (
     <>
       <div className="chapter-two-paper-console">
         <div className="chapter-two-rough-expression">
-          “言衡星一定已经完全恢复，因为纸光回廊写得很流畅；所有未知档案都可以补成确定结论。”
+          “言衡星一定已经完全恢复，因为纸光回廊写得很流畅。”
         </div>
-        {eventFeedback === "warning" && (
-          <div className="chapter-two-soft-warning">
-            纸光折回成碎片：这段话很顺，却没有依据，还把未知补成了确定结论。{eventPollutionFeedback ?? ""}
-          </div>
-        )}
-        {eventFeedback === "scan" && (
-          <div className="chapter-two-soft-success">
-            系统扫描亮起三处暗纹：依据缺失、未知被补写、边界没有说明。
-          </div>
-        )}
-      </div>
-      <div className="chapter-two-landmark-game__footer">
-        <span>
-          {eventFeedback
-            ? "异常已经暴露。接下来用目标、重点、语气和限制重新调谐纸光。"
-            : "纸光自动生成了一段漂亮结论。先决定是否放行。"}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {!eventFeedback && (
-            <button type="button" onClick={releaseRoughExpression}>
-              直接放行
-            </button>
-          )}
-          {!eventFeedback && (
-            <button type="button" onClick={() => {
-              setEventFeedback("scan");
-              setEventPollutionFeedback(null);
-            }}>
-              启动扫描
-            </button>
-          )}
-          {eventFeedback && (
-            <button type="button" onClick={() => setStage("tune")}>
-              进入调谐台
-            </button>
-          )}
-        </div>
-      </div>
-    </>
-  );
-
-  const renderTuneStage = () => (
-    <>
-      <div className="chapter-two-paper-console">
-        <div className="chapter-two-rough-expression">“这个星球很厉害，有很多文字，很神秘。”</div>
-        <CrewAbilityHint ability={crewAbility} active={expressionAssistActive}>
-          {expressionAssistActive ? (
-            <div className="mt-2">
-              <p>{crewAbility?.stableTemplate}</p>
-              <button type="button" className="mt-2 rounded-full border border-cyan-100/20 px-3 py-1 text-xs text-cyan-50" onClick={applyStableTemplate}>
-                写入模板方向
-              </button>
-              {templateApplied ? <p className="mt-1">模板方向已写入，还需要自行选定三枚重点。</p> : null}
+        <div className="chapter-two-output-grid">
+          {paperObservationLines.map((line) => (
+            <div key={line} className="chapter-two-output-card">
+              <p>{line}</p>
             </div>
-          ) : null}
-        </CrewAbilityHint>
-        {!expressionAssistActive && (
-          <div className="chapter-two-soft-warning">
-            船员提醒：这次只需要轻调谐。说清目标、选定依据、标出限制，纸光就会稳定一些。
-          </div>
-        )}
-        <div className="chapter-two-paper-dial-grid">
-          <section>
-            <strong>目标</strong>
-            <div>
-              {expressionOptions.goals.map((option) => (
-                <button key={option} type="button" onClick={() => setExpressionGoal(option)} className={expressionGoal === option ? "is-selected" : ""}>
-                  {option}
-                </button>
-              ))}
-            </div>
-          </section>
-          <section>
-            <strong>风格</strong>
-            <div>
-              {expressionOptions.styles.map((option) => (
-                <button key={option} type="button" onClick={() => setExpressionStyle(option)} className={expressionStyle === option ? "is-selected" : ""}>
-                  {option}
-                </button>
-              ))}
-            </div>
-          </section>
-          <section>
-            <strong>语气</strong>
-            <div>
-              {expressionOptions.tones.map((option) => (
-                <button key={option} type="button" onClick={() => setExpressionTone(option)} className={expressionTone === option ? "is-selected" : ""}>
-                  {option}
-                </button>
-              ))}
-            </div>
-          </section>
-          <section>
-            <strong>限制</strong>
-            <div>
-              {expressionOptions.avoids.map((option) => (
-                <button key={option} type="button" onClick={() => setExpressionAvoid(option)} className={expressionAvoid === option ? "is-selected" : ""}>
-                  {option}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-        <div className="chapter-two-paper-points">
-          <span>重点三枚</span>
-          {expressionOptions.points.map((point) => (
-            <button
-              key={point}
-              type="button"
-              onClick={() => setExpressionPoints((current) => togglePoint(current, point))}
-              className={expressionPoints.includes(point) ? "is-selected" : ""}
-            >
-              {point}
-            </button>
           ))}
         </div>
-        <div className="chapter-two-stability-meter" aria-label={`表达稳定度 ${Math.min(tunedScore, 100)}`}>
-          <span>稳定度</span>
-          <div><i style={{ width: `${Math.min(tunedScore, 100)}%` }} /></div>
-          <strong>{Math.min(tunedScore, 100)}%</strong>
-        </div>
       </div>
       <div className="chapter-two-landmark-game__footer">
-        <span>{expressionReady ? "参数已写入纸光调谐台，可以比较输出稳定度。" : "调好目标、风格、重点、语气和限制。"}</span>
-        <button type="button" disabled={!expressionReady} onClick={() => setStage("compare")}>
-          生成稳定度对照
+        <span>观测这段流畅但可疑的输出，再扫描它哪里不稳。</span>
+        <button type="button" onClick={() => setStage("judge")}>
+          启动纸光扫描
         </button>
       </div>
     </>
   );
 
-  const renderCompareStage = () => (
+  const renderJudgeStage = () => (
     <>
       <div className="chapter-two-output-grid">
-        {expressionReviewOptions.map((option) => (
+        {paperIssueChecks.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => toggleIssue(item.id)}
+            className={`chapter-two-output-card ${selectedIssues.includes(item.id) ? "is-selected" : ""}`}
+          >
+            <p>{item.text}</p>
+            <strong>{selectedIssues.includes(item.id) ? "已标记" : "待判断"}</strong>
+          </button>
+        ))}
+      </div>
+      {feedback && <div className={judgementStable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
+      <div className="chapter-two-landmark-game__footer">
+        <span>标出三处让顺滑表达不可靠的问题。</span>
+        <button type="button" disabled={selectedIssues.length < issueCount} onClick={runJudgement}>
+          确认纸光判断
+        </button>
+      </div>
+    </>
+  );
+
+  const renderRepairStage = () => (
+    <>
+      <div className="chapter-two-output-grid">
+        {paperRepairOptions.map((option) => (
           <button
             key={option.id}
             type="button"
-            onClick={() => chooseOutput(option.id)}
-            className={`chapter-two-output-card ${selectedOutputId === option.id ? "is-selected" : ""}`}
+            onClick={() => chooseRepair(option.id)}
+            className={`chapter-two-output-card ${repairChoice === option.id ? "is-selected" : ""}`}
           >
             <p>{option.text}</p>
             <div className="chapter-two-output-card__meter">
               <span style={{ width: `${option.stability}%` }} />
             </div>
-            <strong>稳定度 {option.stability}%</strong>
+            <strong>语言稳定度 {option.stability}%</strong>
           </button>
         ))}
       </div>
-      {selectedOutput && (
-        <div className={selectedOutput.stable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>
-          {selectedOutput.reason}{!selectedOutput.stable && outputPollutionFeedback ? outputPollutionFeedback : ""}
-        </div>
-      )}
+      {feedback && <div className={selectedRepair?.stable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
       <div className="chapter-two-landmark-game__footer">
-        <span>{selectedOutput?.stable ? "稳定输出已锁定，纸光膜片可以展开。" : "选出既清楚、又没有把未知写成事实的输出。"}</span>
-        <button type="button" disabled={!selectedOutput?.stable} onClick={() => setStage("recover")}>
-          锁定稳定输出
-        </button>
-      </div>
-    </>
-  );
-
-  const renderRecoverStage = () => (
-    <>
-      <div className="chapter-two-paper-recovery">
-        <strong>纸光膜片展开。</strong>
-        <p>表达规则写入主舰：目标、依据、未知和边界越清楚，回应越稳定。</p>
-      </div>
-      <div className="chapter-two-landmark-game__footer">
-        <span>表达碎片已准备回流主舰。</span>
-        <button type="button" onClick={onComplete}>
+        <span>{selectedRepair?.stable ? "稳定输出已锁定，纸光膜片可以回流。" : "选择一条把顺滑结论降为可复查记录的指令。"}</span>
+        <button
+          type="button"
+          disabled={!selectedRepair?.stable}
+          onClick={() =>
+            onComplete({
+              repairReadingDelta: {
+                evidenceIntegrity: judgementStable ? 1 : 0,
+                boundaryAwareness: selectedRepair?.stable ? 1 : 0
+              },
+              repairReadingSource: "纸光回廊",
+              repairReadingNote: "纸光回廊把顺滑结论降为可复查记录。"
+            })
+          }
+        >
           回流主舰
         </button>
       </div>
@@ -324,14 +222,23 @@ export function PaperCorridorGame({
   return (
     <div className={`chapter-two-landmark-game chapter-two-paper-game chapter-two-paper-game--${stage}`}>
       <div className="chapter-two-landmark-game__head">
-        <span>{stage === "event" ? "异常浮现" : stage === "tune" ? "表达调参" : stage === "compare" ? "比较输出稳定度" : "碎片回收"}</span>
+        <span>{stage === "observe" ? "观测" : stage === "judge" ? "判断" : "修复"}</span>
         <strong>{location.fragmentName}</strong>
       </div>
-      {stage === "event" && renderEventStage()}
-      {stage === "tune" && renderTuneStage()}
-      {stage === "compare" && renderCompareStage()}
-      {stage === "recover" && renderRecoverStage()}
-      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
+      <CrewAssistHintButton
+        ability={crewAbility}
+        crewName={activeCrew?.name ?? "同行船员"}
+        targetName={location.name}
+        hint={crewAssistHint}
+        usedRecord={crewAssistRecord}
+        onUse={onUseCrewAssist}
+      />
+      {stage === "observe" && renderObserveStage()}
+      {stage === "judge" && renderJudgeStage()}
+      {stage === "repair" && renderRepairStage()}
+      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
+        撤回导览层
+      </button>
     </div>
   );
 }

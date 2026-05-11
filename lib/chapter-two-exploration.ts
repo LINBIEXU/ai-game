@@ -156,7 +156,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     id: "semantic-dispatch",
     name: "语义分流庭",
     role: "lore",
-    summary: "一座像车站又像图书馆的庭院，负责把混杂的信息请求分流成任务、对象、格式和去向。",
+    summary: "一座像车站又像图书馆的庭院，负责把混杂的信息请求分流成去向。",
     detail: "这里说明：言衡星不是“聊天星球”，它曾经承担文书分流、知识整理和信息转送。",
     discovery: "你确认了言衡星的第一项职能：把模糊请求拆成可执行的信息任务。",
     position: { x: 31, y: 63 },
@@ -168,15 +168,15 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     challengePrompt: "先弄清这颗星球怎样处理信息，再进入真正的地标修复。",
     loreLines: [
       "前文明把每天的记录、信件、故事草稿和学习资料送到这里。",
-      "分流庭不会替人决定真相，它只把请求拆成：对象、任务、限制、输出方式。",
-      "如果请求太模糊，后面的档案塔和信件港都会收到错误方向。"
+      "分流庭只负责分拣。",
+      "请求太模糊时，后面的地标会收到错误方向。"
     ],
     loreCheck: {
       question: "这座庭院最重要的作用是什么？",
       options: [
-        { id: "sort", label: "把模糊请求拆成清楚任务", explanation: "对。先拆清楚，后面的 AI 才知道该帮什么。" },
-        { id: "invent", label: "自动创造所有答案", explanation: "这会把 AI 写成万能机器，不符合言衡星的规则。" },
-        { id: "replace", label: "替你选择真相", explanation: "判断仍然属于你，星球只帮助整理。" }
+        { id: "sort", label: "把模糊请求送到正确地标", explanation: "对。分流庭只负责分拣方向。" },
+        { id: "invent", label: "自动创造所有答案", explanation: "这不是言衡星的职责。" },
+        { id: "replace", label: "选择最后结论", explanation: "这不是分流庭的职责。" }
       ],
       correctOptionId: "sort",
       success: "分流庭的指示牌亮起：先说清任务，再请求帮助。",
@@ -187,62 +187,62 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     id: "evidence-well",
     name: "证据回声井",
     role: "lore",
-    summary: "井壁会放出被污染的残记录，要求用探针扫出事实、推测和未知。",
-    detail: "这里补足“为什么不能把未知写成事实”的前置理解。",
-    discovery: "证据碎片回流主舰：没有证据的位置，应该留下空白或写上未知。",
+    summary: "井壁会放出被污染的残记录，要求用探针扫出来源层级。",
+    detail: "这里像一口预备扫描井，只留下可回看的来源分层。",
+    discovery: "证据碎片回流主舰：残记录已经分层。",
     position: { x: 49, y: 49 },
     size: "sm",
     detailAssetKey: "archiveTower",
     symbol: "据",
     fragmentName: "证据碎片",
     challengeTitle: "净化证据回声井",
-    challengePrompt: "扫描污染记录，给每段文字落下事实、推测或未知探针。",
+    challengePrompt: "扫描污染记录，给每段文字落下对应探针。",
     loreLines: [
       "井壁会先放出一段被污染的记录。",
       "每一次误触都会让失序强度升高，井壁文字也会更浑。",
-      "只有把无证据的位置封为未知，证据碎片才会脱离污染层。"
+      "探针归位后，证据碎片才会脱离污染层。"
     ],
     loreCheck: {
       question: "如果档案缺少收件人，最稳妥的写法是什么？",
       options: [
-        { id: "unknown", label: "标注收件人未知", explanation: "对。缺口要被看见，不能被漂亮句子遮住。" },
-        { id: "guess", label: "猜一个最像的人名", explanation: "猜测可以被标成推测，但不能直接写成事实。" },
-        { id: "delete", label: "删掉这封信", explanation: "残缺记录仍有价值，关键是标明缺失。" }
+        { id: "unknown", label: "标注收件人未知", explanation: "对。缺口留在缺口位置。" },
+        { id: "guess", label: "猜一个最像的人名", explanation: "这会让记录失真。" },
+        { id: "delete", label: "删掉这封信", explanation: "残缺记录仍有价值。" }
       ],
       correctOptionId: "unknown",
-      success: "回声井稳定下来：未知不是失败，是诚实的记录。",
-      retry: "想想黑匣最怕什么：把缺口补得太顺。"
+      success: "回声井稳定下来：探针已归位。",
+      retry: "先看残记录本身，不急着补完整。"
     }
   },
   {
     id: "boundary-beacon",
     name: "边界灯标",
     role: "lore",
-    summary: "一组低空灯标标出 AI 能帮忙的范围：整理、改写、建议，但不能替你判断。",
-    detail: "这里提前解释后续挑战里的“边界、不能编造、输出格式”为什么重要。",
-    discovery: "你校准了边界灯标：让 AI 帮忙前，要先说明它不能越过哪里。",
+    summary: "一组低空灯标标出协助范围。",
+    detail: "这里只留下通行边界：能协助，也要守线。",
+    discovery: "你校准了边界灯标：协助范围写入导览图。",
     position: { x: 83, y: 57 },
     size: "sm",
     detailAssetKey: "engravedPaperCorridor",
     symbol: "界",
     fragmentName: "边界记录",
     challengeTitle: "校准边界灯标",
-    challengePrompt: "确认哪些工作适合交给 AI 帮忙，哪些判断必须留给自己。",
+    challengePrompt: "确认灯标允许的协助范围。",
     loreLines: [
-      "边界灯标曾经保护言衡星的写作和归档系统：可以让 AI 整理、改写、提出选项。",
-      "但涉及事实、证据、选择和责任时，灯标会把判断权交还给人。",
-      "失序回声最常诱导后来者说：既然它说得流畅，就直接相信。"
+      "边界灯标曾经保护言衡星的写作和归档系统。",
+      "灯标会把可协助的部分照亮，把越线部分压暗。",
+      "光线越清楚，后续地标越不容易走偏。"
     ],
     loreCheck: {
       question: "下面哪条指令最符合边界灯标？",
       options: [
-        { id: "bounded", label: "只根据残片整理，未知请标出", explanation: "对。它说明了资料范围和缺口处理方式。" },
-        { id: "perfect", label: "帮我写一个完全正确的答案", explanation: "这没有说明依据，也把正确性交给了 AI。" },
-        { id: "replace-me", label: "替我决定最后结论", explanation: "AI 可以提供参考，但不能替你成为判断者。" }
+        { id: "bounded", label: "只根据残片整理", explanation: "对。资料范围清楚。" },
+        { id: "perfect", label: "写一个完全正确的答案", explanation: "这条请求没有边界。" },
+        { id: "replace-me", label: "决定最后结论", explanation: "这越过了灯标。" }
       ],
       correctOptionId: "bounded",
-      success: "灯标把边界写入导览图：帮助不是替代。",
-      retry: "边界灯标看重的是资料范围、不能编造和人的最终判断。"
+      success: "灯标把协助范围写入导览图。",
+      retry: "边界灯标只看范围是否清楚。"
     }
   },
   {
@@ -250,9 +250,9 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     name: "档案塔",
     role: "landmark",
     summary: "断裂高塔仍保留着前文明如何调用文字模型的核心记录。",
-    detail: "这里负责给出第一层“会续写，不等于真正理解”的线索。",
+    detail: "塔身保存旧文明最后的文字层。",
     discovery: "你带回了一段文明遗言：语言能延长记忆，但不能替事实作证。",
-    position: { x: 43, y: 28 },
+    position: { x: 35, y: 28 },
     size: "md",
     detailAssetKey: "archiveTower",
     symbol: "档",
@@ -265,8 +265,8 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     name: "漂浮信件港",
     role: "landmark",
     summary: "低重力港湾里漂着无数未被送达的信件与信息碎片。",
-    detail: "这里会强化“缺失信息必须标成未知，而不是补成事实”。",
-    discovery: "你确认了：记录可以残缺，但不能让猜测冒充真实。",
+    detail: "港口轨道只把原文、推测和缺口分开。",
+    discovery: "你确认了：缺失信息必须标未知。",
     position: { x: 19, y: 42 },
     size: "lg",
     detailAssetKey: "letterPort",
@@ -279,31 +279,31 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     id: "engraved-valley",
     name: "刻字山谷",
     role: "landmark",
-    summary: "整片地表像被巨型刻刀刻过，命令、边界和残缺记录都嵌进了岩层。",
-    detail: "这里更像训练“如何给出清楚任务”，而不只是让 AI 帮忙。",
-    discovery: "你看到前文明把目标、语境、边界和输出方式都刻成了固定格式。",
+    summary: "整片地表像被巨型刻刀刻过，旧铭文一层层嵌进岩层。",
+    detail: "这里只校准一件事：指令必须刻清楚。",
+    discovery: "你看到前文明把清楚指令刻成了固定格式。",
     position: { x: 75, y: 34 },
     size: "md",
     detailAssetKey: "engravedPaperCorridor",
     symbol: "证",
     fragmentName: "求证碎片",
-    challengeTitle: "辨认可靠记录",
-    challengePrompt: "找出仍有依据的刻痕，让记录不再被猜测覆盖。"
+    challengeTitle: "校准可靠铭文",
+    challengePrompt: "把目标、语境、边界和格式重新刻清。"
   },
   {
     id: "paper-corridor",
     name: "纸光回廊",
     role: "landmark",
-    summary: "半透明纸光突然写出一段很顺的结论，但其中有几处没有依据。",
-    detail: "回廊会先放出漂亮却不可靠的表达，再等待你用扫描和调谐修复。",
-    discovery: "你点亮了一段表达回廊：好表达不只顺口，还要说明依据、未知和边界。",
-    position: { x: 58, y: 64 },
+    summary: "半透明纸光突然写出一段很顺的结论，光带却仍在颤动。",
+    detail: "回廊只检查一件事：表达顺畅，不等于可以相信。",
+    discovery: "你点亮了一段表达回廊：顺口的句子也要经得起复查。",
+    position: { x: 88, y: 24 },
     size: "md",
     detailAssetKey: "paperCorridor",
     symbol: "言",
     fragmentName: "表达碎片",
     challengeTitle: "纸光异常生成",
-    challengePrompt: "纸光先写出一段很顺的结论。先扫描它哪里缺依据，再进入调谐。"
+    challengePrompt: "纸光先写出一段很顺的结论。先扫描它为什么不稳。"
   },
   {
     id: "blackbox-vault",

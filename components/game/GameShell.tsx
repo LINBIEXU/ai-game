@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AwakeningScene } from "@/components/game/AwakeningScene";
 import { ChapterOnePresentationLayer } from "@/components/game/ChapterOnePresentationLayer";
 import { ClassroomLoginPanel } from "@/components/game/ClassroomLoginPanel";
+import { CurrentObjectiveBeacon } from "@/components/game/CurrentObjectiveBeacon";
 import { CrewRecruitPanel } from "@/components/game/CrewRecruitPanel";
 import { CrewResultCard } from "@/components/game/CrewResultCard";
 import { ChapterCompletePanel } from "@/components/game/chapter-one/ChapterCompletePanel";
@@ -30,6 +31,7 @@ import { TransitionOverlay } from "@/components/game/TransitionOverlay";
 import { useChapterOnePresentation } from "@/hooks/useChapterOnePresentation";
 import { useClassroomProfile } from "@/hooks/useClassroomProfile";
 import { useGameState } from "@/hooks/useGameState";
+import { getCurrentObjective } from "@/lib/current-objective";
 
 interface TransitionState {
   visible: boolean;
@@ -72,14 +74,19 @@ export function GameShell() {
     focusChapterTwoPlanet,
     focusChapterTwoLocation,
     updateChapterTwoDisorder,
+    useChapterTwoCrewAssist,
     exploreChapterTwoLocation,
     advanceChapterTwoStep,
     completeChapterTwo,
     activateHomePlanetFeature,
     buildHomePlanetStructure,
+    markHomePlanetGalleryReview,
     saveHomePlanetCommission,
     saveHomePlanetDialogue,
     saveHomePlanetStoryboard,
+    equipHomePlanetRuleCard,
+    tuneHomePlanetCrewAssist,
+    saveHomePlanetExpeditionPlan,
     updateRecruitForm,
     analyzeRecruitInput,
     generateCrewMember,
@@ -111,10 +118,15 @@ export function GameShell() {
     openTrialResult,
     openParentSummary,
     startTrialFromBeginning,
+    jumpToShipHub,
     jumpToFirstLevel,
-    jumpToSecondLevel,
-    teacherCompleteChapterTwoLandmarks,
-    teacherEnterBlackboxTrial,
+    jumpToLanguagePortal,
+    jumpToLanguageSurface,
+    completeChapterTwoLandmarksForPilot,
+    enterBlackboxTrialForPilot,
+    maxHomePlanetResources,
+    setMotherworldBuildingsDark,
+    setMotherworldBuildingsLit,
     teacherTriggerPlanetRestoration,
     resetTrialFlow,
     closeSignalReview,
@@ -198,6 +210,8 @@ export function GameShell() {
   ]);
   const immersiveFullscreen = immersiveScenes.has(state.currentScene);
   const hideImmersiveHeader = state.currentScene === "chapter-two-mission";
+  const currentObjective = getCurrentObjective(state);
+  const showPilotControls = process.env.NODE_ENV !== "production";
 
   const runTransition = async (
     config: Omit<TransitionState, "visible">,
@@ -253,6 +267,7 @@ export function GameShell() {
         audioReady={chapterOnePresentation.audioReady}
         onToggleSound={chapterOnePresentation.toggleSound}
       />
+      <CurrentObjectiveBeacon objective={currentObjective} />
       <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-2 md:right-4">
         <button
           type="button"
@@ -337,155 +352,247 @@ export function GameShell() {
               </div>
             </div>
 
-            <div className="mt-4 border-t border-white/8 pt-4">
-              <div className="soft-label text-[10px] text-white/36">领航控制</div>
-              <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "试听流程重新开始",
-                        detail: "主舰会回到开场状态，方便重新开启一轮完整体验。",
-                        mode: "arrival"
-                      },
-                      startTrialFromBeginning,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
-                >
-                  从头开始试听
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "跳到第一关入口",
-                        detail: "如果还没有船员，会先进入船员招募；如果已有船员，会直接打开信息库第一关。",
-                        mode: "scan"
-                      },
-                      jumpToFirstLevel,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
-                >
-                  跳到第一关入口
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "准备第二章",
-                        detail: "主舰会准备文明远征入口；如果缺少星球结果，会生成一个演示用母星坐标。",
-                        mode: "jump"
-                      },
-                      jumpToSecondLevel,
-                      620
-                    );
-                  }}
-                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
-                >
-                  跳到第二章
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "四处地标已点亮",
-                        detail: "领航控制：直接保留四枚文明碎片，并开启黑匣入口。",
-                        mode: "unlock"
-                      },
-                      teacherCompleteChapterTwoLandmarks,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
-                >
-                  点亮四个地标
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "进入黑匣试炼",
-                        detail: "领航控制：直接进入失序回声最终战。",
-                        mode: "scan"
-                      },
-                      teacherEnterBlackboxTrial,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
-                >
-                  直接进入黑匣战
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "言衡星复苏完成",
-                        detail: "领航控制：直接写入第二章成果、科技点和飞船 AI 升级。",
-                        mode: "unlock"
-                      },
-                      teacherTriggerPlanetRestoration,
-                      620
-                    );
-                  }}
-                  className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
-                >
-                  触发星球复苏
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "打开试听成果总页",
-                        detail: "主舰正在汇总船员、母星、黑匣远征和存档状态。",
-                        mode: "unlock"
-                      },
-                      openTrialResult,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
-                >
-                  查看最终成果页
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUtilityPanelOpen(null);
-                    void runTransition(
-                      {
-                        title: "当前试听流程已重置",
-                        detail: "只重置这轮演示状态，保留项目的身份与存档结构。",
-                        mode: "arrival"
-                      },
-                      resetTrialFlow,
-                      520
-                    );
-                  }}
-                  className="rounded-[16px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-left text-sm text-amber-50 transition hover:bg-amber-200/[0.14]"
-                >
-                  重置当前试听流程
-                </button>
+            {showPilotControls && (
+              <div className="mt-4 border-t border-white/8 pt-4">
+                <div className="soft-label text-[10px] text-white/36">领航控制</div>
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "主舰 Hub 已写入",
+                          detail: "直接打开主舰 Hub，并保持现有船员、星球和归档记录。",
+                          mode: "jump"
+                        },
+                        jumpToShipHub,
+                        420
+                      );
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    写入：主舰 Hub
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "试听流程重新开始",
+                          detail: "清空当前进度，回到开场状态。",
+                          mode: "arrival"
+                        },
+                        startTrialFromBeginning,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-left text-sm text-amber-50 transition hover:bg-amber-200/[0.14]"
+                  >
+                    重置：完整流程
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "第一关入口已写入",
+                          detail: "如果还没有船员，会先进入船员招募；如果已有船员，会直接打开信息库第一关。",
+                          mode: "scan"
+                        },
+                        jumpToFirstLevel,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    写入：第一关入口
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "言衡星入口已写入",
+                          detail: "准备文明远征入口；如果缺少母星坐标，会生成一颗试听用母星。",
+                          mode: "jump"
+                        },
+                        jumpToLanguagePortal,
+                        620
+                      );
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    写入：言衡星入口
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "言衡星地表已写入",
+                          detail: "直接进入言衡星地表导览；如果缺少船员，会先回到招募舱。",
+                          mode: "jump"
+                        },
+                        jumpToLanguageSurface,
+                        620
+                      );
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    写入：言衡星地表
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "四处地标已写入完成",
+                          detail: "直接保留四枚文明碎片，并开启黑匣入口。",
+                          mode: "unlock"
+                        },
+                        completeChapterTwoLandmarksForPilot,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                  >
+                    写入：四地标完成
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "黑匣试炼已写入",
+                          detail: "直接进入失序回声最终试炼。",
+                          mode: "scan"
+                        },
+                        enterBlackboxTrialForPilot,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                  >
+                    写入：黑匣试炼
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "言衡星复苏完成",
+                          detail: "直接写入第二章成果、科技点和飞船 AI 升级。",
+                          mode: "unlock"
+                        },
+                        teacherTriggerPlanetRestoration,
+                        620
+                      );
+                    }}
+                    className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                  >
+                    写入：言衡星复苏
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "母星资源已写入",
+                          detail: "水源、矿物、能源、碎片和科技点都会写入 99。",
+                          mode: "unlock"
+                        },
+                        maxHomePlanetResources,
+                        420
+                      );
+                    }}
+                    className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                  >
+                    写入：母星资源 99
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "母星建筑已转暗",
+                          detail: "清空建筑点亮状态与基础结构，保留作品、归档和船员记录。",
+                          mode: "arrival"
+                        },
+                        setMotherworldBuildingsDark,
+                        420
+                      );
+                    }}
+                    className="rounded-[16px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-left text-sm text-amber-50 transition hover:bg-amber-200/[0.14]"
+                  >
+                    写入：母星建筑全暗
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "母星建筑已全亮",
+                          detail: "点亮所有母星建筑与基础结构，不扣除当前资源。",
+                          mode: "unlock"
+                        },
+                        setMotherworldBuildingsLit,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3 text-left text-sm text-cyan-50 transition hover:bg-cyan-200/[0.12]"
+                  >
+                    写入：母星建筑全亮
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "打开试听成果总页",
+                          detail: "主舰正在汇总船员、母星、黑匣远征和存档状态。",
+                          mode: "unlock"
+                        },
+                        openTrialResult,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/76 transition hover:border-white/22 hover:bg-white/[0.07]"
+                  >
+                    查看：最终成果页
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUtilityPanelOpen(null);
+                      void runTransition(
+                        {
+                          title: "当前试听流程已重置",
+                          detail: "重置这轮试听状态，保留当前身份入口。",
+                          mode: "arrival"
+                        },
+                        resetTrialFlow,
+                        520
+                      );
+                    }}
+                    className="rounded-[16px] border border-amber-200/14 bg-amber-200/[0.08] px-4 py-3 text-left text-sm text-amber-50 transition hover:bg-amber-200/[0.14]"
+                  >
+                    重置：当前试听流程
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           )}
         </div>
@@ -683,9 +790,13 @@ export function GameShell() {
               onReturn={returnToHub}
               onActivateFeature={activateHomePlanetFeature}
               onBuildStructure={buildHomePlanetStructure}
+              onMarkGalleryReview={markHomePlanetGalleryReview}
               onSaveCommission={saveHomePlanetCommission}
               onSaveDialogue={saveHomePlanetDialogue}
               onSaveStoryboard={saveHomePlanetStoryboard}
+              onEquipRuleCard={equipHomePlanetRuleCard}
+              onTuneCrewAssist={tuneHomePlanetCrewAssist}
+              onSaveExpeditionPlan={saveHomePlanetExpeditionPlan}
             />
           )}
 
@@ -713,7 +824,17 @@ export function GameShell() {
               completed={state.chapterTwoComplete}
               routeLocked={state.chapterTwoRouteLocked}
               onBegin={() =>
-                startChapterTwoMission()
+                runTransition(
+                  {
+                    title: state.chapterTwoComplete ? "黑匣航迹正在回放" : "远航门进入跃迁",
+                    detail: state.chapterTwoComplete
+                      ? "主舰正在沿着已归档航迹重放言衡星记录。"
+                      : "引擎环、星图轨道和语言星坐标正在同步，主舰即将离开母星外环。",
+                    mode: "jump"
+                  },
+                  startChapterTwoMission,
+                  state.chapterTwoComplete ? 1180 : 1480
+                )
               }
               onReturn={returnToHub}
             />
@@ -727,6 +848,7 @@ export function GameShell() {
               onFocusPlanet={focusChapterTwoPlanet}
               onFocusLocation={focusChapterTwoLocation}
               onUpdateDisorder={updateChapterTwoDisorder}
+              onUseCrewAssist={useChapterTwoCrewAssist}
               onExploreLocation={exploreChapterTwoLocation}
               onAdvance={advanceChapterTwoStep}
               onComplete={() =>

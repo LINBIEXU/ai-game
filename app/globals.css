@@ -2834,6 +2834,106 @@ input {
   transform: scale(1.04);
 }
 
+.chapter-two-portal-voyage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.chapter-two-portal-voyage__route {
+  position: absolute;
+  left: 18%;
+  right: 7%;
+  top: 47%;
+  height: 2px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.78), rgba(255, 241, 196, 0.64), transparent),
+    linear-gradient(90deg, transparent 0 52%, rgba(255, 255, 255, 0.86) 55% 58%, transparent 61%);
+  box-shadow:
+    0 0 24px rgba(103, 232, 249, 0.28),
+    0 0 76px rgba(251, 191, 36, 0.16);
+  transform-origin: right center;
+  animation: portalRouteCharge 3.4s ease-in-out infinite;
+}
+
+.chapter-two-portal-voyage__rings,
+.chapter-two-portal-voyage__stars {
+  position: absolute;
+  inset: 0;
+}
+
+.chapter-two-portal-voyage__rings span {
+  position: absolute;
+  left: 70%;
+  top: 38%;
+  width: min(42vw, 34rem);
+  height: min(42vw, 34rem);
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.18);
+  box-shadow:
+    0 0 48px rgba(103, 232, 249, 0.16),
+    inset 0 0 58px rgba(251, 191, 36, 0.08);
+  animation: portalRingSurge 3.6s cubic-bezier(0.2, 0.82, 0.2, 1) infinite;
+}
+
+.chapter-two-portal-voyage__rings span:nth-child(2) {
+  width: min(30vw, 24rem);
+  height: min(30vw, 24rem);
+  border-color: rgba(251, 241, 196, 0.18);
+  animation-delay: 0.42s;
+}
+
+.chapter-two-portal-voyage__rings span:nth-child(3) {
+  width: min(22vw, 17rem);
+  height: min(22vw, 17rem);
+  animation-delay: 0.88s;
+}
+
+.chapter-two-portal-voyage__stars i {
+  position: absolute;
+  left: 58%;
+  top: 45%;
+  width: 44vmax;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(224, 242, 254, 0.72), transparent);
+  transform-origin: left center;
+  animation: portalStarSlip 2.6s ease-in-out infinite;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(1) {
+  --star-angle: -18deg;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(2) {
+  --star-angle: 8deg;
+  animation-delay: -0.35s;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(3) {
+  --star-angle: 31deg;
+  animation-delay: -0.7s;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(4) {
+  --star-angle: 156deg;
+  animation-delay: -1.05s;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(5) {
+  --star-angle: 198deg;
+  animation-delay: -1.4s;
+}
+
+.chapter-two-portal-voyage__stars i:nth-child(6) {
+  --star-angle: 248deg;
+  animation-delay: -1.75s;
+}
+
 .chapter-two-cinematic {
   position: relative;
   overflow: hidden;
@@ -2912,6 +3012,84 @@ input {
   animation: bridgeConsolePulse 4.4s ease-in-out infinite;
 }
 
+.chapter-two-launch-drive,
+.chapter-two-launch-vector,
+.chapter-two-warp-rift,
+.chapter-two-warp-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.chapter-two-launch-drive {
+  opacity: 0.78;
+}
+
+.chapter-two-launch-drive span {
+  position: absolute;
+  left: 50%;
+  top: 72%;
+  width: min(42vw, 30rem);
+  height: min(14vw, 9rem);
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.16);
+  background:
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.18), transparent 28%),
+    radial-gradient(ellipse at center, rgba(103, 232, 249, 0.2), transparent 70%);
+  box-shadow:
+    0 0 42px rgba(103, 232, 249, 0.18),
+    inset 0 0 34px rgba(255, 255, 255, 0.08);
+  animation: launchDrivePulse 1.35s ease-in-out infinite;
+}
+
+.chapter-two-launch-drive span:nth-child(2) {
+  width: min(34vw, 24rem);
+  height: min(11vw, 7rem);
+  animation-delay: 0.18s;
+}
+
+.chapter-two-launch-drive span:nth-child(3) {
+  width: min(24vw, 17rem);
+  height: min(8vw, 5rem);
+  animation-delay: 0.36s;
+}
+
+.chapter-two-launch-vector i,
+.chapter-two-warp-rift i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48vmax;
+  height: 2px;
+  border-radius: 999px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent, rgba(224, 242, 254, 0.68), rgba(103, 232, 249, 0.2), transparent);
+}
+
+.chapter-two-launch-vector i {
+  animation: launchVectorSweep 1.05s ease-in infinite;
+}
+
+.chapter-two-launch-vector i:nth-child(1) {
+  --vector-angle: 17deg;
+}
+
+.chapter-two-launch-vector i:nth-child(2) {
+  --vector-angle: 83deg;
+  animation-delay: 0.16s;
+}
+
+.chapter-two-launch-vector i:nth-child(3) {
+  --vector-angle: 196deg;
+  animation-delay: 0.32s;
+}
+
+.chapter-two-launch-vector i:nth-child(4) {
+  --vector-angle: 291deg;
+  animation-delay: 0.48s;
+}
+
 .chapter-two-warp-streak {
   background:
     radial-gradient(circle at center, rgba(124, 226, 255, 0.12), transparent 28%),
@@ -2919,6 +3097,74 @@ input {
   mix-blend-mode: screen;
   opacity: 0.52;
   animation: warpLineRush 1.4s ease-in infinite;
+}
+
+.chapter-two-warp-rift span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(74vw, 46rem);
+  height: min(74vw, 46rem);
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.22);
+  box-shadow:
+    0 0 60px rgba(103, 232, 249, 0.24),
+    0 0 140px rgba(168, 85, 247, 0.18),
+    inset 0 0 90px rgba(255, 255, 255, 0.08);
+  animation: warpRiftCollapse 1.42s cubic-bezier(0.18, 0.82, 0.2, 1) infinite;
+}
+
+.chapter-two-warp-rift span:nth-child(2) {
+  width: min(52vw, 34rem);
+  height: min(52vw, 34rem);
+  border-color: rgba(251, 241, 196, 0.18);
+  animation-delay: 0.18s;
+}
+
+.chapter-two-warp-rift span:nth-child(3) {
+  width: min(34vw, 22rem);
+  height: min(34vw, 22rem);
+  animation-delay: 0.34s;
+}
+
+.chapter-two-warp-rift i {
+  animation: warpRiftStreak 1.18s ease-out infinite;
+}
+
+.chapter-two-warp-rift i:nth-of-type(1) {
+  --rift-angle: 0deg;
+}
+
+.chapter-two-warp-rift i:nth-of-type(2) {
+  --rift-angle: 42deg;
+  animation-delay: 0.08s;
+}
+
+.chapter-two-warp-rift i:nth-of-type(3) {
+  --rift-angle: 94deg;
+  animation-delay: 0.16s;
+}
+
+.chapter-two-warp-rift i:nth-of-type(4) {
+  --rift-angle: 146deg;
+  animation-delay: 0.24s;
+}
+
+.chapter-two-warp-rift i:nth-of-type(5) {
+  --rift-angle: 218deg;
+  animation-delay: 0.32s;
+}
+
+.chapter-two-warp-rift i:nth-of-type(6) {
+  --rift-angle: 292deg;
+  animation-delay: 0.4s;
+}
+
+.chapter-two-warp-flash {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.86), rgba(186, 230, 253, 0.24) 18%, transparent 44%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  animation: warpFlashWash 1.95s ease-in-out infinite;
 }
 
 .chapter-two-descent-primary {
@@ -3435,6 +3681,176 @@ input {
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
+  }
+}
+
+@keyframes portalRouteCharge {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: translate3d(-2%, 0, 0) rotate(-12deg) scaleX(0.9);
+    filter: blur(1.5px);
+  }
+  48% {
+    opacity: 0.9;
+    transform: translate3d(3%, -1%, 0) rotate(-12deg) scaleX(1.08);
+    filter: blur(0);
+  }
+}
+
+@keyframes portalRingSurge {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.72) rotate(0deg);
+    filter: blur(8px);
+  }
+  32% {
+    opacity: 0.82;
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.82) rotate(24deg);
+    filter: blur(7px);
+  }
+}
+
+@keyframes portalStarSlip {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--star-angle, 0deg)) translateX(-16vmax) scaleX(0.12);
+    filter: blur(6px);
+  }
+  24% {
+    opacity: 0.76;
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--star-angle, 0deg)) translateX(42vmax) scaleX(1.06);
+    filter: blur(5px);
+  }
+}
+
+@keyframes launchDrivePulse {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: translate(-50%, -50%) scale(0.7);
+    filter: blur(10px);
+  }
+  44% {
+    opacity: 0.86;
+    transform: translate(-50%, -50%) scale(1.16);
+    filter: blur(2px);
+  }
+}
+
+@keyframes launchVectorSweep {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--vector-angle, 0deg)) translateX(-24vmax) scaleX(0.08);
+  }
+  28% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--vector-angle, 0deg)) translateX(34vmax) scaleX(1.2);
+  }
+}
+
+@keyframes warpRiftCollapse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.25) rotate(0deg);
+    filter: blur(14px);
+  }
+  30% {
+    opacity: 0.9;
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.18) rotate(36deg);
+    filter: blur(12px);
+  }
+}
+
+@keyframes warpRiftStreak {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--rift-angle, 0deg)) translateX(-44vmax) scaleX(0.04);
+    filter: blur(8px);
+  }
+  22% {
+    opacity: 0.86;
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--rift-angle, 0deg)) translateX(8vmax) scaleX(1.2);
+    filter: blur(6px);
+  }
+}
+
+@keyframes warpFlashWash {
+  0%,
+  62% {
+    opacity: 0;
+  }
+  72% {
+    opacity: 0.84;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes landmarkOutlineIdle {
+  0%,
+  100% {
+    opacity: 0.58;
+    box-shadow:
+      inset 0 0 0 1px rgba(103, 232, 249, 0.035),
+      0 0 18px rgba(103, 232, 249, 0.035);
+  }
+  48% {
+    opacity: 0.92;
+    box-shadow:
+      inset 0 0 0 1px rgba(103, 232, 249, 0.08),
+      0 0 30px rgba(103, 232, 249, 0.09);
+  }
+}
+
+@keyframes landmarkScanGlint {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translateX(-72%) skewX(-10deg);
+  }
+  68% {
+    opacity: 0.58;
+  }
+  82% {
+    opacity: 0;
+    transform: translateX(72%) skewX(-10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(72%) skewX(-10deg);
+  }
+}
+
+@keyframes landmarkCompletedGlow {
+  0%,
+  100% {
+    opacity: 0.56;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.9;
+    filter: brightness(1.18);
   }
 }
 
@@ -5514,6 +5930,13 @@ input {
   opacity: 0.58;
 }
 
+.chapter-two-crew-assist--used {
+  border-color: rgba(165, 243, 252, 0.2);
+  background:
+    linear-gradient(135deg, rgba(103, 232, 249, 0.1), rgba(255, 255, 255, 0.04)),
+    rgba(4, 10, 18, 0.56);
+}
+
 .chapter-two-crew-assist--repair,
 .chapter-two-crew-ability-callout--repair {
   border-color: rgba(52, 211, 153, 0.18);
@@ -6516,6 +6939,74 @@ input {
   line-height: 1.7;
 }
 
+.home-planet-benefit-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  border-radius: 16px;
+  background: rgba(103, 232, 249, 0.07);
+  padding: 0.85rem;
+}
+
+.home-planet-benefit-row span {
+  display: block;
+  color: rgba(207, 250, 254, 0.58);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.home-planet-benefit-row strong {
+  display: block;
+  margin-top: 0.28rem;
+  color: white;
+  font-size: 0.94rem;
+}
+
+.home-planet-benefit-row p {
+  margin-top: 0.36rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.motherworld-mini-button {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  background: rgba(103, 232, 249, 0.13);
+  padding: 0.62rem 0.88rem;
+  color: rgba(224, 242, 254, 0.9);
+  font-size: 0.75rem;
+  font-weight: 850;
+  transition: 180ms ease;
+}
+
+.motherworld-mini-button:hover:not(:disabled),
+.motherworld-mini-button:focus-visible:not(:disabled) {
+  border-color: rgba(103, 232, 249, 0.52);
+  background: rgba(103, 232, 249, 0.2);
+}
+
+.motherworld-mini-button:disabled {
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.36);
+}
+
+@media (max-width: 640px) {
+  .home-planet-benefit-row {
+    display: grid;
+  }
+}
+
 .home-planet-file-label {
   position: relative;
   display: inline-flex;
@@ -6603,6 +7094,188 @@ input {
   animation: restoredLandmarkReturn 2.8s ease-in-out infinite;
 }
 
+/* Surface landmarks are part of the painted scene, not UI tokens. */
+.chapter-two-hotspots--surface .chapter-two-location-hotspot {
+  width: 10rem;
+  height: 6.4rem;
+  min-width: 0;
+  border-radius: 28% 72% 32% 68% / 42% 38% 62% 58%;
+  border: 1px solid rgba(186, 230, 253, 0.16);
+  background:
+    linear-gradient(112deg, rgba(186, 230, 253, 0.04), rgba(103, 232, 249, 0.012) 44%, transparent 68%),
+    rgba(2, 6, 12, 0.015);
+  padding: 0;
+  backdrop-filter: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(103, 232, 249, 0.04),
+    0 0 26px rgba(103, 232, 249, 0.04);
+  clip-path: polygon(9% 45%, 19% 18%, 45% 6%, 72% 14%, 93% 38%, 86% 72%, 60% 91%, 28% 82%);
+  animation: landmarkOutlineIdle 5.8s ease-in-out infinite;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot::before,
+.chapter-two-hotspots--surface .chapter-two-location-hotspot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot::before {
+  border: 1px solid rgba(186, 230, 253, 0.14);
+  box-shadow:
+    inset 0 0 22px rgba(103, 232, 249, 0.045),
+    0 0 18px rgba(103, 232, 249, 0.05);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot::after {
+  background: linear-gradient(104deg, transparent 0 28%, rgba(186, 230, 253, 0.24) 46%, transparent 62% 100%);
+  opacity: 0;
+  transform: translateX(-72%);
+  mix-blend-mode: screen;
+  animation: landmarkScanGlint 5.8s ease-in-out infinite;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot__pulse {
+  inset: -0.4rem;
+  border-radius: inherit;
+  border: 1px solid rgba(103, 232, 249, 0.1);
+  background: radial-gradient(ellipse at center, rgba(103, 232, 249, 0.08), transparent 64%);
+  opacity: 0.34;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot strong {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%) scale(0.96);
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.14);
+  background: rgba(4, 10, 18, 0.62);
+  padding: 0.28rem 0.62rem;
+  color: rgba(224, 242, 254, 0.82);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0;
+  text-transform: none;
+  backdrop-filter: blur(10px);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:hover,
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:focus-visible {
+  z-index: 8;
+  border-color: rgba(186, 230, 253, 0.42);
+  background:
+    linear-gradient(112deg, rgba(186, 230, 253, 0.08), rgba(103, 232, 249, 0.035) 50%, transparent 72%),
+    rgba(2, 6, 12, 0.025);
+  filter: brightness(1.24) drop-shadow(0 0 30px rgba(103, 232, 249, 0.24));
+  transform: translate(-50%, -50%) scale(1.045);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:hover strong,
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:focus-visible strong {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:hover::after,
+.chapter-two-hotspots--surface .chapter-two-location-hotspot:focus-visible::after {
+  opacity: 0.76;
+  animation-duration: 1.3s;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--done {
+  border-color: rgba(103, 232, 249, 0.44);
+  background:
+    linear-gradient(112deg, rgba(103, 232, 249, 0.12), rgba(186, 230, 253, 0.035) 48%, transparent 72%),
+    rgba(2, 6, 12, 0.02);
+  filter: brightness(1.14) drop-shadow(0 0 22px rgba(103, 232, 249, 0.16));
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--done::before {
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 50% 52%, rgba(103, 232, 249, 0.12), transparent 62%),
+    linear-gradient(90deg, transparent, rgba(186, 230, 253, 0.12), transparent);
+  opacity: 0.8;
+  animation: landmarkCompletedGlow 3.4s ease-in-out infinite;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--locked {
+  opacity: 0.18;
+  filter: grayscale(0.55) brightness(0.84);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--blackbox {
+  border-color: rgba(251, 191, 36, 0.48);
+  background:
+    radial-gradient(ellipse at center, rgba(251, 191, 36, 0.14), transparent 58%),
+    linear-gradient(112deg, rgba(254, 243, 199, 0.1), rgba(103, 232, 249, 0.035), transparent 72%);
+  box-shadow:
+    inset 0 0 34px rgba(251, 191, 36, 0.08),
+    0 0 40px rgba(251, 191, 36, 0.16);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--restored {
+  animation: landmarkCompletedGlow 2.8s ease-in-out infinite;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--semantic-dispatch {
+  width: 9rem;
+  height: 5.6rem;
+  clip-path: polygon(13% 42%, 25% 18%, 54% 8%, 84% 20%, 94% 50%, 76% 82%, 42% 88%, 14% 70%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--evidence-well {
+  width: 8.2rem;
+  height: 5.4rem;
+  border-radius: 999px;
+  clip-path: ellipse(48% 42% at 50% 50%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--boundary-beacon {
+  width: 8rem;
+  height: 6rem;
+  clip-path: polygon(24% 9%, 70% 8%, 91% 34%, 82% 76%, 52% 94%, 18% 77%, 8% 38%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--archive-tower {
+  width: 8.5rem;
+  height: 12rem;
+  border-radius: 42% 58% 46% 54% / 18% 20% 80% 82%;
+  clip-path: polygon(38% 0, 62% 0, 77% 24%, 72% 91%, 50% 100%, 28% 91%, 23% 24%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--letter-port {
+  width: 12.5rem;
+  height: 7.2rem;
+  clip-path: polygon(4% 52%, 20% 18%, 48% 4%, 78% 14%, 98% 46%, 86% 78%, 54% 94%, 20% 84%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--engraved-valley {
+  width: 13.6rem;
+  height: 8.6rem;
+  clip-path: polygon(7% 34%, 23% 10%, 68% 6%, 93% 26%, 98% 62%, 78% 88%, 32% 94%, 8% 72%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--paper-corridor {
+  width: 11.6rem;
+  height: 6.6rem;
+  clip-path: polygon(10% 36%, 32% 12%, 74% 10%, 96% 40%, 86% 74%, 52% 92%, 18% 78%);
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--blackbox-vault {
+  width: 13rem;
+  height: 9.2rem;
+  border-radius: 999px;
+  clip-path: ellipse(48% 42% at 50% 52%);
+}
+
 .chapter-two-world--location_focus .chapter-two-scene-image--detail,
 .chapter-two-world--blackbox_unlock .chapter-two-scene-image--detail {
   animation: cameraPushIn 720ms cubic-bezier(0.18, 0.88, 0.2, 1) both;
@@ -6635,6 +7308,112 @@ input {
 
 .chapter-two-light-path--lit {
   animation: landmarkLightFlow 1.1s linear infinite, lightPathArrival 820ms ease-out both;
+}
+
+.chapter-two-light-path--just-lit {
+  stroke-width: 0.34;
+  filter:
+    drop-shadow(0 0 10px rgba(103, 232, 249, 0.82))
+    drop-shadow(0 0 22px rgba(103, 232, 249, 0.38));
+  animation:
+    landmarkLightFlow 0.72s linear infinite,
+    lightPathArrival 620ms ease-out both,
+    lightPathConfirmPulse 1.6s ease-out both;
+}
+
+.chapter-two-light-path--blackbox-ready {
+  filter:
+    drop-shadow(0 0 12px rgba(251, 191, 36, 0.48))
+    drop-shadow(0 0 24px rgba(103, 232, 249, 0.38));
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--just-completed {
+  z-index: 9;
+  animation:
+    landmarkJustCompleted 1.55s ease-out both,
+    landmarkCompletedGlow 3.4s ease-in-out 1.55s infinite;
+}
+
+.chapter-two-hotspots--surface .chapter-two-location-hotspot--just-completed::after {
+  opacity: 0.82;
+  animation: landmarkScanGlint 1.05s ease-out both;
+}
+
+.chapter-two-world--blackbox-ready-new .chapter-two-guide-overlay {
+  animation: blackboxFieldSettle 2.2s ease-out both;
+}
+
+.chapter-two-completion-cue,
+.chapter-two-blackbox-ready-cue {
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+  border: 1px solid rgba(186, 230, 253, 0.18);
+  border-radius: 999px;
+  background: rgba(4, 10, 18, 0.46);
+  padding: 0.68rem 0.92rem;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  animation: surfaceCueRise 2.8s ease-out both;
+}
+
+.chapter-two-completion-cue {
+  left: 50%;
+  bottom: 16%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 0.12rem;
+  min-width: min(20rem, calc(100vw - 2rem));
+  text-align: center;
+}
+
+.chapter-two-completion-cue span,
+.chapter-two-blackbox-ready-cue span {
+  color: rgba(186, 230, 253, 0.62);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.chapter-two-completion-cue strong,
+.chapter-two-blackbox-ready-cue strong {
+  color: white;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.chapter-two-completion-cue small {
+  color: rgba(207, 250, 254, 0.72);
+  font-size: 0.72rem;
+}
+
+.chapter-two-blackbox-ready-cue {
+  left: 68%;
+  top: 60%;
+  display: grid;
+  gap: 0.14rem;
+  min-width: 14rem;
+  transform: translate(-50%, -50%);
+  border-color: rgba(251, 191, 36, 0.22);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.12), transparent 72%),
+    rgba(4, 10, 18, 0.48);
+  text-align: center;
+  animation: blackboxReadyCue 3.2s ease-out both;
+}
+
+.blackbox-echo-opened__sync {
+  margin-bottom: 0.85rem;
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 999px;
+  background: rgba(103, 232, 249, 0.08);
+  padding: 0.58rem 0.84rem;
+  color: rgba(207, 250, 254, 0.92);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-align: center;
+  animation: blackboxOpenedSync 1.3s ease-out both;
 }
 
 .blackbox-echo::before,
@@ -6859,6 +7638,11 @@ input {
 .motherworld-building-overlay--patch {
   z-index: 1;
   filter: saturate(1.02) contrast(1.02) brightness(0.94) blur(0.4px);
+}
+
+.motherworld-building-overlay--full {
+  z-index: 1;
+  filter: saturate(1.04) contrast(1.02) brightness(1.02);
 }
 
 .motherworld-building-overlay--feather {
@@ -7138,6 +7922,36 @@ input {
   box-shadow: 0 0 38px rgba(103, 232, 249, 0.26);
 }
 
+.motherworld-building-hotspot--just-activated::before {
+  animation: motherworldBuildingWakeBurst 1.45s ease-out both;
+}
+
+.motherworld-building-glow--just-activated {
+  animation:
+    motherworldBuildingGlowConfirm 1.45s ease-out both,
+    motherworldGlowBreath 3.2s ease-in-out 1.45s infinite;
+}
+
+.motherworld-building-energy--just-activated::before {
+  animation:
+    motherworldEnergyMote 1.4s ease-in-out infinite,
+    motherworldEnergyConfirm 1.25s ease-out both;
+}
+
+.motherworld-building-energy--just-activated::after {
+  animation:
+    motherworldEnergySweep 1.15s ease-out infinite,
+    motherworldEnergyConfirm 1.25s ease-out both;
+}
+
+.motherworld-building-overlay--just-activated {
+  animation: motherworldOverlayConfirm 1.35s ease-out both;
+}
+
+.motherworld-building-overlay--connection-new {
+  animation: motherworldConnectionConfirm 1.45s ease-out both;
+}
+
 .motherworld-map-ui,
 .motherworld-resource-strip,
 .motherworld-map-hint,
@@ -7159,6 +7973,106 @@ input {
   padding: 1rem;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(16px);
+}
+
+.motherworld-achievement-dock {
+  position: absolute;
+  left: clamp(1rem, 3vw, 2.4rem);
+  top: clamp(9.4rem, 18vh, 12rem);
+  z-index: 21;
+  width: min(31rem, 42vw);
+  max-height: min(44vh, 25rem);
+  overflow: auto;
+  border: 1px solid rgba(190, 242, 255, 0.14);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(103, 232, 249, 0.12), transparent 36%),
+    rgba(2, 8, 18, 0.54);
+  padding: 0.72rem;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.motherworld-achievement-dock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.1rem 0.18rem 0.58rem;
+}
+
+.motherworld-achievement-dock__head span,
+.motherworld-achievement-chip span {
+  color: rgba(207, 250, 254, 0.58);
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.motherworld-achievement-dock__head strong {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.motherworld-achievement-dock__grid {
+  display: grid;
+  gap: 0.46rem;
+}
+
+.motherworld-achievement-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.16rem 0.7rem;
+  width: 100%;
+  border: 1px solid rgba(190, 242, 255, 0.13);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0.62rem 0.72rem;
+  text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.motherworld-achievement-chip:hover,
+.motherworld-achievement-chip:focus-visible {
+  border-color: rgba(103, 232, 249, 0.42);
+  background: rgba(103, 232, 249, 0.10);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.motherworld-achievement-chip strong {
+  grid-column: 1 / -1;
+  color: white;
+  font-size: 0.88rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.motherworld-achievement-chip p {
+  grid-column: 1 / -1;
+  color: rgba(224, 242, 254, 0.64);
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
+.motherworld-achievement-chip small {
+  grid-column: 2;
+  grid-row: 1;
+  color: rgba(165, 243, 252, 0.56);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.motherworld-achievement-chip--empty {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.motherworld-achievement-chip--empty strong,
+.motherworld-achievement-chip--empty p {
+  color: rgba(226, 232, 240, 0.54);
 }
 
 .motherworld-map-ui h2 {
@@ -7235,6 +8149,48 @@ input {
 
 .motherworld-resource-strip--spending div {
   animation: resourceSpendTick 680ms ease-out both;
+}
+
+.motherworld-resource-strip--spending {
+  animation: motherworldResourceStripConfirm 1.15s ease-out both;
+}
+
+.motherworld-activation-cue {
+  position: absolute;
+  left: clamp(1rem, 3vw, 2.4rem);
+  bottom: clamp(9.2rem, 14vh, 10.6rem);
+  z-index: 22;
+  display: grid;
+  gap: 0.14rem;
+  min-width: min(22rem, calc(100vw - 2rem));
+  border: 1px solid rgba(190, 242, 255, 0.20);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 24%, rgba(103, 232, 249, 0.14), transparent 44%),
+    rgba(2, 8, 18, 0.58);
+  padding: 0.82rem 0.94rem;
+  box-shadow: 0 20px 62px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+  animation: motherworldActivationCue 1.55s ease-out both;
+}
+
+.motherworld-activation-cue span {
+  color: rgba(165, 243, 252, 0.62);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.18em;
+}
+
+.motherworld-activation-cue strong {
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.motherworld-activation-cue small {
+  color: rgba(207, 250, 254, 0.70);
+  font-size: 0.72rem;
 }
 
 .motherworld-map-hint {
@@ -7606,6 +8562,29 @@ input {
   margin: 0.12rem 0 0.75rem;
   color: rgba(255, 255, 255, 0.54);
   font-size: 0.72rem;
+}
+
+.motherworld-save-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid rgba(103, 232, 249, 0.20);
+  border-radius: 999px;
+  background: rgba(103, 232, 249, 0.08);
+  padding: 0.46rem 0.72rem;
+  color: rgba(207, 250, 254, 0.90);
+  font-size: 0.76rem;
+  font-weight: 850;
+  animation: motherworldSaveCue 1.25s ease-out both;
+}
+
+.motherworld-save-cue span {
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 999px;
+  background: rgb(103, 232, 249);
+  box-shadow: 0 0 18px rgba(103, 232, 249, 0.72);
 }
 
 .motherworld-action-status {
@@ -8013,6 +8992,22 @@ input {
     max-width: calc(100vw - 2rem);
   }
 
+  .motherworld-achievement-dock {
+    left: 1rem;
+    right: 1rem;
+    top: 8.8rem;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .motherworld-achievement-dock__grid {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(13.5rem, 1fr);
+    overflow-x: auto;
+    padding-bottom: 0.12rem;
+  }
+
   .motherworld-detail-panel {
     left: 1rem;
     right: 1rem;
@@ -8266,6 +9261,222 @@ input {
   }
 }
 
+@keyframes landmarkJustCompleted {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 12px rgba(103, 232, 249, 0.14));
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  34% {
+    filter:
+      brightness(1.42)
+      drop-shadow(0 0 28px rgba(103, 232, 249, 0.52))
+      drop-shadow(0 0 42px rgba(251, 191, 36, 0.22));
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    filter: brightness(1.14) drop-shadow(0 0 22px rgba(103, 232, 249, 0.16));
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes lightPathConfirmPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0.72;
+    stroke-width: 0.44;
+  }
+}
+
+@keyframes blackboxFieldSettle {
+  0% {
+    filter: brightness(1);
+  }
+  34% {
+    filter: brightness(1.28) saturate(1.18);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@keyframes surfaceCueRise {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+    filter: blur(7px);
+  }
+  18%,
+  76% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+}
+
+@keyframes blackboxReadyCue {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+    filter: blur(8px);
+  }
+  22%,
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+
+@keyframes blackboxOpenedSync {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  44% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    box-shadow: 0 0 28px rgba(103, 232, 249, 0.18);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes motherworldBuildingWakeBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.84);
+    filter: brightness(0.86);
+  }
+  42% {
+    transform: translate(-50%, -50%) scale(1.34);
+    filter: brightness(1.42);
+    box-shadow:
+      0 0 42px rgba(103, 232, 249, 0.44),
+      0 0 80px rgba(147, 197, 253, 0.24);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes motherworldBuildingGlowConfirm {
+  0% {
+    opacity: 0.28;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+  48% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.38);
+    filter: blur(2px) brightness(1.36);
+  }
+  100% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes motherworldEnergyConfirm {
+  0% {
+    opacity: 0.4;
+  }
+  45% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+  100% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes motherworldOverlayConfirm {
+  0% {
+    opacity: 0.18;
+    filter: brightness(0.9);
+  }
+  44% {
+    opacity: 1;
+    filter: brightness(1.34) saturate(1.2);
+  }
+  100% {
+    opacity: var(--overlay-opacity, 0.86);
+    filter: brightness(1);
+  }
+}
+
+@keyframes motherworldConnectionConfirm {
+  0% {
+    opacity: 0.18;
+    filter: brightness(0.86);
+  }
+  38% {
+    opacity: 1;
+    filter:
+      brightness(1.5)
+      drop-shadow(0 0 18px rgba(103, 232, 249, 0.34));
+  }
+  100% {
+    opacity: var(--overlay-opacity, 0.5);
+    filter: brightness(1);
+  }
+}
+
+@keyframes motherworldResourceStripConfirm {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  42% {
+    filter: brightness(1.2) drop-shadow(0 0 18px rgba(103, 232, 249, 0.18));
+  }
+}
+
+@keyframes motherworldActivationCue {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(8px);
+  }
+  18%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes motherworldSaveCue {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  42% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    box-shadow: 0 0 24px rgba(103, 232, 249, 0.14);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes structureUnlockRise {
   0% {
     transform: translateY(6px) scale(0.985);
@@ -8321,6 +9532,17 @@ input {
   .bridge-command-backdrop__window,
   .bridge-command-backdrop__scan,
   .chapter-two-portal-shell__gate,
+  .chapter-two-portal-voyage__route,
+  .chapter-two-portal-voyage__rings span,
+  .chapter-two-portal-voyage__stars i,
+  .chapter-two-launch-drive span,
+  .chapter-two-launch-vector i,
+  .chapter-two-warp-rift span,
+  .chapter-two-warp-rift i,
+  .chapter-two-warp-flash,
+  .chapter-two-hotspots--surface .chapter-two-location-hotspot,
+  .chapter-two-hotspots--surface .chapter-two-location-hotspot::after,
+  .chapter-two-hotspots--surface .chapter-two-location-hotspot--done::before,
   .chapter-two-warp-tunnel::before,
   .chapter-two-warp-tunnel::after,
   .chapter-two-warp-rings::before,

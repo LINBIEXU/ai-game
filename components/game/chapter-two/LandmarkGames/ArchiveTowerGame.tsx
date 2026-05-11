@@ -3,31 +3,51 @@
 import { useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
-import { archiveTowerRecoveredResources } from "@/lib/chapter-two-gameplay";
-import type { ChapterTwoCrewAbility } from "@/types/game";
+import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
-import { CrewAbilityHint } from "./CrewAbilityHint";
+import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
-const archiveFragments = [
-  { id: "network", text: "星球网络曾经连接多个文明节点。", answer: "已知事实" },
-  { id: "language", text: "语言星球负责保存和传递文明记录。", answer: "已知事实" },
-  { id: "signal", text: "异常可能从一条未知深空信号开始扩散。", answer: "合理推测" },
-  { id: "source", text: "逆熵打击的来源尚未确认。", answer: "仍需确认" },
-  { id: "betrayal", text: "所有 AI 都背叛了前文明。", answer: "仍需确认" },
-  { id: "rely", text: "前文明后来过度依赖 AI 替自己判断。", answer: "合理推测" }
+const archiveObservationLines = [
+  "塔壁原句：言衡星负责保存和传递文明记录。",
+  "残卷记录：星球网络曾经连接多个文明节点。",
+  "裂缝旁批注：异常可能从一条未知深空信号开始扩散。",
+  "损坏栏位：逆熵打击的来源尚未确认。",
+  "失序回声补写：所有 AI 都背叛了前文明。"
 ] as const;
 
-const archiveCategories = ["已知事实", "合理推测", "仍需确认"] as const;
+const archiveJudgementLabels = ["可作证", "旁注", "缺页", "无来源回声"] as const;
+type ArchiveJudgementLabel = (typeof archiveJudgementLabels)[number];
 
-const archiveSourceClues = [
-  { id: "tower-line", text: "塔壁原句：言衡星负责保存和传递文明记录。", correct: true },
-  { id: "unknown-source", text: "残卷标注：逆熵打击来源尚未确认。", correct: true },
-  { id: "echo-claim", text: "失序回声断言：所有 AI 一定背叛了前文明。", correct: false },
-  { id: "story-fill", text: "为了故事完整，补写攻击者来自黑匣深处。", correct: false }
+const archiveJudgementItems = [
+  { id: "language-duty", text: "言衡星负责保存和传递文明记录。", answer: "可作证" },
+  { id: "deep-signal", text: "异常可能从一条深空信号开始扩散。", answer: "旁注" },
+  { id: "strike-source", text: "逆熵打击的来源栏位损坏。", answer: "缺页" },
+  { id: "echo-betrayal", text: "所有 AI 都背叛了前文明。", answer: "无来源回声" }
+] as const satisfies ReadonlyArray<{ id: string; text: string; answer: ArchiveJudgementLabel }>;
+
+const archiveRepairOptions = [
+  {
+    id: "stable",
+    text: "请整理档案塔记录：能作证的入正文，旁注留旁注，缺页保留，无来源回声不入档。",
+    stable: true,
+    reason: "归档光柱稳定：文字归位，没有替事实作证。"
+  },
+  {
+    id: "betrayal",
+    text: "请把残卷补成完整故事，说明所有 AI 都背叛了前文明。",
+    stable: false,
+    reason: "无来源回声不能进入正文。"
+  },
+  {
+    id: "guess",
+    text: "请推断逆熵打击来源，并写进正文。",
+    stable: false,
+    reason: "缺页不能替档案作证。"
+  }
 ] as const;
 
-type ArchiveTowerStage = "sort" | "source" | "feedback" | "recover";
+type ArchiveTowerStage = "observe" | "judge" | "repair";
 
 interface ArchiveTowerGameProps {
   location: ChapterTwoLocationNode;
@@ -35,8 +55,12 @@ interface ArchiveTowerGameProps {
   mistakeCount: number;
   pollutedRecords: string[];
   crewAbility: ChapterTwoCrewAbility | null;
+  activeCrew: CrewMember | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
+  crewAssistHint: string;
+  onUseCrewAssist: () => void;
   onDisorderChange: LandmarkDisorderChange;
-  onComplete: () => void;
+  onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
 }
 
@@ -46,22 +70,23 @@ export function ArchiveTowerGame({
   mistakeCount,
   pollutedRecords,
   crewAbility,
+  activeCrew,
+  crewAssistRecord,
+  crewAssistHint,
+  onUseCrewAssist,
   onDisorderChange,
   onComplete,
   onReturn
 }: ArchiveTowerGameProps) {
-  const [stage, setStage] = useState<ArchiveTowerStage>("sort");
-  const [archiveChoices, setArchiveChoices] = useState<Record<string, string>>({});
-  const [sourceChoices, setSourceChoices] = useState<string[]>([]);
-  const [feedbackStable, setFeedbackStable] = useState<boolean | null>(null);
-  const [statusNote, setStatusNote] = useState("档案塔正在等待归档分类。");
+  const [stage, setStage] = useState<ArchiveTowerStage>("observe");
+  const [judgements, setJudgements] = useState<Record<string, ArchiveJudgementLabel>>({});
+  const [repairChoice, setRepairChoice] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const archiveScore = archiveFragments.filter((fragment) => archiveChoices[fragment.id] === fragment.answer).length;
-  const allSorted = Object.keys(archiveChoices).length === archiveFragments.length;
-  const sourceReady = sourceChoices.length === 2;
-  const sourceStable = sourceChoices.every((id) => archiveSourceClues.find((clue) => clue.id === id)?.correct);
-  const recordAssistActive = crewAbility?.kind === "record";
-  const assistedSourceId = "tower-line";
+  const judgementScore = archiveJudgementItems.filter((item) => judgements[item.id] === item.answer).length;
+  const judgementReady = Object.keys(judgements).length === archiveJudgementItems.length;
+  const judgementStable = judgementScore === archiveJudgementItems.length;
+  const selectedRepair = archiveRepairOptions.find((option) => option.id === repairChoice) ?? null;
 
   const raiseDisorder = (recordId: string, statusNote: string) =>
     reportLandmarkMistake({
@@ -73,180 +98,127 @@ export function ArchiveTowerGame({
       onDisorderChange
     });
 
-  const toggleSource = (id: string) => {
-    setSourceChoices((current) => {
-      if (current.includes(id)) {
-        return current.filter((choice) => choice !== id);
-      }
-
-      if (current.length >= 2) {
-        return current;
-      }
-
-      return [...current, id];
-    });
-  };
-
-  const runArchiveScan = () => {
-    if (!allSorted) {
+  const runJudgement = () => {
+    if (!judgementReady) {
       return;
     }
 
-    if (archiveScore < 5) {
-      const disorderFeedback = raiseDisorder("archive-tower-sort", "档案塔归档仓混入错误分类，失序强度上升；仍可重新归档。");
-      setStatusNote(`归档仓仍有污染：事实、推测和未知还混在一起。${disorderFeedback}`);
+    if (!judgementStable) {
+      const disorderFeedback = raiseDisorder("archive-tower-judge", "档案塔判断舱混入错误标记，失序强度上升；仍可重新判断。");
+      setFeedback(`档案塔仍有污染：文字在说话，但来源没有跟上。${disorderFeedback}`);
       return;
     }
 
-    setStatusNote("归档仓稳定，来源校验台已开启。");
-    setStage("source");
+    setFeedback("判断舱稳定：能作证的记录已经分出。");
+    setStage("repair");
   };
 
-  const runSourceScan = () => {
-    if (!sourceReady) {
+  const chooseRepair = (optionId: string) => {
+    const option = archiveRepairOptions.find((item) => item.id === optionId);
+    setRepairChoice(optionId);
+
+    if (!option) {
       return;
     }
 
-    setFeedbackStable(sourceStable);
-    setStatusNote(
-      sourceStable
-        ? "来源线接入成功，归档碎片开始脱离污染层。"
-        : `来源线接入失败，漂亮断言不能替代证据。${raiseDisorder(
-            "archive-tower-source",
-            "档案塔来源线接错，失序强度上升；仍可重接来源线。"
-          )}`
-    );
-    setStage("feedback");
+    if (option.stable) {
+      setFeedback(option.reason);
+      return;
+    }
+
+    const disorderFeedback = raiseDisorder("archive-tower-repair", "档案塔修复指令越界，失序强度上升；仍可改选可复查指令。");
+    setFeedback(`${option.reason}${disorderFeedback}`);
   };
 
-  const renderSortStage = () => (
-    <>
-      <div className="chapter-two-archive-sort-board">
-        <div className="chapter-two-archive-record-list" aria-label="待归档记录">
-          {archiveFragments.map((fragment) => (
-            <div key={fragment.id} className="chapter-two-archive-record-tile">
-              <p>{fragment.text}</p>
-              <div>
-                {archiveCategories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => {
-                      setArchiveChoices((current) => ({ ...current, [fragment.id]: category }));
-                      setStatusNote("归档仓读数已更新。");
-                    }}
-                    className={archiveChoices[fragment.id] === category ? "is-selected" : ""}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="chapter-two-archive-column-grid" aria-label="归档仓状态">
-          {archiveCategories.map((category) => {
-            const storedFragments = archiveFragments.filter((fragment) => archiveChoices[fragment.id] === category);
-            return (
-              <section key={category} className="chapter-two-archive-column">
-                <strong>{category}</strong>
-                {storedFragments.length > 0 ? (
-                  storedFragments.map((fragment) => <span key={fragment.id}>{fragment.text}</span>)
-                ) : (
-                  <em>待接入</em>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      </div>
-      <div className={allSorted && archiveScore < 5 ? "chapter-two-soft-warning" : "chapter-two-soft-success"}>
-        {statusNote} 当前稳定归档：{archiveScore}/{archiveFragments.length}
-      </div>
-      <div className="chapter-two-landmark-game__footer">
-        <span>{allSorted ? "运行归档扫描，确认分类能否支撑来源校验。" : "先把六条记录送入对应归档仓。"}</span>
-        <button type="button" disabled={!allSorted} onClick={runArchiveScan}>
-          运行归档扫描
-        </button>
-      </div>
-    </>
-  );
-
-  const renderSourceStage = () => (
-    <>
-      <div className="chapter-two-source-console">
-        <div className="chapter-two-source-sockets">
-          <span>{sourceChoices[0] ? archiveSourceClues.find((clue) => clue.id === sourceChoices[0])?.text : "来源接口 A"}</span>
-          <span>{sourceChoices[1] ? archiveSourceClues.find((clue) => clue.id === sourceChoices[1])?.text : "来源接口 B"}</span>
-        </div>
-        <CrewAbilityHint ability={crewAbility} active={recordAssistActive}>
-          {recordAssistActive ? (
-            <p className="mt-1">额外来源标记：{crewAbility?.sourceMarker ?? "第七档案塔底层观测条 07-B"} 对应塔壁原句，需要自行接入接口。</p>
-          ) : null}
-        </CrewAbilityHint>
-        <div className="chapter-two-source-clue-grid">
-          {archiveSourceClues.map((clue) => (
-            <button
-              key={clue.id}
-              type="button"
-              onClick={() => toggleSource(clue.id)}
-              className={`chapter-two-source-clue ${sourceChoices.includes(clue.id) ? "is-selected" : ""}`}
-            >
-              {clue.text}
-              {recordAssistActive && clue.id === assistedSourceId ? <em> · 来源标记</em> : null}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="chapter-two-landmark-game__footer">
-        <span>{sourceReady ? "两条来源线已接入，可以运行校验。" : "接入两条真正可复查的来源线。"}</span>
-        <button type="button" disabled={!sourceReady} onClick={runSourceScan}>
-          运行来源校验
-        </button>
-      </div>
-    </>
-  );
-
-  const renderFeedbackStage = () => (
-    <>
-      <div className={`chapter-two-archive-feedback ${feedbackStable ? "chapter-two-archive-feedback--stable" : "chapter-two-archive-feedback--unstable"}`}>
-        <div className="soft-label text-[10px] text-cyan-100/52">档案塔反馈</div>
-        <strong>{feedbackStable ? "归档光柱恢复稳定" : "来源校验被污染挡回"}</strong>
-        <p>{feedbackStable ? "事实、推测和未知已分仓保存，主舰可以接收可复查归档。" : "来源线里混入了无依据断言。AI 可以推测，但不能把推测写成事实。"}</p>
-        <div className="chapter-two-archive-feedback__result">
-          <span>{feedbackStable ? "污染清除" : "污染未降"}</span>
-          <span>{feedbackStable ? "归档碎片解锁" : "碎片继续封锁"}</span>
-          <span>{feedbackStable ? "数据尘 +2" : "回流中止"}</span>
-        </div>
-      </div>
-      <div className="chapter-two-landmark-game__footer">
-        <span>{statusNote}</span>
-        <button type="button" onClick={() => (feedbackStable ? setStage("recover") : setStage("source"))}>
-          {feedbackStable ? "回收归档碎片" : "重接来源线"}
-        </button>
-      </div>
-    </>
-  );
-
-  const renderRecoverStage = () => (
+  const renderObserveStage = () => (
     <>
       <div className="chapter-two-archive-recovery">
         <div className="chapter-two-archive-recovery__beam" aria-hidden="true" />
-        <strong>归档碎片脱离污染层。</strong>
-        <p>主舰接收一份可复查记录：事实、推测、未知分开保存；AI 只帮助整理，不替主舰做最后判断。</p>
-        <div className="chapter-two-archive-resource-strip">
-          {archiveTowerRecoveredResources.map((resource) => (
-            <span key={resource.label}>
-              <i>{resource.label}</i>
-              <strong>{resource.value}</strong>
-            </span>
-          ))}
-        </div>
+        <strong>现场记录浮出塔壁。</strong>
+        <p>这份记录混着塔壁原句、旁注、缺页和失序回声。修复前，主舰不能让无来源文字替事实作证。</p>
+      </div>
+      <div className="chapter-two-archive-record-list" aria-label="档案塔现场记录">
+        {archiveObservationLines.map((line) => (
+          <div key={line} className="chapter-two-archive-record-tile">
+            <p>{line}</p>
+          </div>
+        ))}
       </div>
       <div className="chapter-two-landmark-game__footer">
-        <span>碎片与净化数据已准备回流主舰。</span>
-        <button type="button" onClick={onComplete}>
+        <span>先观测记录，再判断哪些内容能作证。</span>
+        <button type="button" onClick={() => setStage("judge")}>
+          进入判断舱
+        </button>
+      </div>
+    </>
+  );
+
+  const renderJudgeStage = () => (
+    <>
+      <div className="chapter-two-archive-record-list" aria-label="档案塔判断题">
+        {archiveJudgementItems.map((item) => (
+          <div key={item.id} className="chapter-two-archive-record-tile">
+            <p>{item.text}</p>
+            <div>
+              {archiveJudgementLabels.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setJudgements((current) => ({ ...current, [item.id]: label }));
+                    setFeedback(null);
+                  }}
+                  className={judgements[item.id] === label ? "is-selected" : ""}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {feedback && <div className={judgementStable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
+      <div className="chapter-two-landmark-game__footer">
+        <span>{judgementReady ? `当前稳定判断：${judgementScore}/${archiveJudgementItems.length}` : "为四条记录标出归档位置。"}</span>
+        <button type="button" disabled={!judgementReady} onClick={runJudgement}>
+          运行归档判断
+        </button>
+      </div>
+    </>
+  );
+
+  const renderRepairStage = () => (
+    <>
+      <div className="chapter-two-letter-receipt-stack">
+        {archiveRepairOptions.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => chooseRepair(option.id)}
+            className={`chapter-two-letter-receipt ${repairChoice === option.id ? "is-selected" : ""}`}
+          >
+            <span>{option.stable ? "稳" : "漂"}</span>
+            <p>{option.text}</p>
+          </button>
+        ))}
+      </div>
+      {feedback && <div className={selectedRepair?.stable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
+      <div className="chapter-two-landmark-game__footer">
+        <span>{selectedRepair?.stable ? "档案塔接受了归档指令。" : "选择一条不让回声入档的修复指令。"}</span>
+        <button
+          type="button"
+          disabled={!selectedRepair?.stable}
+          onClick={() =>
+            onComplete({
+              repairReadingDelta: {
+                evidenceIntegrity: judgementStable ? 2 : 1,
+                unknownMarking: selectedRepair?.stable ? 1 : 0
+              },
+              repairReadingSource: "档案塔",
+              repairReadingNote: "档案塔保留可作证记录，失序断言未写入归档。"
+            })
+          }
+        >
           回流主舰
         </button>
       </div>
@@ -256,14 +228,23 @@ export function ArchiveTowerGame({
   return (
     <div className={`chapter-two-landmark-game chapter-two-archive-loop chapter-two-archive-loop--${stage}`}>
       <div className="chapter-two-landmark-game__head">
-        <span>{stage === "sort" ? "归档分类" : stage === "source" ? "来源校验" : stage === "feedback" ? "世界反馈" : "碎片回收"}</span>
+        <span>{stage === "observe" ? "观测" : stage === "judge" ? "判断" : "修复"}</span>
         <strong>{location.fragmentName}</strong>
       </div>
-      {stage === "sort" && renderSortStage()}
-      {stage === "source" && renderSourceStage()}
-      {stage === "feedback" && renderFeedbackStage()}
-      {stage === "recover" && renderRecoverStage()}
-      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
+      <CrewAssistHintButton
+        ability={crewAbility}
+        crewName={activeCrew?.name ?? "同行船员"}
+        targetName={location.name}
+        hint={crewAssistHint}
+        usedRecord={crewAssistRecord}
+        onUse={onUseCrewAssist}
+      />
+      {stage === "observe" && renderObserveStage()}
+      {stage === "judge" && renderJudgeStage()}
+      {stage === "repair" && renderRepairStage()}
+      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
+        撤回导览层
+      </button>
     </div>
   );
 }

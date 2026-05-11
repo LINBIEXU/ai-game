@@ -18,9 +18,10 @@ export interface MotherworldHotspotConfig {
   interiorMood: string;
 }
 
-export interface MotherworldRevealPatchConfig {
+export interface MotherworldConnectionPatchConfig {
   id: string;
-  requiredFeatureIds: HomePlanetFeatureId[];
+  from: HomePlanetFeatureId;
+  to: HomePlanetFeatureId;
   clipPath: string;
   opacity: number;
 }
@@ -40,8 +41,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "第一章完成后可用",
     position: { x: 25, y: 28 },
     size: { width: 22, height: 22 },
-    overlayClipPath: "polygon(4% 0, 40% 0, 40% 39%, 33% 47%, 9% 45%, 3% 27%)",
-    overlayFeatherClipPaths: ["polygon(4% 0, 44% 0, 44% 50%, 16% 56%, 4% 38%)"],
+    overlayClipPath: "polygon(8% 7%, 35% 5%, 40% 18%, 39% 37%, 34% 49%, 12% 47%, 5% 33%)",
+    overlayFeatherClipPaths: ["polygon(6% 5%, 38% 3%, 41% 17%, 41% 40%, 35% 52%, 10% 51%, 3% 34%)"],
     activationCost: { water: 7, minerals: 8, energy: 7, fragments: 0 },
     interiorImageUrl: "/images/home-planet/interiors-v2/civilization-gallery.png",
     interiorMood: "记忆展柜与文明晶体正在同步航行成果。"
@@ -55,8 +56,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "第一章完成后可用",
     position: { x: 21, y: 66 },
     size: { width: 22, height: 18 },
-    overlayClipPath: "polygon(3% 50%, 34% 49%, 36% 83%, 8% 89%, 0 72%)",
-    overlayFeatherClipPaths: ["polygon(1% 54%, 36% 52%, 38% 90%, 5% 94%, 0 74%)"],
+    overlayClipPath: "polygon(7% 49%, 35% 48%, 39% 66%, 34% 86%, 8% 90%, 1% 74%)",
+    overlayFeatherClipPaths: ["polygon(5% 47%, 37% 47%, 41% 66%, 36% 90%, 6% 93%, 0 75%)"],
     activationCost: { water: 8, minerals: 9, energy: 8, fragments: 0 },
     interiorImageUrl: "/images/home-planet/interiors-v2/planet-workshop.png",
     interiorMood: "星球模型台、资源罐和建造机械臂已经待命。"
@@ -70,8 +71,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "完成第二章并开启语言黑匣",
     position: { x: 48, y: 47 },
     size: { width: 15, height: 14 },
-    overlayClipPath: "polygon(40% 35%, 62% 33%, 63% 59%, 39% 61%)",
-    overlayFeatherClipPaths: ["polygon(38% 31%, 66% 30%, 66% 66%, 38% 70%)"],
+    overlayClipPath: "polygon(41% 36%, 61% 35%, 62% 58%, 40% 60%, 38% 47%)",
+    overlayFeatherClipPaths: ["polygon(39% 34%, 63% 34%, 64% 60%, 39% 63%, 37% 48%)"],
     activationCost: { water: 6, minerals: 6, energy: 5, fragments: 1 },
     interiorImageUrl: "/images/home-planet/interiors-v2/commission-board.png",
     interiorMood: "任务墙、写作桌和项目灯正在等待新的作品委托。"
@@ -85,8 +86,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "完成第二章并开启语言黑匣",
     position: { x: 49, y: 74 },
     size: { width: 13, height: 18 },
-    overlayClipPath: "polygon(42% 58%, 58% 57%, 59% 96%, 42% 97%)",
-    overlayFeatherClipPaths: ["polygon(39% 52%, 62% 52%, 62% 100%, 39% 100%)"],
+    overlayClipPath: "polygon(43% 61%, 58% 60%, 60% 95%, 43% 97%, 40% 78%)",
+    overlayFeatherClipPaths: ["polygon(41% 59%, 60% 58%, 62% 98%, 41% 100%, 38% 79%)"],
     activationCost: { water: 6, minerals: 4, energy: 6, fragments: 1 },
     interiorImageUrl: "/images/home-planet/interiors-v2/character-dialogue-room.png",
     interiorMood: "环形对话台把问题、回应和复盘分成清楚的回路。"
@@ -100,8 +101,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "预览可用，完整能力等待图像科技",
     position: { x: 54, y: 24 },
     size: { width: 17, height: 16 },
-    overlayClipPath: "polygon(41% 0, 67% 0, 67% 38%, 41% 39%)",
-    overlayFeatherClipPaths: ["polygon(38% 0, 70% 0, 70% 45%, 38% 47%)"],
+    overlayClipPath: "polygon(48% 6%, 66% 4%, 68% 32%, 54% 36%, 44% 29%)",
+    overlayFeatherClipPaths: ["polygon(46% 4%, 68% 3%, 70% 34%, 54% 38%, 42% 30%)"],
     activationCost: { water: 7, minerals: 7, energy: 6, fragments: 2 },
     interiorImageUrl: "/images/home-planet/interiors-v2/animation-studio.png",
     interiorMood: "分镜光带、镜头轨道和三幕故事台缓慢亮起。"
@@ -110,13 +111,13 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     id: "civilization-archive",
     name: "文明档案馆",
     shortName: "档案馆",
-    mapNote: "把 AI 使用原则沉淀成自己的文明卡。",
+    mapNote: "把黑匣规则沉淀成自己的文明卡。",
     activeHint: "文明档案馆已点亮",
     lockedHint: "第二章后补充知识卡",
     position: { x: 72, y: 58 },
     size: { width: 18, height: 14 },
-    overlayClipPath: "polygon(62% 42%, 88% 41%, 90% 69%, 62% 70%)",
-    overlayFeatherClipPaths: ["polygon(59% 37%, 93% 38%, 93% 76%, 59% 78%)"],
+    overlayClipPath: "polygon(66% 40%, 88% 39%, 91% 67%, 66% 70%, 64% 55%)",
+    overlayFeatherClipPaths: ["polygon(64% 38%, 91% 37%, 93% 70%, 65% 73%, 62% 56%)"],
     activationCost: { water: 6, minerals: 10, energy: 7, fragments: 0 },
     interiorImageUrl: "/images/home-planet/interiors-v2/civilization-archive.png",
     interiorMood: "黑匣资料、语言光流和文明知识卡被安静归档。"
@@ -130,8 +131,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "招募船员后可用",
     position: { x: 78, y: 75 },
     size: { width: 20, height: 16 },
-    overlayClipPath: "polygon(63% 62%, 98% 60%, 99% 92%, 62% 93%)",
-    overlayFeatherClipPaths: ["polygon(60% 55%, 100% 55%, 100% 97%, 60% 98%)"],
+    overlayClipPath: "polygon(68% 62%, 97% 60%, 99% 88%, 87% 96%, 68% 93%, 63% 77%)",
+    overlayFeatherClipPaths: ["polygon(66% 59%, 99% 58%, 100% 90%, 88% 98%, 66% 96%, 61% 78%)"],
     activationCost: { water: 8, minerals: 5, energy: 8, fragments: 0 },
     interiorImageUrl: "/images/home-planet/interiors-v2/crew-dormitory.png",
     interiorMood: "船员舱室、个人储物柜和舷窗星光保持低亮度值守。"
@@ -145,8 +146,8 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
     lockedHint: "后续远征系统开放",
     position: { x: 82, y: 28 },
     size: { width: 17, height: 24 },
-    overlayClipPath: "polygon(70% 0, 100% 0, 100% 43%, 68% 43%)",
-    overlayFeatherClipPaths: ["polygon(67% 0, 100% 0, 100% 48%, 67% 50%)"],
+    overlayClipPath: "polygon(78% 0, 95% 0, 98% 39%, 82% 44%, 72% 31%)",
+    overlayFeatherClipPaths: ["polygon(76% 0, 97% 0, 100% 41%, 82% 47%, 70% 32%)"],
     activationCost: { water: 8, minerals: 6, energy: 7, fragments: 2 },
     interiorImageUrl: "/images/home-planet/interiors-v2/expedition-planning.png",
     interiorMood: "星图桌和路线投影正在为下一次远征预留轨道。"
@@ -155,48 +156,76 @@ export const motherworldHotspots: MotherworldHotspotConfig[] = [
 
 export const motherworldPreviewFeatureIds: HomePlanetFeatureId[] = ["animation-studio", "expedition-planning"];
 
-export const motherworldRevealPatches: MotherworldRevealPatchConfig[] = [
+export const motherworldConnectionPatches: MotherworldConnectionPatchConfig[] = [
   {
-    id: "left-terrain-rim",
-    requiredFeatureIds: ["civilization-gallery", "planet-workshop"],
-    clipPath: "polygon(0 0, 18% 0, 17% 100%, 0 100%)",
-    opacity: 0.26
+    id: "gallery-workshop-causeway",
+    from: "civilization-gallery",
+    to: "planet-workshop",
+    clipPath: "polygon(23% 42%, 39% 44%, 40% 57%, 29% 66%, 13% 68%, 12% 59%, 27% 53%)",
+    opacity: 0.24
   },
   {
-    id: "upper-ridge",
-    requiredFeatureIds: ["civilization-gallery", "animation-studio", "expedition-planning"],
-    clipPath: "polygon(0 0, 100% 0, 100% 17%, 70% 18%, 48% 14%, 25% 18%, 0 16%)",
-    opacity: 0.28
+    id: "gallery-animation-bridge",
+    from: "civilization-gallery",
+    to: "animation-studio",
+    clipPath: "polygon(35% 14%, 54% 13%, 56% 26%, 42% 29%, 34% 23%)",
+    opacity: 0.2
   },
   {
-    id: "west-causeway",
-    requiredFeatureIds: ["civilization-gallery", "planet-workshop"],
-    clipPath: "polygon(7% 38%, 38% 39%, 39% 63%, 6% 65%)",
-    opacity: 0.34
+    id: "animation-planning-bridge",
+    from: "animation-studio",
+    to: "expedition-planning",
+    clipPath: "polygon(62% 12%, 84% 11%, 86% 26%, 69% 28%, 61% 22%)",
+    opacity: 0.2
   },
   {
-    id: "central-causeway",
-    requiredFeatureIds: ["civilization-gallery", "planet-workshop", "commission-board", "character-dialogue-room"],
-    clipPath: "polygon(29% 28%, 65% 29%, 64% 78%, 31% 80%)",
-    opacity: 0.38
+    id: "gallery-commission-bridge",
+    from: "civilization-gallery",
+    to: "commission-board",
+    clipPath: "polygon(33% 38%, 44% 40%, 44% 53%, 36% 58%, 32% 50%)",
+    opacity: 0.22
   },
   {
-    id: "north-causeway",
-    requiredFeatureIds: ["civilization-gallery", "animation-studio", "expedition-planning"],
-    clipPath: "polygon(27% 11%, 99% 10%, 99% 43%, 29% 47%)",
-    opacity: 0.32
+    id: "workshop-commission-bridge",
+    from: "planet-workshop",
+    to: "commission-board",
+    clipPath: "polygon(33% 58%, 45% 57%, 45% 70%, 33% 72%, 29% 66%)",
+    opacity: 0.22
   },
   {
-    id: "east-causeway",
-    requiredFeatureIds: ["commission-board", "civilization-archive", "crew-dormitory"],
-    clipPath: "polygon(55% 39%, 100% 39%, 100% 86%, 55% 86%)",
-    opacity: 0.34
+    id: "commission-dialogue-bridge",
+    from: "commission-board",
+    to: "character-dialogue-room",
+    clipPath: "polygon(43% 57%, 59% 57%, 61% 72%, 45% 74%, 42% 63%)",
+    opacity: 0.24
   },
   {
-    id: "lower-basin",
-    requiredFeatureIds: ["planet-workshop", "character-dialogue-room", "crew-dormitory"],
-    clipPath: "polygon(2% 61%, 99% 60%, 99% 98%, 2% 98%)",
-    opacity: 0.3
+    id: "commission-archive-bridge",
+    from: "commission-board",
+    to: "civilization-archive",
+    clipPath: "polygon(58% 49%, 72% 48%, 75% 60%, 62% 64%, 58% 58%)",
+    opacity: 0.22
+  },
+  {
+    id: "archive-dormitory-bridge",
+    from: "civilization-archive",
+    to: "crew-dormitory",
+    clipPath: "polygon(72% 66%, 88% 65%, 91% 78%, 78% 83%, 69% 76%)",
+    opacity: 0.22
+  },
+  {
+    id: "dialogue-dormitory-bridge",
+    from: "character-dialogue-room",
+    to: "crew-dormitory",
+    clipPath: "polygon(58% 76%, 78% 75%, 81% 88%, 60% 91%, 55% 84%)",
+    opacity: 0.22
+  },
+  {
+    id: "planning-archive-bridge",
+    from: "expedition-planning",
+    to: "civilization-archive",
+    clipPath: "polygon(82% 39%, 92% 39%, 93% 55%, 84% 61%, 78% 49%)",
+    opacity: 0.2
   }
 ];
 

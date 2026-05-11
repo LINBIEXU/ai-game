@@ -1,4 +1,4 @@
-import type { ChapterTwoCrewAbility, CrewMember } from "@/types/game";
+import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistTargetId, CrewMember } from "@/types/game";
 
 function hasAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
@@ -46,16 +46,16 @@ export function resolveChapterTwoCrewAbility(crew: CrewMember | null): ChapterTw
     ? (Object.entries(scores) as Array<[ChapterTwoCrewAbility["kind"], number]>).sort((left, right) => right[1] - left[1])[0][0]
     : fallbackKind;
 
-  const commonNote = "这是一次轻辅助，只改变提示、容错或可见线索，不替小舰长完成判断。";
+  const commonNote = "这是同行者的轻提醒，只检查方向。";
 
   if (kind === "record") {
     return {
       kind,
       label: "记录型介入",
-      triggerLabel: "标出来源",
-      description: "船员会把一条可复查来源钉在记录旁，帮助判断哪句话真有依据。",
-      intervention: `${crew.name} 标出一条来源：第七档案塔底层观测条 07-B。${commonNote}`,
-      sourceMarker: "来源：第七档案塔底层观测条 07-B"
+      triggerLabel: "请求记录提示",
+      description: "船员会提醒你先找可复查来源。",
+      intervention: `${crew.name} 低声提醒：先问“这句话的来源在哪里”。${commonNote}`,
+      sourceMarker: "来源提示：先找可复查出处。"
     };
   }
 
@@ -63,9 +63,9 @@ export function resolveChapterTwoCrewAbility(crew: CrewMember | null): ChapterTw
     return {
       kind,
       label: "修复型介入",
-      triggerLabel: "稳定污染",
-      description: "第一次误触后，船员会压低一格污染读数，让地标回路还有修复余量。",
-      intervention: `${crew.name} 稳住地标回路，第一次误触的污染被压低一格。${commonNote}`,
+      triggerLabel: "请求修复提示",
+      description: "船员会提醒你先稳住步骤。",
+      intervention: `${crew.name} 提醒你先停一拍：看清这一步真正要修什么。${commonNote}`,
       repairAmount: 1
     };
   }
@@ -74,19 +74,66 @@ export function resolveChapterTwoCrewAbility(crew: CrewMember | null): ChapterTw
     return {
       kind,
       label: "侦察型介入",
-      triggerLabel: "展开暗纹",
-      description: "船员会扫出暗纹，露出一条隐藏提示或地表回波。",
-      intervention: `${crew.name} 扫到一处暗纹：缺少证据的身份或原因不能写死。${commonNote}`,
-      hiddenHint: "隐藏暗纹：缺少印章、来源或确认记录时，只能标未知或推测。"
+      triggerLabel: "请求侦察提示",
+      description: "船员会提醒你留意过度确定的词。",
+      intervention: `${crew.name} 扫到一处暗纹：越是说得很确定，越要放慢。${commonNote}`,
+      hiddenHint: "侦察提示：缺少印章、来源或确认记录时，先保留缺口。"
     };
   }
 
   return {
     kind,
     label: "表达型介入",
-    triggerLabel: "给出模板",
-    description: "船员会多开放一条稳定模板，方便把任务、依据、边界和输出方式说清楚。",
-    intervention: `${crew.name} 送来一条稳定模板：请只根据残片整理；先列依据；未知标注未知；最后分栏输出。${commonNote}`,
-    stableTemplate: "请只根据残片整理；先列依据；缺失处写未知；最后按“事实 / 推测 / 未知”分栏输出。"
+    triggerLabel: "请求表达提示",
+    description: "船员会提醒你检查指令四个刻度。",
+    intervention: `${crew.name} 指了指提示板：对象、任务、范围、格式都要说清。${commonNote}`,
+    stableTemplate: "表达提示：对象 / 任务 / 范围 / 格式。"
   };
+}
+
+const locationAssistHints: Record<ChapterTwoCrewAssistTargetId, string> = {
+  "semantic-dispatch": "先看它在分流什么。别把“自动给答案”当成这座庭院的职责。",
+  "evidence-well": "这段记录里有些话很确定。先问它有没有来源。",
+  "boundary-beacon": "把“可以协助”与“必须自定”分开。",
+  "archive-tower": "档案塔只问一件事：哪句话能替事实作证？",
+  "letter-port": "信件可以残缺，但缺失栏位必须留在未知轨道。",
+  "engraved-valley": "山谷看四个刻度：目标、语境、边界、格式。",
+  "paper-corridor": "纸光写得顺，不代表它可靠。先找顺滑背后的不稳点。",
+  "blackbox-vault": "黑匣不是宝箱。进入前确认四束碎片已经汇聚。",
+  "blackbox-trial": "失序回声会替你回答。最后要把判断权拿回来。"
+};
+
+const blackboxPhaseAssistHints: Record<string, string> = {
+  intro: "先别急着让它替你回答。黑匣试炼考的是你能不能保留判断权。",
+  archive: "归档之门先分来源层级。",
+  delivery: "传递之门要补齐对象、任务、限制和输出方式。",
+  verification: "求证之门会出现很顺的结论，先拆开它。",
+  expression: "表达之门不是背答案，先说清协助范围。",
+  "final-reflection": "最终问题要用自己的话回答，不要复制套话。"
+};
+
+export function createChapterTwoCrewAssistHint({
+  targetId,
+  ability,
+  crewName,
+  phase
+}: {
+  targetId: ChapterTwoCrewAssistTargetId;
+  ability: ChapterTwoCrewAbility | null;
+  crewName: string;
+  phase?: string;
+}) {
+  const baseHint = targetId === "blackbox-trial" && phase ? blackboxPhaseAssistHints[phase] ?? locationAssistHints[targetId] : locationAssistHints[targetId];
+  const abilityNudge =
+    ability?.kind === "record"
+      ? "我会帮你盯来源，但最后归类要你自己定。"
+      : ability?.kind === "repair"
+        ? "我会帮你稳住节奏，但不替你修成答案。"
+        : ability?.kind === "scout"
+          ? "我会提醒哪里可疑，但不直接圈出选项。"
+          : ability?.kind === "expression"
+            ? "我会帮你检查表达结构，但内容判断仍在你手里。"
+            : "我只给同行提醒，不接管判断。";
+
+  return `${crewName}：${baseHint} ${abilityNudge}`;
 }

@@ -1,5 +1,6 @@
 import type {
   GameState,
+  HomePlanetBuildingBenefits,
   HomePlanetFeatureId,
   HomePlanetHubState,
   HomePlanetResources,
@@ -46,6 +47,10 @@ export interface HomePlanetExpeditionEffects {
   energyCoreBuffer: boolean;
   memoryGardenBond: boolean;
   creationRuleCard: boolean;
+  galleryReviewReady: boolean;
+  civilizationCardEquipped: boolean;
+  crewAssistHint: boolean;
+  planningPrepared: boolean;
   disorderReduction: number;
   activeStructureIds: HomePlanetStructureId[];
   notes: string[];
@@ -75,6 +80,21 @@ export const languagePlanetResourceReward: Pick<HomePlanetResources, "water" | "
   fragments: 4
 };
 
+export function emptyHomePlanetBuildingBenefits(): HomePlanetBuildingBenefits {
+  return {
+    galleryReviewCount: 0,
+    lastGalleryReviewAt: null,
+    workshopEfficiencyLevel: 0,
+    commissionResourceClaims: 0,
+    dialogueReflectionCount: 0,
+    storyboardArchiveCount: 0,
+    equippedRuleCardIds: [],
+    crewAssistLevel: 0,
+    expeditionPlan: null,
+    benefitLogs: []
+  };
+}
+
 export function emptyHomePlanetHubState(): HomePlanetHubState {
   return {
     resources: defaultHomePlanetResources,
@@ -86,7 +106,8 @@ export function emptyHomePlanetHubState(): HomePlanetHubState {
     commissionWorks: [],
     galleryItems: [],
     archiveRecords: [],
-    ruleCards: []
+    ruleCards: [],
+    benefits: emptyHomePlanetBuildingBenefits()
   };
 }
 
@@ -141,7 +162,7 @@ export const homePlanetFeatures: HomePlanetFeatureConfig[] = [
     name: "文明档案馆",
     shortName: "档案",
     status: "available",
-    description: "把学到的 AI 使用原则变成自己的文明卡。",
+    description: "把黑匣规则沉淀成自己的文明卡。",
     unlockText: "第二章后自动补充知识卡",
     value: "知识沉淀"
   },
@@ -260,7 +281,7 @@ export const commissionTasks: CommissionTaskConfig[] = [
   },
   {
     id: "answer-check",
-    title: "判断一段 AI 回答是否可靠",
+    title: "判断一段回答是否可靠",
     goal: "标出看起来顺畅但缺少证据的地方。",
     ability: "求证与判断",
     placeholder: "我认为这段回答里需要检查的是……因为……"
@@ -329,23 +350,39 @@ export function getHomePlanetStructureEffect(structureId: HomePlanetStructureId)
 
 export function getHomePlanetExpeditionEffects(state: GameState): HomePlanetExpeditionEffects {
   const builtStructures = new Set(state.homePlanetHub.builtStructures);
+  const activeFeatures = new Set(state.homePlanetHub.activeFeatures);
+  const benefits = state.homePlanetHub.benefits;
   const baseEffects = getMotherworldBaseEffects(state);
   const archiveExtraRecord = builtStructures.has("archive-hall");
   const observatoryScan = builtStructures.has("observatory") || baseEffects.relicDataHint;
   const energyCoreBuffer = builtStructures.has("energy-core") || baseEffects.energyBuffer;
   const memoryGardenBond = builtStructures.has("memory-garden") || baseEffects.ecologyBond;
   const creationRuleCard = builtStructures.has("creation-house");
-  const disorderReduction = (builtStructures.has("energy-core") ? 1 : 0) + (baseEffects.energyBuffer ? 1 : 0);
+  const galleryReviewReady = activeFeatures.has("civilization-gallery") && benefits.galleryReviewCount > 0;
+  const civilizationCardEquipped = activeFeatures.has("civilization-archive") && benefits.equippedRuleCardIds.length > 0;
+  const crewAssistHint = activeFeatures.has("crew-dormitory") && benefits.crewAssistLevel > 0;
+  const planningPrepared = activeFeatures.has("expedition-planning") && Boolean(benefits.expeditionPlan);
+  const disorderReduction =
+    (builtStructures.has("energy-core") ? 1 : 0) +
+    (baseEffects.energyBuffer ? 1 : 0) +
+    (planningPrepared ? 1 : 0);
   const notes = [
     archiveExtraRecord ? "档案馆会保存证据井回流记录。" : null,
     observatoryScan ? "观测台会显示额外扫描提示。" : null,
     energyCoreBuffer ? `初始失序强度降低 ${Math.max(1, disorderReduction)} 级。` : null,
     memoryGardenBond ? "证据井协作会沉淀为共同经历。" : null,
-    creationRuleCard ? "证据井回流会产出表达规则卡。" : null
+    creationRuleCard ? "证据井回流会产出表达规则卡。" : null,
+    galleryReviewReady ? "文明展厅已完成成果复盘，远征记录会更容易回看。" : null,
+    civilizationCardEquipped ? `已装备 ${benefits.equippedRuleCardIds.length} 张文明卡，出发前提示会带上这些原则。` : null,
+    crewAssistHint ? "船员宿舍已整理协助提示，远征界面会显示伙伴提醒。" : null,
+    planningPrepared ? `计划室目标已写入：${benefits.expeditionPlan?.goal}` : null
   ].filter(Boolean) as string[];
   const scanHints = [
-    builtStructures.has("observatory") ? "观测台扫描：证据回声井外缘有暗纹，先确认哪些内容必须标为未知。" : null,
-    baseEffects.relicDataHint ? "遗迹数据共振：言衡星入口附近出现一条额外证据提示。" : null
+    builtStructures.has("observatory") ? "观测台扫描：证据回声井外缘有暗纹。" : null,
+    baseEffects.relicDataHint ? "遗迹数据共振：言衡星入口附近出现一条额外证据提示。" : null,
+    civilizationCardEquipped ? "文明卡提示：已装备规则会在出发前亮起。" : null,
+    crewAssistHint ? "船员协助提示：伙伴会先给一条旁路提醒。" : null,
+    planningPrepared && benefits.expeditionPlan ? `计划室风险提示：${benefits.expeditionPlan.risk}` : null
   ].filter(Boolean) as string[];
 
   return {
@@ -354,6 +391,10 @@ export function getHomePlanetExpeditionEffects(state: GameState): HomePlanetExpe
     energyCoreBuffer,
     memoryGardenBond,
     creationRuleCard,
+    galleryReviewReady,
+    civilizationCardEquipped,
+    crewAssistHint,
+    planningPrepared,
     disorderReduction,
     activeStructureIds: Array.from(builtStructures),
     notes,
@@ -366,21 +407,25 @@ export function getAdjustedMotherworldActivationCost(
   cost: Pick<HomePlanetResources, "water" | "minerals" | "energy" | "fragments">
 ) {
   const effects = getMotherworldBaseEffects(state);
+  const workshopEfficiency = state.homePlanetHub.benefits.workshopEfficiencyLevel > 0;
 
   return {
     ...cost,
     water: Math.max(0, cost.water - (effects.waterFlow ? 1 : 0)),
-    minerals: Math.max(0, cost.minerals - (effects.mineralDiscount ? 2 : 0))
+    minerals: Math.max(0, cost.minerals - (effects.mineralDiscount ? 2 : 0)),
+    energy: Math.max(0, cost.energy - (workshopEfficiency ? 1 : 0))
   };
 }
 
 export function getAdjustedHomePlanetStructureCost(state: GameState, structure: HomePlanetStructureConfig) {
   const effects = getMotherworldBaseEffects(state);
+  const workshopEfficiency = state.homePlanetHub.benefits.workshopEfficiencyLevel > 0;
 
   return {
     ...structure.cost,
     water: Math.max(0, structure.cost.water - (effects.waterFlow ? 1 : 0)),
-    minerals: Math.max(0, structure.cost.minerals - (effects.mineralDiscount ? 2 : 0))
+    minerals: Math.max(0, structure.cost.minerals - (effects.mineralDiscount ? 2 : 0)),
+    energy: Math.max(0, structure.cost.energy - (workshopEfficiency ? 1 : 0))
   };
 }
 

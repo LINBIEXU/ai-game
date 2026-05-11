@@ -19,10 +19,10 @@ import {
 } from "@/lib/home-planet-hub";
 import {
   canActivateMotherworldFeature,
+  motherworldConnectionPatches,
   motherworldHotspots,
   motherworldMapAssets,
   motherworldPreviewFeatureIds,
-  motherworldRevealPatches,
   type MotherworldBuildingStatus
 } from "@/lib/motherworld-map";
 import type {
@@ -32,6 +32,7 @@ import type {
   GameState,
   HomePlanetCommissionWork,
   HomePlanetDialogueCard,
+  HomePlanetExpeditionPlan,
   HomePlanetFeatureId,
   HomePlanetStoryboardAct,
   HomePlanetStoryboardProject,
@@ -44,9 +45,13 @@ interface HomePlanetHubPanelProps {
   onReturn: () => void;
   onActivateFeature: (featureId: HomePlanetFeatureId) => void;
   onBuildStructure: (structureId: HomePlanetStructureId) => void;
+  onMarkGalleryReview: () => void;
   onSaveCommission: (work: Omit<HomePlanetCommissionWork, "id" | "createdAt">) => void;
   onSaveDialogue: (card: Omit<HomePlanetDialogueCard, "id" | "createdAt">) => void;
   onSaveStoryboard: (project: Omit<HomePlanetStoryboardProject, "id" | "createdAt">) => void;
+  onEquipRuleCard: (cardId: string) => void;
+  onTuneCrewAssist: () => void;
+  onSaveExpeditionPlan: (plan: Omit<HomePlanetExpeditionPlan, "createdAt">) => void;
 }
 
 function formatDate(timestamp?: number) {
@@ -140,18 +145,51 @@ const actionStatusLabels: Record<MotherworldInteriorAction["status"], string> = 
   pending: "待接入"
 };
 
+type RecentSavedType = "commission" | "dialogue" | "storyboard" | "gallery" | "crew" | "plan";
+
+const saveFeedbackLabels: Record<RecentSavedType, string> = {
+  commission: "已写入文明展厅",
+  dialogue: "已写入母星档案",
+  storyboard: "已写入动画工作台",
+  gallery: "复盘标记已写入展厅",
+  crew: "协助提示已写入宿舍",
+  plan: "远征计划已写入计划室"
+};
+
+interface MotherworldAchievementSummary {
+  id: string;
+  label: string;
+  title: string;
+  summary: string;
+  createdAt?: number;
+  featureId: HomePlanetFeatureId;
+  actionId?: string;
+  empty: boolean;
+}
+
+function compactSummary(text: string | undefined, fallback: string, maxLength = 66) {
+  const clean = text?.replace(/\s+/g, " ").trim();
+  if (!clean) return fallback;
+  return clean.length > maxLength ? `${clean.slice(0, maxLength)}...` : clean;
+}
+
 export function HomePlanetHubPanel({
   state,
   activeCrew,
   onReturn,
   onActivateFeature,
   onBuildStructure,
+  onMarkGalleryReview,
   onSaveCommission,
   onSaveDialogue,
-  onSaveStoryboard
+  onSaveStoryboard,
+  onEquipRuleCard,
+  onTuneCrewAssist,
+  onSaveExpeditionPlan
 }: HomePlanetHubPanelProps) {
   const unlockedFeatures = useMemo(() => resolveHomePlanetUnlockedFeatures(state), [state]);
   const activeFeatures = useMemo(() => new Set(state.homePlanetHub.activeFeatures ?? []), [state.homePlanetHub.activeFeatures]);
+  const allMotherworldFeaturesActive = motherworldHotspots.every((hotspot) => activeFeatures.has(hotspot.id));
   const [selectedFeature, setSelectedFeature] = useState<HomePlanetFeatureId | null>(null);
   const [hoveredFeature, setHoveredFeature] = useState<HomePlanetFeatureId | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState(commissionTasks[0]?.id ?? "");
@@ -160,8 +198,11 @@ export function HomePlanetHubPanel({
   const [dialogueQuestion, setDialogueQuestion] = useState("");
   const [dialogueTakeaway, setDialogueTakeaway] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
+  const [planningGoal, setPlanningGoal] = useState(state.homePlanetHub.benefits.expeditionPlan?.goal ?? "");
+  const [planningRisk, setPlanningRisk] = useState(state.homePlanetHub.benefits.expeditionPlan?.risk ?? "");
+  const [planningRecordPlan, setPlanningRecordPlan] = useState(state.homePlanetHub.benefits.expeditionPlan?.recordPlan ?? "");
   const [recentBuiltStructure, setRecentBuiltStructure] = useState<HomePlanetStructureId | null>(null);
-  const [recentSavedType, setRecentSavedType] = useState<"commission" | "dialogue" | "storyboard" | null>(null);
+  const [recentSavedType, setRecentSavedType] = useState<RecentSavedType | null>(null);
   const [recentActivatedFeature, setRecentActivatedFeature] = useState<HomePlanetFeatureId | null>(null);
   const [enteringFeature, setEnteringFeature] = useState<HomePlanetFeatureId | null>(null);
   const [enteredFeature, setEnteredFeature] = useState<HomePlanetFeatureId | null>(null);
@@ -176,17 +217,138 @@ export function HomePlanetHubPanel({
 
   const motherPlanet = state.signalMission.planet.confirmedModel ?? state.planetCatalog[0] ?? null;
   const resources = state.homePlanetHub.resources;
+  const buildingBenefits = state.homePlanetHub.benefits;
   const baseEffects = useMemo(() => getMotherworldBaseEffects(state), [state]);
   const expeditionEffects = useMemo(() => getHomePlanetExpeditionEffects(state), [state]);
   const selectedConfig = selectedFeature ? homePlanetFeatures.find((feature) => feature.id === selectedFeature) ?? null : null;
   const selectedHotspot = selectedFeature ? motherworldHotspots.find((hotspot) => hotspot.id === selectedFeature) ?? null : null;
   const selectedActivationCost = selectedHotspot ? getAdjustedMotherworldActivationCost(state, selectedHotspot.activationCost) : null;
+  const recentActivatedHotspot = recentActivatedFeature ? motherworldHotspots.find((hotspot) => hotspot.id === recentActivatedFeature) ?? null : null;
   const selectedTask = commissionTasks.find((task) => task.id === selectedTaskId) ?? commissionTasks[0];
   const selectedDialogueCharacter = dialogueCharacters.find((character) => character.id === dialogueCharacterId) ?? dialogueCharacters[0];
   const chapterTwoOutcome = state.chapterTwo.outcome;
   const recentLocationRewardClaims = useMemo(() => sortByNewest(state.chapterTwo.locationRewardClaims), [state.chapterTwo.locationRewardClaims]);
   const recentArchiveRecords = useMemo(() => sortByNewest(state.homePlanetHub.archiveRecords), [state.homePlanetHub.archiveRecords]);
+  const recentCommissionWorks = useMemo(() => sortByNewest(state.homePlanetHub.commissionWorks), [state.homePlanetHub.commissionWorks]);
+  const recentDialogueCards = useMemo(() => sortByNewest(state.homePlanetHub.dialogueCards), [state.homePlanetHub.dialogueCards]);
+  const recentStoryboardProjects = useMemo(() => sortByNewest(state.homePlanetHub.storyboardProjects), [state.homePlanetHub.storyboardProjects]);
   const recentRuleCards = useMemo(() => sortByNewest(state.homePlanetHub.ruleCards), [state.homePlanetHub.ruleCards]);
+  const expeditionArchiveRecords = useMemo(
+    () => recentArchiveRecords.filter((record) => record.tag === "远征归档" || record.id.startsWith("archive-expedition-")),
+    [recentArchiveRecords]
+  );
+  const recentBlackboxArchiveRecord = useMemo(
+    () =>
+      recentArchiveRecords.find(
+        (record) =>
+          record.id === "archive-expedition-blackbox-trial" ||
+          record.locationId === "blackbox-vault" ||
+          (record.tag === "远征归档" && record.title.includes("黑匣"))
+      ) ?? null,
+    [recentArchiveRecords]
+  );
+  const civilizationCards = useMemo(() => {
+    const knowledgeCards = (chapterTwoOutcome?.blackBoxKnowledge?.length
+      ? chapterTwoOutcome.blackBoxKnowledge
+      : ["档案只替来源作证", "缺口保留未知", "指令刻清四项", "顺滑不等于可靠"]).map((card, index) => ({
+        id: `knowledge-${index}`,
+        source: "第二章知识卡",
+        title: card,
+        body: "这张卡会作为远征前的短提示。"
+      }));
+
+    return [
+      ...recentRuleCards.map((card) => ({
+        id: card.id,
+        source: card.source,
+        title: card.title,
+        body: card.body
+      })),
+      ...knowledgeCards
+    ];
+  }, [chapterTwoOutcome?.blackBoxKnowledge, recentRuleCards]);
+  const motherworldAchievements = useMemo<MotherworldAchievementSummary[]>(() => {
+    const recentExpedition = expeditionArchiveRecords[0];
+    const recentCommission = recentCommissionWorks[0];
+    const recentDialogue = recentDialogueCards[0];
+    const recentStoryboard = recentStoryboardProjects[0];
+    const recentRuleCard = recentRuleCards[0];
+    const blackboxCreatedAt = recentBlackboxArchiveRecord?.createdAt ?? chapterTwoOutcome?.completedAt ?? 0;
+    const showRuleCard = Boolean(recentRuleCard && recentRuleCard.createdAt >= blackboxCreatedAt);
+    const knowledgeTitle = showRuleCard
+      ? recentRuleCard?.title
+      : recentBlackboxArchiveRecord?.title.replace("远征归档卡：", "") ?? chapterTwoOutcome?.blackBoxTitle;
+    const knowledgeSummary = showRuleCard
+      ? recentRuleCard?.body
+      : recentBlackboxArchiveRecord?.summary ?? chapterTwoOutcome?.summary;
+    const knowledgeCreatedAt = showRuleCard ? recentRuleCard?.createdAt : blackboxCreatedAt || undefined;
+
+    return [
+      {
+        id: "recent-expedition",
+        label: "远征归档",
+        title: recentExpedition?.title.replace("远征归档卡：", "") ?? "等待第一份回流档案",
+        summary: compactSummary(recentExpedition?.summary, "言衡星或黑匣记录回流后，会先在这里亮起。"),
+        createdAt: recentExpedition?.createdAt,
+        featureId: "civilization-gallery",
+        actionId: recentExpedition ? "gallery-archive" : "gallery-archive",
+        empty: !recentExpedition
+      },
+      {
+        id: "recent-commission",
+        label: "作品委托",
+        title: recentCommission?.title ?? "等待第一份委托作品",
+        summary: compactSummary(recentCommission?.output, "作品保存后，会进入文明展厅的最近作品列。"),
+        createdAt: recentCommission?.createdAt,
+        featureId: recentCommission ? "civilization-gallery" : "commission-board",
+        actionId: recentCommission ? "gallery-view" : "commission-start",
+        empty: !recentCommission
+      },
+      {
+        id: "recent-dialogue",
+        label: "对话反思",
+        title: recentDialogue ? `${recentDialogue.character} · ${recentDialogue.theme}` : "等待第一张收获卡",
+        summary: compactSummary(recentDialogue?.takeaway, "有目标的对话复盘会在这里留下短回声。"),
+        createdAt: recentDialogue?.createdAt,
+        featureId: recentDialogue ? "civilization-gallery" : "character-dialogue-room",
+        actionId: recentDialogue ? "gallery-view" : "dialogue-role",
+        empty: !recentDialogue
+      },
+      {
+        id: "recent-storyboard",
+        label: "分镜项目",
+        title: recentStoryboard?.title ?? "等待第一本分镜册",
+        summary: compactSummary(
+          recentStoryboard?.acts.map((act) => act.text).filter(Boolean).join(" / "),
+          "三幕故事保存后，会成为展厅里的分镜成果。"
+        ),
+        createdAt: recentStoryboard?.createdAt,
+        featureId: recentStoryboard ? "civilization-gallery" : "animation-studio",
+        actionId: recentStoryboard ? "gallery-view" : "studio-script",
+        empty: !recentStoryboard
+      },
+      {
+        id: "recent-knowledge",
+        label: showRuleCard ? "文明卡" : "黑匣记录",
+        title: knowledgeTitle ?? "等待第一条黑匣记录",
+        summary: compactSummary(knowledgeSummary, "文明卡或黑匣记录回流后，会进入档案馆。"),
+        createdAt: knowledgeCreatedAt,
+        featureId: "civilization-archive",
+        actionId: showRuleCard ? "archive-card" : "archive-blackbox",
+        empty: !knowledgeTitle
+      }
+    ];
+  }, [
+    chapterTwoOutcome?.blackBoxTitle,
+    chapterTwoOutcome?.completedAt,
+    chapterTwoOutcome?.summary,
+    expeditionArchiveRecords,
+    recentBlackboxArchiveRecord,
+    recentCommissionWorks,
+    recentDialogueCards,
+    recentRuleCards,
+    recentStoryboardProjects
+  ]);
 
   const getFeatureStatus = (featureId: HomePlanetFeatureId): MotherworldBuildingStatus => {
     const canPreview = motherworldPreviewFeatureIds.includes(featureId);
@@ -210,6 +372,7 @@ export function HomePlanetHubPanel({
   const enteredConfig = enteredFeature ? homePlanetFeatures.find((feature) => feature.id === enteredFeature) ?? null : null;
   const interiorActions = enteredFeature ? motherworldInteriorActions[enteredFeature] : [];
   const activeInteriorAction = interiorActions.find((action) => action.id === activeInteriorActionId) ?? null;
+  const recentSaveFeedback = recentSavedType ? saveFeedbackLabels[recentSavedType] : null;
 
   useEffect(() => {
     if (!enteredFeature || hintedInteriorFeaturesRef.current.has(enteredFeature)) return;
@@ -300,6 +463,29 @@ export function HomePlanetHubPanel({
     window.setTimeout(() => setRecentBuiltStructure(null), 1300);
   };
 
+  const markGalleryReview = () => {
+    setRecentSavedType("gallery");
+    onMarkGalleryReview();
+    window.setTimeout(() => setRecentSavedType(null), 1300);
+  };
+
+  const tuneCrewAssist = () => {
+    setRecentSavedType("crew");
+    onTuneCrewAssist();
+    window.setTimeout(() => setRecentSavedType(null), 1300);
+  };
+
+  const saveExpeditionPlan = () => {
+    if (!planningGoal.trim() || !planningRisk.trim() || !planningRecordPlan.trim()) return;
+    setRecentSavedType("plan");
+    onSaveExpeditionPlan({
+      goal: planningGoal.trim(),
+      risk: planningRisk.trim(),
+      recordPlan: planningRecordPlan.trim()
+    });
+    window.setTimeout(() => setRecentSavedType(null), 1300);
+  };
+
   const activateFeature = () => {
     if (!selectedFeature || !selectedHotspot || selectedStatus !== "unlocked") return;
     setRecentActivatedFeature(selectedFeature);
@@ -307,7 +493,7 @@ export function HomePlanetHubPanel({
     window.setTimeout(() => setRecentActivatedFeature(null), 1500);
   };
 
-  const openFeature = (featureId: HomePlanetFeatureId) => {
+  const openFeature = (featureId: HomePlanetFeatureId, actionId?: string) => {
     setSelectedFeature(featureId);
     setActiveInteriorActionId(null);
 
@@ -319,6 +505,7 @@ export function HomePlanetHubPanel({
     window.setTimeout(() => {
       setEnteredFeature(featureId);
       setEnteringFeature(null);
+      setActiveInteriorActionId(actionId ?? null);
     }, 520);
   };
 
@@ -333,9 +520,80 @@ export function HomePlanetHubPanel({
     setActiveInteriorActionId(null);
   };
 
+  const getFeatureBenefitSummary = (featureId: HomePlanetFeatureId) => {
+    if (featureId === "civilization-gallery") {
+      return buildingBenefits.galleryReviewCount > 0
+        ? `已完成 ${buildingBenefits.galleryReviewCount} 次成果复盘，最近一次 ${formatDate(buildingBenefits.lastGalleryReviewAt ?? undefined)}。`
+        : "点亮后可把作品、黑匣和远征成果标记成复盘材料。";
+    }
+    if (featureId === "planet-workshop") {
+      return buildingBenefits.workshopEfficiencyLevel > 0
+        ? "建设效率已接入：后续建筑激活与结构建设能源消耗 -1。"
+        : "点亮后开启建设效率，让后续建筑和结构更省能源。";
+    }
+    if (featureId === "commission-board") {
+      return `保存委托作品会生成归档卡；能源回流 ${buildingBenefits.commissionResourceClaims}/${3}。`;
+    }
+    if (featureId === "character-dialogue-room") {
+      return `已保存 ${buildingBenefits.dialogueReflectionCount} 张对话复盘卡。`;
+    }
+    if (featureId === "animation-studio") {
+      return `已生成 ${buildingBenefits.storyboardArchiveCount} 条故事归档，三幕分镜会进入文明档案。`;
+    }
+    if (featureId === "civilization-archive") {
+      return `已装备 ${buildingBenefits.equippedRuleCardIds.length}/2 张文明卡，下一次远征提示会带上这些原则。`;
+    }
+    if (featureId === "crew-dormitory") {
+      return buildingBenefits.crewAssistLevel > 0
+        ? "船员协助提示已启用，远征界面会多一条伙伴提醒。"
+        : "点亮后可整理伙伴协助提示。";
+    }
+    return buildingBenefits.expeditionPlan
+      ? `计划已写入：${buildingBenefits.expeditionPlan.goal}；下一次出发初始失序 -1。`
+      : "点亮后可保存目标、风险和复盘计划，影响下一次出发准备。";
+  };
+
+  const renderAchievementDock = () => {
+    const hasAnyAchievement = motherworldAchievements.some((item) => !item.empty);
+
+    return (
+      <div className="motherworld-achievement-dock" aria-label="母星中枢成果摘要">
+        <div className="motherworld-achievement-dock__head">
+          <span>基地中枢摘要</span>
+          <strong>{hasAnyAchievement ? "最近成果已接入" : "等待第一批成果回流"}</strong>
+        </div>
+        <div className="motherworld-achievement-dock__grid">
+          {motherworldAchievements.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`motherworld-achievement-chip ${item.empty ? "motherworld-achievement-chip--empty" : ""}`}
+              onClick={() => openFeature(item.featureId, item.actionId)}
+            >
+              <span>{item.label}</span>
+              <strong>{item.title}</strong>
+              <p>{item.summary}</p>
+              <small>{item.empty ? "等待回流" : formatDate(item.createdAt)}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderGalleryList = () => (
     <section className="motherworld-section home-planet-gallery-list">
       <div className="motherworld-section__title">最近作品</div>
+      <div className="home-planet-benefit-row">
+        <div>
+          <span>展厅收益</span>
+          <strong>成果复盘 {buildingBenefits.galleryReviewCount} 次</strong>
+          <p>把作品、黑匣记录和远征成果标成复盘材料。</p>
+        </div>
+        <button type="button" className="motherworld-mini-button" disabled={!activeFeatures.has("civilization-gallery")} onClick={markGalleryReview}>
+          {recentSavedType === "gallery" ? "已标记复盘" : "标记本次复盘"}
+        </button>
+      </div>
       {state.homePlanetHub.galleryItems.length === 0 ? (
         <p className="mt-3 text-sm text-white/46">委托作品、对话收获卡和分镜册会出现在这里。</p>
       ) : (
@@ -376,6 +634,36 @@ export function HomePlanetHubPanel({
     </div>
   );
 
+  const renderExpeditionArchiveCards = (limit = 6) => (
+    <section className="motherworld-section">
+      <div className="motherworld-section__title">远征归档卡</div>
+      {expeditionArchiveRecords.length === 0 ? (
+        <div className="motherworld-inline-note mt-3">完成言衡星地点或语言黑匣试炼后，主舰会把节点、资源、船员协作和飞船读数写回这里。</div>
+      ) : (
+        <div className="motherworld-card-grid motherworld-card-grid--four mt-3">
+          {expeditionArchiveRecords.slice(0, limit).map((record, index) => {
+            const sourceLabel = resolveLocationLabel(record.locationId, record.tag);
+
+            return (
+              <div key={record.id} className={`home-planet-info-card ${index === 0 ? "home-planet-info-card--recent" : ""}`}>
+                <div className="home-planet-card-kicker">
+                  <span>{formatDate(record.createdAt)}</span>
+                  {index === 0 ? <em className="motherworld-new-badge">新归档</em> : null}
+                </div>
+                <strong>{record.title}</strong>
+                <p>{record.summary}</p>
+                <small>来源：{sourceLabel}</small>
+                {record.evidenceLines.slice(0, 6).map((line, lineIndex) => (
+                  <small key={`${record.id}-line-${lineIndex}`}>{line}</small>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
   const renderGalleryArchive = () => (
     <div className="motherworld-workbench">
       <div className="motherworld-card-grid motherworld-card-grid--four">
@@ -400,6 +688,7 @@ export function HomePlanetHubPanel({
           <p>{chapterTwoOutcome?.finalLetter?.join(" ") ?? "你带回来的提醒会成为下一次探索前的安全灯。"}</p>
         </div>
       </div>
+      {renderExpeditionArchiveCards()}
     </div>
   );
 
@@ -412,7 +701,8 @@ export function HomePlanetHubPanel({
         const affordable = resources.water >= adjustedCost.water && resources.minerals >= adjustedCost.minerals && resources.energy >= adjustedCost.energy;
         const costDiscountNotes = [
           adjustedCost.water < structure.cost.water ? "水源充足已减免" : null,
-          adjustedCost.minerals < structure.cost.minerals ? "矿物充足已减免" : null
+          adjustedCost.minerals < structure.cost.minerals ? "矿物充足已减免" : null,
+          adjustedCost.energy < structure.cost.energy ? "工坊效率已减免能源" : null
         ].filter(Boolean);
         return (
           <div
@@ -468,6 +758,11 @@ export function HomePlanetHubPanel({
       </div>
       <div className="motherworld-inline-note">
         {baseEffects.notes.length > 0 ? baseEffects.notes.join(" ") : "母星资源会影响建筑成本、远征初始失序、扫描提示和共同经历成长。"}
+      </div>
+      <div className="motherworld-inline-note">
+        {buildingBenefits.workshopEfficiencyLevel > 0
+          ? "星球工坊收益已生效：后续建筑点亮与基础结构建设的能源消耗降低 1。"
+          : "点亮星球工坊后，后续建设会获得一项轻量效率收益。"}
       </div>
     </div>
   );
@@ -548,6 +843,9 @@ export function HomePlanetHubPanel({
         <span>当前委托</span>
         <strong>{selectedTask?.title ?? "还没有选择委托"}</strong>
         <p>{selectedTask ? `${selectedTask.ability}：${selectedTask.goal}` : "先到委托光屏选择一个任务，再来评审灯前保存。"}</p>
+        <small>
+          收益：保存后生成委托归档卡；点亮委托所后前 {3} 次作品各回流能源 +1。当前 {buildingBenefits.commissionResourceClaims}/{3}
+        </small>
       </div>
       <section className="motherworld-section home-planet-form-card">
         <label>准备归档的作品</label>
@@ -592,6 +890,9 @@ export function HomePlanetHubPanel({
     <section className="motherworld-section home-planet-form-card">
       <label>对话后的收获</label>
       <textarea value={dialogueTakeaway} onChange={(event) => setDialogueTakeaway(event.target.value)} placeholder="我听完后发现……下一次我会……" />
+      <div className="motherworld-inline-note">
+        对话室收益：已保存 {buildingBenefits.dialogueReflectionCount} 张复盘卡。点亮后保存会补强回看读数。
+      </div>
       <button type="button" disabled={!unlockedFeatures.includes("character-dialogue-room") || !dialogueQuestion.trim() || !dialogueTakeaway.trim()} onClick={saveDialogue}>
         {recentSavedType === "dialogue" ? "收获卡已保存" : "保存对话收获卡"}
       </button>
@@ -647,6 +948,9 @@ export function HomePlanetHubPanel({
           </div>
         ))}
       </div>
+      <div className="motherworld-inline-note">
+        工作室收益：已生成 {buildingBenefits.storyboardArchiveCount} 条故事归档。点亮后保存三幕分镜，会把故事结构写入文明档案。
+      </div>
       <button type="button" disabled={!storyTitle.trim()} onClick={saveStoryboard}>
         {recentSavedType === "storyboard" ? "分镜册已保存" : "保存迷你分镜册"}
       </button>
@@ -701,41 +1005,79 @@ export function HomePlanetHubPanel({
           </div>
         </section>
       ) : null}
-      <div className="motherworld-card-grid motherworld-card-grid--four">
-        {(chapterTwoOutcome?.blackBoxKnowledge?.length ? chapterTwoOutcome.blackBoxKnowledge : ["区分事实、推测和未知", "指令要说清楚", "流畅不等于真实", "用自己的话表达理解"]).map((card) => (
-          <div key={card} className="home-planet-info-card">
-            <span>第二章知识卡</span>
-            <strong>{card}</strong>
-            <p>这张卡会随着后续星球探索继续补充自己的例子和错误复盘。</p>
-          </div>
-        ))}
-      </div>
+      <section className="motherworld-section">
+        <div className="motherworld-section__title">可装备文明卡</div>
+        <div className="motherworld-inline-note mt-3">
+          档案馆收益：装备 1-2 张文明卡后，下一次远征的基地提示会带上这些原则。当前已装备 {buildingBenefits.equippedRuleCardIds.length}/2。
+        </div>
+        <div className="motherworld-card-grid motherworld-card-grid--four mt-3">
+          {civilizationCards.slice(0, 8).map((card) => {
+            const equipped = buildingBenefits.equippedRuleCardIds.includes(card.id);
+            return (
+              <div key={card.id} className={`home-planet-info-card ${equipped ? "home-planet-info-card--recent" : ""}`}>
+                <span>{card.source}</span>
+                <strong>{card.title}</strong>
+                <p>{card.body}</p>
+                <button type="button" className="motherworld-mini-button" disabled={!activeFeatures.has("civilization-archive")} onClick={() => onEquipRuleCard(card.id)}>
+                  {equipped ? "卸下文明卡" : "装备文明卡"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 
   const renderArchiveBlackBox = () => (
-    <div className="motherworld-card-grid motherworld-card-grid--four">
-      <div className="home-planet-info-card">
-        <span>黑匣名称</span>
-        <strong>{chapterTwoOutcome?.blackBoxTitle ?? "科技黑匣未开启"}</strong>
-        <p>{chapterTwoOutcome?.summary ?? "完成第二章后，这里会显示黑匣证据摘要。"}</p>
+    <>
+      <div className="motherworld-card-grid motherworld-card-grid--four">
+        <div className="home-planet-info-card">
+          <span>黑匣名称</span>
+          <strong>{chapterTwoOutcome?.blackBoxTitle ?? "科技黑匣未开启"}</strong>
+          <p>{chapterTwoOutcome?.summary ?? "完成第二章后，这里会显示黑匣证据摘要。"}</p>
+        </div>
+        <div className="home-planet-info-card">
+          <span>证据记录</span>
+          <strong>{chapterTwoOutcome?.scannedZone ?? "等待扫描区域"}</strong>
+          <p>{chapterTwoOutcome?.logSummary ?? "主舰会把你的判断过程保留下来。"}</p>
+        </div>
+        <div className="home-planet-info-card">
+          <span>文明变化</span>
+          <strong>{chapterTwoOutcome?.planetName ?? "语言与信息文明星"}</strong>
+          <p>{chapterTwoOutcome?.worldChange ?? "还没有新的复苏记录。"}</p>
+        </div>
+        <div className="home-planet-info-card">
+          <span>飞船升级</span>
+          <strong>{chapterTwoOutcome?.unlockedModule ?? "语言理解模块待校准"}</strong>
+          <p>{chapterTwoOutcome?.aiUpgrade ?? "黑匣模块等待回写。"}</p>
+        </div>
       </div>
-      <div className="home-planet-info-card">
-        <span>证据记录</span>
-        <strong>{chapterTwoOutcome?.scannedZone ?? "等待扫描区域"}</strong>
-        <p>{chapterTwoOutcome?.logSummary ?? "主舰会把你的判断过程保留下来。"}</p>
-      </div>
-      <div className="home-planet-info-card">
-        <span>文明变化</span>
-        <strong>{chapterTwoOutcome?.planetName ?? "语言与信息文明星"}</strong>
-        <p>{chapterTwoOutcome?.worldChange ?? "还没有新的复苏记录。"}</p>
-      </div>
-      <div className="home-planet-info-card">
-        <span>飞船升级</span>
-        <strong>{chapterTwoOutcome?.unlockedModule ?? "语言理解模块待校准"}</strong>
-        <p>{chapterTwoOutcome?.aiUpgrade ?? "黑匣会提醒你：AI 可以帮忙，但不能替自己思考。"}</p>
-      </div>
-    </div>
+      {chapterTwoOutcome?.systemReadings ? (
+        <div className="motherworld-card-grid motherworld-card-grid--four mt-4">
+          <div className="home-planet-info-card">
+            <span>飞船读数</span>
+            <strong>语言稳定度 {chapterTwoOutcome.systemReadings.languageStability}%</strong>
+            <p>表达光路与回应稳定状态已随黑匣记录归档。</p>
+          </div>
+          <div className="home-planet-info-card">
+            <span>飞船读数</span>
+            <strong>证据链完整度 {chapterTwoOutcome.systemReadings.evidenceChainIntegrity}%</strong>
+            <p>来源闭合情况可在这里回看。</p>
+          </div>
+          <div className="home-planet-info-card">
+            <span>飞船读数</span>
+            <strong>回声干扰残留 {chapterTwoOutcome.systemReadings.echoInterferenceResidue}%</strong>
+            <p>数值越低，失序回声越安静。</p>
+          </div>
+          <div className="home-planet-info-card">
+            <span>飞船读数</span>
+            <strong>黑匣同步率 {chapterTwoOutcome.systemReadings.blackBoxSyncRate}%</strong>
+            <p>语言黑匣与主舰 AI 的接入状态已保存。</p>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 
   const renderArchiveRule = () => (
@@ -752,35 +1094,51 @@ export function HomePlanetHubPanel({
               <strong>{card.title}</strong>
               <p>{card.body}</p>
               <small>{index === 0 ? `新回流来自：${card.source}` : `来自：${card.source}`}</small>
+              <button type="button" className="motherworld-mini-button" disabled={!activeFeatures.has("civilization-archive")} onClick={() => onEquipRuleCard(card.id)}>
+                {buildingBenefits.equippedRuleCardIds.includes(card.id) ? "卸下文明卡" : "装备文明卡"}
+              </button>
             </div>
           ))}
         </div>
       ) : (
-        <div className="motherworld-inline-note">创作屋接入后，证据井回流会把表达经验整理成规则卡。</div>
+        <div className="motherworld-inline-note">创作屋接入后，回流记录会整理成规则卡。</div>
       )}
     </section>
   );
 
   const renderDormCrew = () => (
-    <div className="motherworld-card-grid motherworld-card-grid--crew">
-      {state.crewRoster.length === 0 ? (
-        <div className="home-planet-info-card">
-          <span>船员宿舍</span>
-          <strong>等待第一位伙伴入住</strong>
-          <p>船员是任务伙伴，会记录参与过的远征和羁绊成长。</p>
+    <div className="motherworld-workbench">
+      <div className="home-planet-benefit-row">
+        <div>
+          <span>宿舍收益</span>
+          <strong>{buildingBenefits.crewAssistLevel > 0 ? "协助提示已启用" : "整理伙伴协助提示"}</strong>
+          <p>远征前会多一条伙伴提醒。</p>
         </div>
-      ) : (
-        state.crewRoster.map((crew) => (
-          <div key={crew.id} className="home-planet-info-card">
-            <span>{crew.trustLabel}</span>
-            <strong>{crew.name}</strong>
-            <p>
-              {crew.title} / 参与记录：{state.chapterTwoComplete ? "语言星远征" : "主舰同步"}
-            </p>
-            {baseEffects.ecologyBond ? <small>生态充足：共同经历成长更快。</small> : null}
+        <button type="button" className="motherworld-mini-button" disabled={!activeFeatures.has("crew-dormitory")} onClick={tuneCrewAssist}>
+          {recentSavedType === "crew" ? "已整理提示" : "整理协助提示"}
+        </button>
+      </div>
+      <div className="motherworld-card-grid motherworld-card-grid--crew">
+        {state.crewRoster.length === 0 ? (
+          <div className="home-planet-info-card">
+            <span>船员宿舍</span>
+            <strong>等待第一位伙伴入住</strong>
+            <p>船员是任务伙伴，会记录参与过的远征和羁绊成长。</p>
           </div>
-        ))
-      )}
+        ) : (
+          state.crewRoster.map((crew) => (
+            <div key={crew.id} className="home-planet-info-card">
+              <span>{crew.trustLabel}</span>
+              <strong>{crew.name}</strong>
+              <p>
+                {crew.title} / 参与记录：{state.chapterTwoComplete ? "语言星远征" : "主舰同步"}
+              </p>
+              {baseEffects.ecologyBond ? <small>生态充足：共同经历成长更快。</small> : null}
+              {buildingBenefits.crewAssistLevel > 0 ? <small>宿舍提示：下次远征先听一条伙伴提醒。</small> : null}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 
@@ -827,6 +1185,52 @@ export function HomePlanetHubPanel({
     </div>
   );
 
+  const renderExpeditionPlanForm = () => (
+    <section className="motherworld-section home-planet-form-card">
+      <label>下一次远征目标</label>
+      <input value={planningGoal} onChange={(event) => setPlanningGoal(event.target.value)} placeholder="我想验证……" />
+      <label>可能的风险</label>
+      <input value={planningRisk} onChange={(event) => setPlanningRisk(event.target.value)} placeholder="可能会混淆的是……" />
+      <label>回来后的记录计划</label>
+      <textarea value={planningRecordPlan} onChange={(event) => setPlanningRecordPlan(event.target.value)} placeholder="回来后我要记录带回的线索和改动……" />
+      <div className="motherworld-inline-note">
+        计划室收益：保存完整计划后，下一次远征出发会读取目标与风险，初始失序降低 1 级。
+      </div>
+      <button
+        type="button"
+        disabled={!activeFeatures.has("expedition-planning") || !planningGoal.trim() || !planningRisk.trim() || !planningRecordPlan.trim()}
+        onClick={saveExpeditionPlan}
+      >
+        {recentSavedType === "plan" ? "计划已写入" : "保存远征计划"}
+      </button>
+    </section>
+  );
+
+  const renderExpeditionPlanStatus = () => (
+    <div className="motherworld-card-grid motherworld-card-grid--four">
+      <div className="home-planet-info-card">
+        <span>目标</span>
+        <strong>{buildingBenefits.expeditionPlan?.goal ?? "等待写入目标"}</strong>
+        <p>目标越清楚，主舰越容易把探索结果归回可检查的问题。</p>
+      </div>
+      <div className="home-planet-info-card">
+        <span>风险</span>
+        <strong>{buildingBenefits.expeditionPlan?.risk ?? "等待标记风险"}</strong>
+        <p>风险会变成下一次远征的初始提示。</p>
+      </div>
+      <div className="home-planet-info-card">
+        <span>复盘方式</span>
+        <strong>{buildingBenefits.expeditionPlan?.recordPlan ?? "等待记录计划"}</strong>
+        <p>回来后把线索、错误和新规则写回母星。</p>
+      </div>
+      <div className="home-planet-info-card">
+        <span>出发影响</span>
+        <strong>{buildingBenefits.expeditionPlan ? "初始失序 -1" : "尚未生效"}</strong>
+        <p>{buildingBenefits.expeditionPlan ? `计划写入时间：${formatDate(buildingBenefits.expeditionPlan.createdAt)}` : "先保存完整目标、风险和复盘计划。"}</p>
+      </div>
+    </div>
+  );
+
   const renderInteriorAction = (action: MotherworldInteriorAction) => {
     if (action.id === "gallery-view") return renderGalleryList();
     if (action.id === "gallery-crew") return renderGalleryCrewSummary();
@@ -870,9 +1274,15 @@ export function HomePlanetHubPanel({
     if (action.id === "dorm-window") return renderDormWindow();
     if (action.id === "dorm-locker") return renderDormLocker();
 
-    if (action.id === "plan-map") return renderPlanningCard("远征目标", "写下下一次想验证的问题", "计划室先保留为预览入口。后续远征前，你会先说明目标、证据和想带回的记录。");
-    if (action.id === "plan-route") return renderPlanningCard("路线选择", "选择适合当前能力的星球路线", "路线系统开放后，不同星球会需要不同船员、资源和准备方式。");
-    if (action.id === "plan-review") return renderPlanningCard("复盘计划", "回来后记录学到什么", "远征不是只看结果，复盘会把错误、证据和新规则变成母星成长材料。");
+    if (action.id === "plan-map") return renderExpeditionPlanForm();
+    if (action.id === "plan-route") {
+      return renderPlanningCard(
+        "出发准备",
+        buildingBenefits.expeditionPlan ? "目标与风险已接入航线" : "先保存目标、风险和复盘计划",
+        buildingBenefits.expeditionPlan ? "下一次远征会读取计划室记录，并把初始失序降低 1 级。" : "计划室不会开启新主线，只把出发前的准备写清楚。"
+      );
+    }
+    if (action.id === "plan-review") return renderExpeditionPlanStatus();
 
     return null;
   };
@@ -893,6 +1303,7 @@ export function HomePlanetHubPanel({
         <div className="motherworld-workbench">
           <FeatureLockHint unlocked={selectedUnlocked} requirement={selectedConfig.unlockText} />
           {renderGalleryCrewSummary()}
+          {renderExpeditionArchiveCards(4)}
           {renderGalleryList()}
         </div>
       );
@@ -949,7 +1360,13 @@ export function HomePlanetHubPanel({
       return renderDormCrew();
     }
 
-    return renderPlanningCard("预告", "探险计划室仍在建设", "后续每次远征前，你会先写目标、风险和回来后的记录计划。现在先保留入口，不扩第三章。");
+    return (
+      <div className="motherworld-workbench">
+        <div className="motherworld-inline-note">探险计划室不扩新主线，只把下一次出发前的目标、风险和复盘方式写清楚。</div>
+        {renderExpeditionPlanForm()}
+        {renderExpeditionPlanStatus()}
+      </div>
+    );
   };
 
   return (
@@ -958,25 +1375,43 @@ export function HomePlanetHubPanel({
         <img src={motherworldMapAssets.baseDark} alt="" className="motherworld-map-image" />
         <div className="motherworld-map-vignette" aria-hidden="true" />
 
-        {motherworldRevealPatches
-          .filter((patch) => patch.requiredFeatureIds.every((featureId) => activeFeatures.has(featureId)))
-          .map((patch) => (
-            <img
-              key={patch.id}
-              src={motherworldMapAssets.baseBrightReference}
-              alt=""
-              className="motherworld-building-overlay motherworld-building-overlay--patch"
-              style={
-                {
-                  clipPath: patch.clipPath,
-                  "--overlay-opacity": patch.opacity
-                } as CSSProperties
-              }
-              onError={(event) => {
-                event.currentTarget.style.display = "none";
-              }}
-            />
-          ))}
+        {allMotherworldFeaturesActive ? (
+          <img
+            src={motherworldMapAssets.baseBrightReference}
+            alt=""
+            className="motherworld-building-overlay motherworld-building-overlay--full"
+            style={{ "--overlay-opacity": 0.92 } as CSSProperties}
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          motherworldConnectionPatches
+            .filter((patch) => activeFeatures.has(patch.from) && activeFeatures.has(patch.to))
+            .map((patch) => {
+              const justConnected = recentActivatedFeature ? patch.from === recentActivatedFeature || patch.to === recentActivatedFeature : false;
+
+              return (
+                <img
+                  key={patch.id}
+                  src={motherworldMapAssets.baseBrightReference}
+                  alt=""
+                  className={`motherworld-building-overlay motherworld-building-overlay--patch ${
+                    justConnected ? "motherworld-building-overlay--connection-new" : ""
+                  }`}
+                  style={
+                    {
+                      clipPath: patch.clipPath,
+                      "--overlay-opacity": patch.opacity
+                    } as CSSProperties
+                  }
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                  }}
+                />
+              );
+            })
+        )}
 
         {motherworldHotspots.map((hotspot) => {
           const status = getFeatureStatus(hotspot.id);
@@ -992,17 +1427,19 @@ export function HomePlanetHubPanel({
 
           return (
             <div key={`${hotspot.id}-layers`}>
-              {active
+              {active && !allMotherworldFeaturesActive
                 ? overlayClipPaths.map((clipPath, index) => (
                 <img
                   key={`${hotspot.id}-overlay-${index}`}
                   src={motherworldMapAssets.baseBrightReference}
                   alt=""
-                  className={`motherworld-building-overlay ${index > 0 ? "motherworld-building-overlay--feather" : ""}`}
+                  className={`motherworld-building-overlay ${index > 0 ? "motherworld-building-overlay--feather" : ""} ${
+                    recentActivatedFeature === hotspot.id ? "motherworld-building-overlay--just-activated" : ""
+                  }`}
                   style={
                     {
                       clipPath,
-                      "--overlay-opacity": index > 0 ? 0.34 : 0.86
+                      "--overlay-opacity": index > 0 ? 0.18 : 0.86
                     } as CSSProperties
                   }
                   onError={(event) => {
@@ -1011,11 +1448,25 @@ export function HomePlanetHubPanel({
                 />
                   ))
                 : null}
-              {active ? <div className="motherworld-building-glow" style={style} aria-hidden="true" /> : null}
-              {active ? <div className="motherworld-building-energy" style={style} aria-hidden="true" /> : null}
+              {active ? (
+                <div
+                  className={`motherworld-building-glow ${recentActivatedFeature === hotspot.id ? "motherworld-building-glow--just-activated" : ""}`}
+                  style={style}
+                  aria-hidden="true"
+                />
+              ) : null}
+              {active ? (
+                <div
+                  className={`motherworld-building-energy ${recentActivatedFeature === hotspot.id ? "motherworld-building-energy--just-activated" : ""}`}
+                  style={style}
+                  aria-hidden="true"
+                />
+              ) : null}
               <button
                 type="button"
-                className={`motherworld-building-hotspot motherworld-building-hotspot--${status} ${selected ? "motherworld-building-hotspot--selected" : ""}`}
+                className={`motherworld-building-hotspot motherworld-building-hotspot--${status} ${selected ? "motherworld-building-hotspot--selected" : ""} ${
+                  recentActivatedFeature === hotspot.id ? "motherworld-building-hotspot--just-activated" : ""
+                }`}
                 style={style}
                 onMouseEnter={() => setHoveredFeature(hotspot.id)}
                 onMouseLeave={() => setHoveredFeature((current) => (current === hotspot.id ? null : current))}
@@ -1043,8 +1494,8 @@ export function HomePlanetHubPanel({
             className="motherworld-resource-flight"
             style={
               {
-                "--flight-x": `${motherworldHotspots.find((item) => item.id === recentActivatedFeature)?.position.x ?? 50}%`,
-                "--flight-y": `${motherworldHotspots.find((item) => item.id === recentActivatedFeature)?.position.y ?? 50}%`
+                "--flight-x": `${recentActivatedHotspot?.position.x ?? 50}%`,
+                "--flight-y": `${recentActivatedHotspot?.position.y ?? 50}%`
               } as CSSProperties
             }
             aria-hidden="true"
@@ -1066,7 +1517,20 @@ export function HomePlanetHubPanel({
           </button>
         </div>
 
-        <div className={`motherworld-resource-strip ${recentActivatedFeature || recentBuiltStructure ? "motherworld-resource-strip--spending" : ""}`}>
+        {recentActivatedHotspot ? (
+          <div className="motherworld-activation-cue" aria-live="polite">
+            <span>建筑点亮</span>
+            <strong>{recentActivatedHotspot.name}</strong>
+            <small>连接区与资源脉冲已同步</small>
+          </div>
+        ) : null}
+
+        {!enteredFeature && !enteringFeature ? renderAchievementDock() : null}
+
+        <div
+          className={`motherworld-resource-strip ${recentActivatedFeature || recentBuiltStructure ? "motherworld-resource-strip--spending" : ""}`}
+          aria-live="polite"
+        >
           {[
             ["水源", resources.water],
             ["矿物", resources.minerals],
@@ -1083,7 +1547,7 @@ export function HomePlanetHubPanel({
 
         <div className="motherworld-map-hint">
           <span>{state.homePlanetHub.activeFeatures.length} 座建筑已点亮</span>
-          <strong>{recentActivatedFeature ? `${motherworldHotspots.find((item) => item.id === recentActivatedFeature)?.name ?? "建筑"} 已响应` : "选择建筑查看功能"}</strong>
+          <strong>{recentActivatedHotspot ? `${recentActivatedHotspot.name} 已响应` : "选择建筑查看功能"}</strong>
         </div>
 
         {enteringHotspot ? (
@@ -1146,6 +1610,12 @@ export function HomePlanetHubPanel({
                   </span>
                   <span>{activeInteriorAction.label}</span>
                 </div>
+                {recentSaveFeedback ? (
+                  <div className={`motherworld-save-cue motherworld-save-cue--${recentSavedType}`} aria-live="polite">
+                    <span aria-hidden="true" />
+                    {recentSaveFeedback}
+                  </div>
+                ) : null}
                 {renderInteriorAction(activeInteriorAction)}
               </aside>
             ) : null}
@@ -1176,12 +1646,14 @@ export function HomePlanetHubPanel({
                       {selectedActivationCost.fragments}
                       {[
                         selectedActivationCost.water < selectedHotspot.activationCost.water ? "水源充足已减免" : null,
-                        selectedActivationCost.minerals < selectedHotspot.activationCost.minerals ? "矿物充足已减免" : null
+                        selectedActivationCost.minerals < selectedHotspot.activationCost.minerals ? "矿物充足已减免" : null,
+                        selectedActivationCost.energy < selectedHotspot.activationCost.energy ? "工坊效率已减免能源" : null
                       ]
                         .filter(Boolean)
                         .map((note) => ` · ${note}`)}
                     </small>
                   ) : null}
+                  <small>收益：{getFeatureBenefitSummary(selectedFeature)}</small>
                   {!selectedActive ? (
                     <button type="button" disabled={!selectedCanActivate} onClick={activateFeature}>
                       {selectedStatus === "locked" ? selectedConfig.unlockText : selectedCanActivate ? "点亮这座建筑" : "资源不足"}

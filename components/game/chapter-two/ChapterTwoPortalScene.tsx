@@ -35,6 +35,22 @@ export function ChapterTwoPortalScene({
         }}
       />
       <div className="chapter-two-portal-shell__gate" aria-hidden="true" />
+      <div className="chapter-two-portal-voyage" aria-hidden="true">
+        <div className="chapter-two-portal-voyage__route" />
+        <div className="chapter-two-portal-voyage__rings">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="chapter-two-portal-voyage__stars">
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-20 text-center">
         <div className="chapter-two-portal-title">

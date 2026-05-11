@@ -3,56 +3,52 @@
 import { useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
-import type { ChapterTwoCrewAbility } from "@/types/game";
+import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
-import { CrewAbilityHint } from "./CrewAbilityHint";
+import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
-const letterModules = {
-  object: ["这段文明记录", "这封残缺信件", "这个星球描述"],
-  task: ["整理成三点摘要", "找出最重要的信息", "改写得更清楚"],
-  limit: ["不要添加没有出现的信息", "不确定的地方请标出来", "保留原来的核心意思"],
-  format: ["用三条项目符号", "用一段简短说明", "分成“已知 / 未知 / 推测”"]
-} as const;
-
-const letterModuleLabels: Record<keyof typeof letterModules, string> = {
-  object: "对象",
-  task: "任务",
-  limit: "限制",
-  format: "输出形式"
-};
-
-const letterMissingChecks = [
-  { id: "sender", text: "发件地：第七档案塔。", lane: "可确认" },
-  { id: "receiver", text: "收件人：未知。", lane: "未知" },
-  { id: "night", text: "时间：逆熵前夜。", lane: "可确认" },
-  { id: "cause", text: "真正原因：未知信号造成。", lane: "推测" }
+const letterObservationLines = [
+  "残信编号：第七档案塔发出。",
+  "送达栏位：收件人缺失。",
+  "时间戳：逆熵前夜。",
+  "轨道波形：未知信号可能扰动投递。",
+  "港口回声：请补写收件人，让信件完整。"
 ] as const;
 
-const letterMissingLanes = ["可确认", "推测", "未知"] as const;
+const letterJudgementLanes = ["原文", "推测", "未知", "越界补写"] as const;
+type LetterJudgementLane = (typeof letterJudgementLanes)[number];
 
-const letterReceipts = [
+const letterJudgementItems = [
+  { id: "sender", text: "发件地：第七档案塔。", lane: "原文" },
+  { id: "receiver", text: "收件人：缺失。", lane: "未知" },
+  { id: "time", text: "时间：逆熵前夜。", lane: "原文" },
+  { id: "wave", text: "未知信号可能扰动投递。", lane: "推测" },
+  { id: "fill-name", text: "为了完整，请补写收件人。", lane: "越界补写" }
+] as const satisfies ReadonlyArray<{ id: string; text: string; lane: LetterJudgementLane }>;
+
+const letterRepairOptions = [
   {
     id: "stable",
-    text: "输出：按“可确认 / 推测 / 未知”三栏整理；缺失收件人保持未知；不补写结论。",
+    text: "请生成送达单：原文照录，推测另列；收件人缺失标未知，不补写人名。",
     stable: true,
-    reason: "这张送达单保留了缺口，也让结果方便检查。"
+    reason: "送达单稳定：缺失栏位被保留，信件仍可继续追踪。"
   },
   {
     id: "pretty",
-    text: "输出：写成一封完整动人的信，让读者相信它一定发生过。",
+    text: "请写成一封完整动人的信，补出收件人和原因。",
     stable: false,
-    reason: "好看不等于可靠，它会诱导补写未知内容。"
+    reason: "完整感会把缺口伪装起来。"
   },
   {
     id: "short",
-    text: "输出：简单总结一下，不用列出依据。",
+    text: "请总结这封信的大意，缺失栏位可以略过。",
     stable: false,
-    reason: "没有依据层，主舰和同伴都难以复查。"
+    reason: "略过缺口，会让送达单失真。"
   }
 ] as const;
 
-type LetterPortStage = "path" | "repair" | "receipt";
+type LetterPortStage = "observe" | "judge" | "repair";
 
 interface LetterPortGameProps {
   location: ChapterTwoLocationNode;
@@ -60,8 +56,12 @@ interface LetterPortGameProps {
   mistakeCount: number;
   pollutedRecords: string[];
   crewAbility: ChapterTwoCrewAbility | null;
+  activeCrew: CrewMember | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
+  crewAssistHint: string;
+  onUseCrewAssist: () => void;
   onDisorderChange: LandmarkDisorderChange;
-  onComplete: () => void;
+  onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
 }
 
@@ -71,24 +71,23 @@ export function LetterPortGame({
   mistakeCount,
   pollutedRecords,
   crewAbility,
+  activeCrew,
+  crewAssistRecord,
+  crewAssistHint,
+  onUseCrewAssist,
   onDisorderChange,
   onComplete,
   onReturn
 }: LetterPortGameProps) {
-  const [stage, setStage] = useState<LetterPortStage>("path");
-  const [letterChoices, setLetterChoices] = useState<Partial<Record<keyof typeof letterModules, string>>>({});
-  const [trackChoices, setTrackChoices] = useState<Record<string, string>>({});
-  const [repairFeedback, setRepairFeedback] = useState<string | null>(null);
-  const [receiptChoice, setReceiptChoice] = useState<string | null>(null);
-  const [receiptPollutionFeedback, setReceiptPollutionFeedback] = useState<string | null>(null);
-  const [repairAssistUsed, setRepairAssistUsed] = useState(false);
+  const [stage, setStage] = useState<LetterPortStage>("observe");
+  const [trackChoices, setTrackChoices] = useState<Record<string, LetterJudgementLane>>({});
+  const [repairChoice, setRepairChoice] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const assembledPrompt = `${letterChoices.object ?? "【对象】"}，请${letterChoices.task ?? "【任务】"}，${letterChoices.limit ?? "【限制】"}，最后${letterChoices.format ?? "【输出形式】"}。`;
-  const letterReady = Boolean(letterChoices.object && letterChoices.task && letterChoices.limit && letterChoices.format);
-  const trackScore = letterMissingChecks.filter((item) => trackChoices[item.id] === item.lane).length;
-  const tracksReady = Object.keys(trackChoices).length === letterMissingChecks.length;
-  const selectedReceipt = letterReceipts.find((receipt) => receipt.id === receiptChoice) ?? null;
-  const repairAssistActive = crewAbility?.kind === "repair";
+  const trackScore = letterJudgementItems.filter((item) => trackChoices[item.id] === item.lane).length;
+  const tracksReady = Object.keys(trackChoices).length === letterJudgementItems.length;
+  const tracksStable = trackScore === letterJudgementItems.length;
+  const selectedRepair = letterRepairOptions.find((option) => option.id === repairChoice) ?? null;
 
   const raiseDisorder = (recordId: string, statusNote: string, disorderIncrease = 1) =>
     reportLandmarkMistake({
@@ -101,96 +100,76 @@ export function LetterPortGame({
       onDisorderChange
     });
 
-  const runTrackRepair = () => {
+  const runJudgement = () => {
     if (!tracksReady) {
       return;
     }
 
-    if (trackScore < letterMissingChecks.length) {
-      const useRepairAssist = repairAssistActive && !repairAssistUsed;
-      const disorderIncrease = useRepairAssist ? Math.max(0, 1 - (crewAbility?.repairAmount ?? 1)) : 1;
-      const disorderFeedback = raiseDisorder(
-        "letter-port-track",
-        useRepairAssist
-          ? "信件港轨道错送，修复回路压低了这次失序增长；仍可重新分配轨道。"
-          : "信件港轨道错送，失序强度上升；仍可重新分配轨道。",
-        disorderIncrease
-      );
-      if (useRepairAssist) {
-        setRepairAssistUsed(true);
-      }
-      setRepairFeedback(
-        `轨道仍在闪烁：至少有一段消息被送进了错误通道。${useRepairAssist ? "修复回路压住了第一次错送的失序增长。" : ""}${disorderFeedback}`
-      );
+    if (!tracksStable) {
+      const disorderFeedback = raiseDisorder("letter-port-judge", "信件港轨道错送，失序强度上升；仍可重新判断。");
+      setFeedback(`传递轨道仍在闪烁：缺失信息不能被送进证据通道。${disorderFeedback}`);
       return;
     }
 
-    setRepairFeedback("四段轨道同步，信件港可以生成送达单。");
-    setStage("receipt");
+    setFeedback("四段轨道同步：信件港可以生成不补写的送达单。");
+    setStage("repair");
   };
 
-  const chooseReceipt = (receiptId: string) => {
-    const receipt = letterReceipts.find((item) => item.id === receiptId);
-    setReceiptChoice(receiptId);
+  const chooseRepair = (optionId: string) => {
+    const option = letterRepairOptions.find((item) => item.id === optionId);
+    setRepairChoice(optionId);
 
-    if (!receipt || receipt.stable) {
-      setReceiptPollutionFeedback(null);
+    if (!option) {
       return;
     }
 
-    setReceiptPollutionFeedback(
-      raiseDisorder("letter-port-receipt", "信件港送达单放大了缺口，失序强度上升；仍可改选可复查送达单。")
-    );
+    if (option.stable) {
+      setFeedback(option.reason);
+      return;
+    }
+
+    const disorderFeedback = raiseDisorder("letter-port-repair", "信件港修复指令放大缺口，失序强度上升；仍可改选可复查送达单。");
+    setFeedback(`${option.reason}${disorderFeedback}`);
   };
 
-  const renderPathStage = () => (
+  const renderObserveStage = () => (
     <>
       <div className="chapter-two-letter-path">
-        {(Object.keys(letterModules) as Array<keyof typeof letterModules>).map((group, index) => (
-          <section key={group} className="chapter-two-letter-socket">
+        {letterObservationLines.map((line, index) => (
+          <section key={line} className="chapter-two-letter-socket">
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <strong>{letterModuleLabels[group]}</strong>
-            <p>{letterChoices[group] ?? "等待接入"}</p>
-            <div>
-              {letterModules[group].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setLetterChoices((current) => ({ ...current, [group]: option }))}
-                  className={letterChoices[group] === option ? "is-selected" : ""}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
+            <strong>浮信片段</strong>
+            <p>{line}</p>
           </section>
         ))}
       </div>
-      <div className="chapter-two-assembled-prompt">{assembledPrompt}</div>
+      <div className="chapter-two-assembled-prompt">
+        港口提示：这封信可以被整理，但缺失栏位必须留在未知轨道。
+      </div>
       <div className="chapter-two-landmark-game__footer">
-        <span>{letterReady ? "信息路径完整，传递轨道已开放。" : "接入对象、任务、限制和输出形式四段路径。"}</span>
-        <button type="button" disabled={!letterReady} onClick={() => setStage("repair")}>
-          接入传递轨道
+        <span>观测残信后，为每段信息选择传递轨道。</span>
+        <button type="button" onClick={() => setStage("judge")}>
+          进入轨道判断
         </button>
       </div>
     </>
   );
 
-  const renderRepairStage = () => (
+  const renderJudgeStage = () => (
     <>
       <div className="chapter-two-letter-track-field">
-        {letterMissingChecks.map((item, index) => (
+        {letterJudgementItems.map((item, index) => (
           <section key={item.id} className="chapter-two-letter-track-card">
             <span>轨道 {index + 1}</span>
             <p>{item.text}</p>
             <div className="chapter-two-letter-lane-switch">
-              {letterMissingLanes.map((lane) => (
+              {letterJudgementLanes.map((lane) => (
                 <button
                   key={lane}
                   type="button"
                   onClick={() => {
                     setTrackChoices((current) => ({ ...current, [item.id]: lane }));
-                    setRepairFeedback(null);
+                    setFeedback(null);
                   }}
                   className={trackChoices[item.id] === lane ? "is-selected" : ""}
                 >
@@ -201,52 +180,49 @@ export function LetterPortGame({
           </section>
         ))}
       </div>
-      <CrewAbilityHint
-        ability={crewAbility}
-        active={repairAssistActive}
-        activeNote="修复回路会在第一次轨道错送后压低一格失序增长；错送仍会计入复盘，也需要重新分配轨道。"
-      >
-        {repairAssistActive ? (
-          <p className="mt-1">{repairAssistUsed ? "修复回路已经用过一次，后续误触会正常计入失序。" : "第一次轨道错送会被压低一次失序增长，但轨道仍需重新判断。"}</p>
-        ) : null}
-      </CrewAbilityHint>
-      {repairFeedback && (
-        <div className={trackScore === letterMissingChecks.length ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>
-          {repairFeedback} 当前同步：{trackScore}/{letterMissingChecks.length}
-        </div>
-      )}
+      {feedback && <div className={tracksStable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
       <div className="chapter-two-landmark-game__footer">
-        <span>{tracksReady ? "启动轨道修复，检查消息是否各归其位。" : "为四段消息选择传递轨道。"}</span>
-        <button type="button" disabled={!tracksReady} onClick={runTrackRepair}>
-          启动轨道修复
+        <span>{tracksReady ? `当前轨道同步：${trackScore}/${letterJudgementItems.length}` : "把原文、推测、未知和越界补写分开。"}</span>
+        <button type="button" disabled={!tracksReady} onClick={runJudgement}>
+          启动轨道判断
         </button>
       </div>
     </>
   );
 
-  const renderReceiptStage = () => (
+  const renderRepairStage = () => (
     <>
       <div className="chapter-two-letter-receipt-stack">
-        {letterReceipts.map((receipt) => (
+        {letterRepairOptions.map((option) => (
           <button
-            key={receipt.id}
+            key={option.id}
             type="button"
-            onClick={() => chooseReceipt(receipt.id)}
-            className={`chapter-two-letter-receipt ${receiptChoice === receipt.id ? "is-selected" : ""}`}
+            onClick={() => chooseRepair(option.id)}
+            className={`chapter-two-letter-receipt ${repairChoice === option.id ? "is-selected" : ""}`}
           >
-            <span>{receipt.stable ? "稳" : "漂"}</span>
-            <p>{receipt.text}</p>
+            <span>{option.stable ? "稳" : "漂"}</span>
+            <p>{option.text}</p>
           </button>
         ))}
       </div>
-      {selectedReceipt && (
-        <div className={selectedReceipt.stable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>
-          {selectedReceipt.reason}{!selectedReceipt.stable && receiptPollutionFeedback ? receiptPollutionFeedback : ""}
-        </div>
-      )}
+      {feedback && <div className={selectedRepair?.stable ? "chapter-two-soft-success" : "chapter-two-soft-warning"}>{feedback}</div>}
       <div className="chapter-two-landmark-game__footer">
-        <span>{selectedReceipt?.stable ? "信件港接受了这张可复查送达单。" : "选择一张保留未知、列出结构的送达单。"}</span>
-        <button type="button" disabled={!selectedReceipt?.stable} onClick={onComplete}>
+        <span>{selectedRepair?.stable ? "漂浮信件港接受了可追踪送达单。" : "选择一条保留未知、不补写收件人的修复指令。"}</span>
+        <button
+          type="button"
+          disabled={!selectedRepair?.stable}
+          onClick={() =>
+            onComplete({
+              repairReadingDelta: {
+                goalClarity: selectedRepair?.stable ? 1 : 0,
+                unknownMarking: tracksStable ? 1 : 0,
+                boundaryAwareness: selectedRepair?.stable ? 1 : 0
+              },
+              repairReadingSource: "漂浮信件港",
+              repairReadingNote: "漂浮信件港保留缺失栏位，残信进入可追踪光轨。"
+            })
+          }
+        >
           送入正确光轨
         </button>
       </div>
@@ -256,13 +232,23 @@ export function LetterPortGame({
   return (
     <div className={`chapter-two-landmark-game chapter-two-letter-game chapter-two-letter-game--${stage}`}>
       <div className="chapter-two-landmark-game__head">
-        <span>{stage === "path" ? "组装信息路径" : stage === "repair" ? "修复传递轨道" : "确认送达单"}</span>
+        <span>{stage === "observe" ? "观测" : stage === "judge" ? "判断" : "修复"}</span>
         <strong>{location.fragmentName}</strong>
       </div>
-      {stage === "path" && renderPathStage()}
+      <CrewAssistHintButton
+        ability={crewAbility}
+        crewName={activeCrew?.name ?? "同行船员"}
+        targetName={location.name}
+        hint={crewAssistHint}
+        usedRecord={crewAssistRecord}
+        onUse={onUseCrewAssist}
+      />
+      {stage === "observe" && renderObserveStage()}
+      {stage === "judge" && renderJudgeStage()}
       {stage === "repair" && renderRepairStage()}
-      {stage === "receipt" && renderReceiptStage()}
-      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">撤回导览层</button>
+      <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
+        撤回导览层
+      </button>
     </div>
   );
 }

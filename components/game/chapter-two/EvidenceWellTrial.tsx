@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-import type { ChapterTwoCrewAbility } from "@/types/game";
+import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
+
+import { CrewAssistHintButton } from "./LandmarkGames/CrewAbilityHint";
 
 type EvidenceWellPhase = "contaminated" | "scan" | "repair" | "recovered";
 type EvidenceProbe = "fact" | "inference" | "unknown";
@@ -52,44 +54,13 @@ const evidenceWellSegments = [
 
 type EvidenceSegmentId = typeof evidenceWellSegments[number]["id"];
 
-function CrewAssistPanel({
-  ability,
-  assistUsed,
-  onUse
-}: {
-  ability: ChapterTwoCrewAbility | null;
-  assistUsed: boolean;
-  onUse: () => void;
-}) {
-  if (!ability) {
-    return (
-      <div className="chapter-two-crew-assist chapter-two-crew-assist--idle">
-        <span>同行介入</span>
-        <strong>稳定校准待写入</strong>
-        <p>{assistUsed ? "同行稳定锚已经写入井壁复盘。" : "误触后会自动写入稳定锚，也可以先请求一次校准。"}</p>
-        <button type="button" onClick={onUse} disabled={assistUsed}>
-          {assistUsed ? "介入已写入" : "请求稳定锚"}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`chapter-two-crew-assist chapter-two-crew-assist--${ability.kind}`}>
-      <span>当前船员介入</span>
-      <strong>{ability.label}</strong>
-      <p>{assistUsed ? ability.intervention : ability.description}</p>
-      <button type="button" onClick={onUse} disabled={assistUsed}>
-        {assistUsed ? "介入已写入" : ability.triggerLabel}
-      </button>
-      {ability.kind === "repair" && !assistUsed ? <em>也会在第一次误触时自动触发。</em> : null}
-    </div>
-  );
-}
-
 export function EvidenceWellTrial({
   fragmentName,
   crewAbility,
+  activeCrew,
+  crewAssistRecord,
+  crewAssistHint,
+  onUseCrewAssist,
   disorderLevel,
   mistakeCount,
   pollutedRecords,
@@ -99,6 +70,10 @@ export function EvidenceWellTrial({
 }: {
   fragmentName: string;
   crewAbility: ChapterTwoCrewAbility | null;
+  activeCrew: CrewMember | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
+  crewAssistHint: string;
+  onUseCrewAssist: () => void;
   disorderLevel: number;
   mistakeCount: number;
   pollutedRecords: string[];
@@ -108,14 +83,7 @@ export function EvidenceWellTrial({
     pollutedRecords?: string[];
     statusNote?: string;
   }) => void;
-  onComplete: (payload?: {
-    finalDisorderLevel?: number;
-    mistakeCount?: number;
-    pollutedRecords?: string[];
-    crewAbilityKind?: ChapterTwoCrewAbility["kind"];
-    crewIntervention?: string;
-    evidenceLines?: string[];
-  }) => void;
+  onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
 }) {
   const [phase, setPhase] = useState<EvidenceWellPhase>("contaminated");
@@ -129,52 +97,11 @@ export function EvidenceWellTrial({
   const [pollutionHistoryIds, setPollutionHistoryIds] = useState<EvidenceSegmentId[]>(
     pollutedRecords.filter((id): id is EvidenceSegmentId => evidenceWellSegments.some((segment) => segment.id === id))
   );
-  const [assistUsed, setAssistUsed] = useState(false);
-  const [repairAssistSpent, setRepairAssistSpent] = useState(false);
-  const [sourceVisible, setSourceVisible] = useState(false);
-  const [hiddenHintVisible, setHiddenHintVisible] = useState(false);
-  const [templateVisible, setTemplateVisible] = useState(false);
   const [feedback, setFeedback] = useState("井壁文字正在渗出黑色噪点。先看清它污染了哪些句子。");
 
   const activeSegment = evidenceWellSegments.find((segment) => segment.id === activeSegmentId) ?? evidenceWellSegments[0];
   const completedProbeCount = evidenceWellSegments.filter((segment) => Boolean(probeChoices[segment.id])).length;
   const repairedLines = evidenceWellSegments.map((segment) => segment.repair);
-
-  const applyCrewAssist = () => {
-    if (assistUsed) {
-      return null;
-    }
-
-    setAssistUsed(true);
-
-    if (!crewAbility) {
-      return "同行船员在井沿放下稳定锚：先圈出污染段，再把缺少来源的位置封为未知。";
-    }
-
-    if (crewAbility.kind === "record") {
-      setSourceVisible(true);
-      return crewAbility.intervention;
-    }
-
-    if (crewAbility.kind === "scout") {
-      setHiddenHintVisible(true);
-      return crewAbility.intervention;
-    }
-
-    if (crewAbility.kind === "expression") {
-      setTemplateVisible(true);
-      return crewAbility.intervention;
-    }
-
-    return crewAbility.intervention;
-  };
-
-  const useCrewAssist = () => {
-    const note = applyCrewAssist();
-    if (note) {
-      setFeedback(note);
-    }
-  };
 
   const chooseProbe = (probe: EvidenceProbe) => {
     setProbeChoices((current) => ({
@@ -195,23 +122,18 @@ export function EvidenceWellTrial({
     const wrongSegments = evidenceWellSegments.filter((segment) => probeChoices[segment.id] !== segment.answer);
 
     if (wrongSegments.length > 0) {
-      const repairCanTrigger = crewAbility?.kind === "repair" && !repairAssistSpent;
-      const repairDrop = repairCanTrigger ? crewAbility.repairAmount ?? 1 : 0;
-      const pollutionIncrease = Math.max(1, wrongSegments.length - repairDrop);
+      const pollutionIncrease = wrongSegments.length;
       const nextPollution = Math.min(6, pollution + pollutionIncrease);
       const nextMistakeCount = localMistakeCount + wrongSegments.length;
       const nextPollutedRecords = wrongSegments.map((segment) => segment.id);
       const nextPollutionHistory = Array.from(new Set([...pollutionHistoryIds, ...nextPollutedRecords]));
-      const assistNote = !assistUsed ? applyCrewAssist() : null;
 
       setPollution(nextPollution);
       setLocalMistakeCount(nextMistakeCount);
       setPollutedSegmentIds(nextPollutedRecords);
       setPollutionHistoryIds(nextPollutionHistory);
       setFeedback(
-        repairCanTrigger
-          ? `${assistNote ?? crewAbility.intervention} 仍有 ${wrongSegments.length} 段需要重新扫描，污染读数升至 ${nextPollution}/6。`
-          : `${assistNote ? `${assistNote} ` : ""}误触让井壁污染扩散。${wrongSegments.length} 段文字正在变浑，污染读数升至 ${nextPollution}/6。`
+        `误触让井壁污染扩散。${wrongSegments.length} 段文字正在变浑，污染读数升至 ${nextPollution}/6。可以请求一次船员提示，但仍要自己重扫。`
       );
       onDisorderChange({
         disorderLevel: nextPollution,
@@ -219,16 +141,6 @@ export function EvidenceWellTrial({
         pollutedRecords: nextPollutionHistory,
         statusNote: "证据回声井污染扩散，但仍可继续修复。"
       });
-      if (repairCanTrigger) {
-        setAssistUsed(true);
-        setRepairAssistSpent(true);
-      }
-      return;
-    }
-
-    if (!assistUsed) {
-      const assistNote = applyCrewAssist();
-      setFeedback(`${assistNote ?? "同行稳定锚已写入。"} 再校验一次，证据碎片就能安全回流。`);
       return;
     }
 
@@ -237,7 +149,7 @@ export function EvidenceWellTrial({
     setFeedback(
       pollutionHistoryIds.length > 0
         ? "所有探针归位。污染读数回落，复盘标记会随证据碎片一同回流。"
-        : "所有探针归位。无证据的位置被封为未知，井壁开始自我修复。"
+        : "所有探针归位，井壁开始自我修复。"
     );
     onDisorderChange({
       disorderLevel: 0,
@@ -265,8 +177,6 @@ export function EvidenceWellTrial({
   const renderSegment = (segment: typeof evidenceWellSegments[number]) => {
     const choice = probeChoices[segment.id];
     const polluted = pollutedSegmentIds.includes(segment.id);
-    const sourceShown = sourceVisible && segment.id === "tower-duty";
-
     return (
       <button
         key={segment.id}
@@ -278,7 +188,6 @@ export function EvidenceWellTrial({
       >
         <span>{segment.text}</span>
         {choice && <em>{evidenceProbeLabels[choice]}</em>}
-        {sourceShown && <small>{crewAbility?.sourceMarker ?? segment.source}</small>}
       </button>
     );
   };
@@ -302,7 +211,14 @@ export function EvidenceWellTrial({
       </div>
 
       {renderPollution()}
-      <CrewAssistPanel ability={crewAbility} assistUsed={assistUsed} onUse={useCrewAssist} />
+      <CrewAssistHintButton
+        ability={crewAbility}
+        crewName={activeCrew?.name ?? "同行船员"}
+        targetName="证据回声井"
+        hint={crewAssistHint}
+        usedRecord={crewAssistRecord}
+        onUse={onUseCrewAssist}
+      />
 
       {phase === "contaminated" && (
         <>
@@ -319,7 +235,7 @@ export function EvidenceWellTrial({
             </div>
           </div>
           <div className="chapter-two-landmark-game__footer">
-            <span>井壁里混着事实、推测和无证据断言。先启动扫描，不急着补完整。</span>
+            <span>井壁里混着不同层级的残句。先启动扫描，不急着补完整。</span>
             <button type="button" onClick={() => setPhase("scan")}>
               启动证据探针
             </button>
@@ -335,7 +251,7 @@ export function EvidenceWellTrial({
             <div>
               <span>当前文字</span>
               <strong>{activeSegment.text}</strong>
-              <p>{hiddenHintVisible ? crewAbility?.hiddenHint : "先问：这句话有来源吗？只是推测吗？还是根本不能确认？"}</p>
+              <p>{crewAssistRecord?.hint ?? "先看这句话应该落在哪一种探针下。"}</p>
             </div>
             <div className="evidence-well-probe-buttons">
               {(Object.keys(evidenceProbeLabels) as EvidenceProbe[]).map((probe) => (
@@ -350,12 +266,6 @@ export function EvidenceWellTrial({
               ))}
             </div>
           </div>
-
-          {templateVisible && crewAbility?.stableTemplate && (
-            <div className="chapter-two-soft-success">
-              稳定封签模板：{crewAbility.stableTemplate}
-            </div>
-          )}
 
           <div className={pollutedSegmentIds.length > 0 ? "chapter-two-soft-warning" : "chapter-two-soft-success"}>
             {feedback}
@@ -401,7 +311,7 @@ export function EvidenceWellTrial({
           <div className="evidence-well-reward">
             <span>获得</span>
             <strong>{fragmentName}</strong>
-            <p>未知不是失败，是让记录继续可复查的封签。</p>
+            <p>探针归位，残记录重新变得可追踪。</p>
           </div>
           <div className="chapter-two-landmark-game__footer">
             <span>返回地表后，回声井热点与碎片计量都会更新。</span>
@@ -413,10 +323,14 @@ export function EvidenceWellTrial({
                   mistakeCount: localMistakeCount,
                   pollutedRecords: pollutionHistoryIds,
                   crewAbilityKind: crewAbility?.kind,
-                  crewIntervention: assistUsed
-                    ? crewAbility?.intervention ?? "同行船员在井沿放下稳定锚：先圈出污染段，再把缺少来源的位置封为未知。"
-                    : undefined,
-                  evidenceLines: repairedLines
+                  crewIntervention: crewAssistRecord?.hint,
+                  evidenceLines: repairedLines,
+                  repairReadingDelta: { evidenceIntegrity: 1, unknownMarking: 2 },
+                  repairReadingSource: "证据回声井",
+                  repairReadingNote:
+                    pollutionHistoryIds.length > 0
+                      ? "证据探针完成复盘，缺少来源的位置重新封为未知。"
+                      : "证据探针一次归位，事实、推测和未知分层稳定。"
                 })
               }
             >

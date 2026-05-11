@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   chapterTwoBlackboxFragmentLocationIds,
@@ -11,15 +11,19 @@ import {
   chapterTwoSceneLabelMap,
   chapterTwoSurfaceLocations
 } from "@/lib/chapter-two-exploration";
-import { resolveChapterTwoCrewAbility } from "@/lib/crew-abilities";
+import { createChapterTwoCrewAssistHint, resolveChapterTwoCrewAbility } from "@/lib/crew-abilities";
 import type {
   ChapterTwoCrewAbility,
+  ChapterTwoCrewAssistRecord,
+  ChapterTwoCrewAssistRequest,
   ChapterTwoLocationCompletionPayload,
   ChapterTwoLocationId,
   ChapterTwoLocationRewardClaim,
   ChapterTwoPlanetId,
+  ChapterTwoRepairReadings,
   ChapterTwoSceneState,
   ChapterTwoState,
+  ChapterTwoSystemReadings,
   CrewMember
 } from "@/types/game";
 
@@ -30,6 +34,7 @@ import {
   LetterPortGame,
   PaperCorridorGame
 } from "@/components/game/chapter-two/LandmarkGames";
+import { CrewAssistHintButton } from "@/components/game/chapter-two/LandmarkGames/CrewAbilityHint";
 
 interface ChapterTwoMissionPanelProps {
   mission: ChapterTwoState;
@@ -42,7 +47,11 @@ interface ChapterTwoMissionPanelProps {
     mistakeCount?: number;
     pollutedRecords?: string[];
     statusNote?: string;
+    repairReadingDelta?: Partial<ChapterTwoRepairReadings>;
+    repairReadingSource?: string;
+    repairReadingNote?: string;
   }) => void;
+  onUseCrewAssist: (request: ChapterTwoCrewAssistRequest) => void;
   onExploreLocation: (locationId: ChapterTwoLocationId, payload?: ChapterTwoLocationCompletionPayload) => void;
   onAdvance: () => void;
   onComplete: () => void;
@@ -68,17 +77,17 @@ function useSceneAutopilot({
     }
 
     if (sceneState === "ship_bridge") {
-      const timer = window.setTimeout(() => onSetSceneState("launch_sequence"), 1050);
+      const timer = window.setTimeout(() => onSetSceneState("launch_sequence"), 1300);
       return () => window.clearTimeout(timer);
     }
 
     if (sceneState === "launch_sequence") {
-      const timer = window.setTimeout(() => onSetSceneState("warp_travel"), 1050);
+      const timer = window.setTimeout(() => onSetSceneState("warp_travel"), 1650);
       return () => window.clearTimeout(timer);
     }
 
     if (sceneState === "warp_travel") {
-      const timer = window.setTimeout(() => onSetSceneState("sector_view"), 1350);
+      const timer = window.setTimeout(() => onSetSceneState("sector_view"), 1950);
       return () => window.clearTimeout(timer);
     }
 
@@ -179,15 +188,30 @@ const blackboxExpressionChoices = {
 
 const reflectionKeywords = ["理解", "判断", "表达", "检查", "目标", "证据", "不能直接相信", "自己思考", "不复制"] as const;
 
+const systemReadingItems: Array<{ key: keyof ChapterTwoSystemReadings; label: string; mode: "high" | "low" }> = [
+  { key: "languageStability", label: "语言稳定度", mode: "high" },
+  { key: "evidenceChainIntegrity", label: "证据链完整度", mode: "high" },
+  { key: "echoInterferenceResidue", label: "回声干扰残留", mode: "low" },
+  { key: "blackBoxSyncRate", label: "黑匣同步率", mode: "high" }
+];
+
 function BlackboxEchoTrial({
   disorderLevel,
   mistakeCount,
+  activeCrew,
+  crewAbility,
+  crewAssistRecord,
   onDisorderChange,
+  onUseCrewAssist,
   onOpened
 }: {
   disorderLevel: number;
   mistakeCount: number;
+  activeCrew: CrewMember | null;
+  crewAbility: ChapterTwoCrewAbility | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
   onDisorderChange: ChapterTwoMissionPanelProps["onUpdateDisorder"];
+  onUseCrewAssist: ChapterTwoMissionPanelProps["onUseCrewAssist"];
   onOpened: () => void;
 }) {
   const [currentPhase, setCurrentPhase] = useState<BlackboxPhase>("intro");
@@ -198,12 +222,36 @@ function BlackboxEchoTrial({
   const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>([]);
   const [expressionAnswer, setExpressionAnswer] = useState<Partial<Record<keyof typeof blackboxExpressionChoices, string>>>({});
   const [finalReflection, setFinalReflection] = useState("");
-  const [battleResult, setBattleResult] = useState("失序回声仍在诱导你交出判断。");
+  const [battleResult, setBattleResult] = useState("失序回声想替你回答。");
 
   const gateCompletedCount = completedPhases.filter((phase) => phase !== "final-reflection").length;
   const visibleDisorderLevel = Math.max(disorderLevel, 4 - gateCompletedCount);
+  const localBlackboxReadings: ChapterTwoSystemReadings = {
+    languageStability: Math.max(0, Math.min(100, 46 + gateCompletedCount * 10 - visibleDisorderLevel * 3)),
+    evidenceChainIntegrity: Math.max(0, Math.min(100, 38 + (completedPhases.includes("archive") ? 20 : 0) + (completedPhases.includes("verification") ? 24 : 0))),
+    echoInterferenceResidue: Math.max(0, Math.min(100, visibleDisorderLevel * 14 - gateCompletedCount * 4)),
+    blackBoxSyncRate: Math.max(0, Math.min(100, gateCompletedCount * 18 + (completedPhases.includes("final-reflection") ? 10 : 0)))
+  };
   const archiveScore = blackboxArchiveFragments.filter((fragment) => archiveChoices[fragment.id] === fragment.answer).length;
   const assembledPrompt = `${assembledPromptParts.object ?? "【对象】"}，请${assembledPromptParts.task ?? "【任务】"}，${assembledPromptParts.limit ?? "【限制】"}，最后${assembledPromptParts.format ?? "【输出形式】"}。`;
+  const crewName = activeCrew?.name ?? "同行船员";
+  const crewAssistHint = createChapterTwoCrewAssistHint({
+    targetId: "blackbox-trial",
+    ability: crewAbility,
+    crewName,
+    phase: currentPhase
+  });
+
+  const requestCrewAssist = () => {
+    onUseCrewAssist({
+      targetId: "blackbox-trial",
+      targetName: "黑匣试炼",
+      hint: crewAssistHint,
+      crewId: activeCrew?.id ?? null,
+      crewName,
+      abilityKind: crewAbility?.kind
+    });
+  };
 
   useEffect(() => {
     if (currentPhase !== "restoring") {
@@ -214,13 +262,22 @@ function BlackboxEchoTrial({
     return () => window.clearTimeout(timer);
   }, [currentPhase, onOpened]);
 
-  const completePhase = (phase: BlackboxPhase, nextPhase: BlackboxPhase, message: string) => {
+  const completePhase = (
+    phase: BlackboxPhase,
+    nextPhase: BlackboxPhase,
+    message: string,
+    repairReadingDelta: Partial<ChapterTwoRepairReadings>,
+    repairReadingNote: string
+  ) => {
     setCompletedPhases((current) => (current.includes(phase) ? current : [...current, phase]));
     setBattleResult(message);
     onDisorderChange({
       disorderLevel: Math.max(0, visibleDisorderLevel - 1),
       pollutedRecords: [],
-      statusNote: `黑匣试炼稳定：${message}`
+      statusNote: `黑匣试炼稳定：${message}`,
+      repairReadingDelta,
+      repairReadingSource: blackboxPhaseMeta.find((item) => item.id === phase)?.title ?? "黑匣最终理解确认",
+      repairReadingNote
     });
     setCurrentPhase(nextPhase);
   };
@@ -282,10 +339,16 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (Object.keys(archiveChoices).length < blackboxArchiveFragments.length || archiveScore < 4) {
-            raiseDisorder("黑匣噪声升高：哪些内容真的有证据？");
+            raiseDisorder("黑匣噪声升高：先把来源层级分开。");
             return;
           }
-          completePhase("archive", "delivery", "你没有把猜测当成事实。");
+          completePhase(
+            "archive",
+            "delivery",
+            "第一扇门稳定。",
+            { evidenceIntegrity: 1, unknownMarking: 1 },
+            "归档之门完成分层。"
+          );
         }}
       >
         嵌入归档碎片
@@ -332,7 +395,13 @@ function BlackboxEchoTrial({
               raiseDisorder(`传递门噪声增加，还缺：${missing.map((key) => blackboxDeliveryLabels[key]).join("、")}。`);
               return;
             }
-            completePhase("delivery", "verification", "信息有了方向。");
+            completePhase(
+              "delivery",
+              "verification",
+              "第二扇门稳定。",
+              { goalClarity: 1, boundaryAwareness: 1 },
+              "传递之门完成校准。"
+            );
           }}
         >
           送达传递碎片
@@ -391,10 +460,16 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (selectedFakeClaims.length < 2 || selectedIssueTypes.length < 1) {
-            raiseDisorder("失序回声变强：它说得很顺，但证据在哪里？");
+            raiseDisorder("失序回声变强：顺滑结论仍未拆开。");
             return;
           }
-          completePhase("verification", "expression", "完整不等于真实。");
+          completePhase(
+            "verification",
+            "expression",
+            "第三扇门稳定。",
+            { evidenceIntegrity: 1, unknownMarking: 1 },
+            "求证之门完成校准。"
+          );
         }}
       >
         击碎错误铭文
@@ -435,10 +510,16 @@ function BlackboxEchoTrial({
         className="blackbox-echo-primary"
         onClick={() => {
           if (!expressionAnswer.help || !expressionAnswer.notAlways || !expressionAnswer.clarify || !expressionAnswer.check) {
-            raiseDisorder("表达门仍不稳定：把四个空都补上，才算你在控制输出方向。");
+            raiseDisorder("表达门仍不稳定：四个空还没有补齐。");
             return;
           }
-          completePhase("expression", "final-reflection", "你没有复制它，你说出了自己的理解。");
+          completePhase(
+            "expression",
+            "final-reflection",
+            "第四扇门稳定。",
+            { goalClarity: 1, boundaryAwareness: 1 },
+            "表达之门完成校准。"
+          );
         }}
       >
         嵌入表达碎片
@@ -458,7 +539,7 @@ function BlackboxEchoTrial({
           <textarea
             value={finalReflection}
             onChange={(event) => setFinalReflection(event.target.value)}
-            placeholder="写一句像你自己的想法，例如：我要先判断有没有证据，不能直接复制它的答案。"
+            placeholder="写一句自己的判断，例如：它可以帮我整理，但不能替我决定。"
           />
         </label>
         <button
@@ -469,7 +550,13 @@ function BlackboxEchoTrial({
               raiseDisorder("最终回声仍未消散：再说得更像你自己的想法一点。");
               return;
             }
-            completePhase("final-reflection", "opened", "失序回声正在消散。");
+            completePhase(
+              "final-reflection",
+              "opened",
+              "判断权回来了。",
+              { boundaryAwareness: 1 },
+              "最终理解确认判断权回写主舰。"
+            );
           }}
         >
           交还最终判断
@@ -480,6 +567,9 @@ function BlackboxEchoTrial({
 
   const renderOpened = () => (
     <div className="blackbox-echo-opened">
+      <div className="blackbox-echo-opened__sync">
+        语言黑匣已接入 · 判断权已回写
+      </div>
       <div className="blackbox-echo-letter">
         <p>我们曾经拥有无数答案。</p>
         <p>却忘了怎样提出问题。</p>
@@ -513,12 +603,37 @@ function BlackboxEchoTrial({
       </div>
       <div className="blackbox-echo-panel">
         {renderPhaseStatus()}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {systemReadingItems.map((item) => (
+            <div key={item.key} className="rounded-[12px] border border-white/8 bg-white/[0.035] px-3 py-2">
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-white/54">{item.label}</span>
+                <strong className={item.mode === "low" && localBlackboxReadings[item.key] <= 25 ? "text-emerald-100" : "text-cyan-50"}>
+                  {localBlackboxReadings[item.key]}%
+                </strong>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                <span className="block h-full rounded-full bg-cyan-200" style={{ width: `${localBlackboxReadings[item.key]}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        {currentPhase !== "opened" && currentPhase !== "restoring" ? (
+          <CrewAssistHintButton
+            ability={crewAbility}
+            crewName={crewName}
+            targetName="黑匣试炼"
+            hint={crewAssistHint}
+            usedRecord={crewAssistRecord}
+            onUse={requestCrewAssist}
+          />
+        ) : null}
         <div className="blackbox-echo-feedback">{battleResult}</div>
         {currentPhase === "intro" && (
           <div className="blackbox-echo-intro">
             <div className="soft-label text-[10px] text-amber-100/60">黑匣试炼：失序回声</div>
             <h2>它想替你回答。</h2>
-            <p>用四枚文明碎片逐层稳定它。不要复制答案，重新拿回判断。</p>
+            <p>四枚碎片已经在手。最后确认：帮助不能替代你。</p>
             <button type="button" className="blackbox-echo-primary" onClick={() => setCurrentPhase("archive")}>
               进入归档之门
             </button>
@@ -546,6 +661,7 @@ function LocationCompletedPanel({
   onReturn: () => void;
 }) {
   const rewards = rewardClaim?.rewards ?? [];
+  const settlement = rewardClaim?.settlement ?? null;
 
   return (
     <div className="chapter-two-landmark-game chapter-two-landmark-game--complete">
@@ -569,6 +685,32 @@ function LocationCompletedPanel({
           </div>
         )}
       </div>
+      {settlement ? (
+        <div className="mt-4 rounded-[18px] border border-cyan-200/14 bg-cyan-200/[0.06] p-4">
+          <div className="soft-label text-[10px] text-cyan-100/55">主舰结算回报 / {settlement.sourceName}</div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {systemReadingItems.map((item) => {
+              const value = settlement.readings[item.key];
+              return (
+                <div key={item.key} className="rounded-[14px] border border-white/8 bg-white/[0.035] px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-white/64">{item.label}</span>
+                    <strong className={item.mode === "low" && value <= 25 ? "text-emerald-100" : "text-cyan-50"}>{value}%</strong>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <span className="block h-full rounded-full bg-cyan-200" style={{ width: `${value}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 space-y-1 text-xs leading-5 text-white/56">
+            {settlement.reportLines.slice(0, 2).map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <button type="button" onClick={onReturn} className="chapter-two-landmark-game__ghost">
         返回星球表面
       </button>
@@ -580,10 +722,13 @@ function LandmarkMiniGame({
   location,
   completed,
   rewardClaim,
+  activeCrew,
   crewAbility,
+  crewAssistRecord,
   disorderLevel,
   mistakeCount,
   pollutedRecords,
+  onUseCrewAssist,
   onUpdateDisorder,
   onComplete,
   onReturn
@@ -591,16 +736,35 @@ function LandmarkMiniGame({
   location: NonNullable<ReturnType<typeof chapterTwoSurfaceLocations.find>>;
   completed: boolean;
   rewardClaim: ChapterTwoLocationRewardClaim | null;
+  activeCrew: CrewMember | null;
   crewAbility: ChapterTwoCrewAbility | null;
+  crewAssistRecord: ChapterTwoCrewAssistRecord | null;
   disorderLevel: number;
   mistakeCount: number;
   pollutedRecords: string[];
+  onUseCrewAssist: ChapterTwoMissionPanelProps["onUseCrewAssist"];
   onUpdateDisorder: ChapterTwoMissionPanelProps["onUpdateDisorder"];
   onComplete: (payload?: ChapterTwoLocationCompletionPayload) => void;
   onReturn: () => void;
 }) {
   const [loreChoice, setLoreChoice] = useState<string | null>(null);
   const [loreFeedback, setLoreFeedback] = useState<string | null>(null);
+  const crewName = activeCrew?.name ?? "同行船员";
+  const crewAssistHint = createChapterTwoCrewAssistHint({
+    targetId: location.id,
+    ability: crewAbility,
+    crewName
+  });
+  const requestCrewAssist = () => {
+    onUseCrewAssist({
+      targetId: location.id,
+      targetName: location.name,
+      hint: crewAssistHint,
+      crewId: activeCrew?.id ?? null,
+      crewName,
+      abilityKind: crewAbility?.kind
+    });
+  };
 
   if (completed) {
     return <LocationCompletedPanel location={location} rewardClaim={rewardClaim} onReturn={onReturn} />;
@@ -611,6 +775,10 @@ function LandmarkMiniGame({
       <EvidenceWellTrial
         fragmentName={location.fragmentName}
         crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         disorderLevel={disorderLevel}
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
@@ -629,6 +797,10 @@ function LandmarkMiniGame({
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
         crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         onDisorderChange={onUpdateDisorder}
         onComplete={onComplete}
         onReturn={onReturn}
@@ -644,6 +816,10 @@ function LandmarkMiniGame({
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
         crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         onDisorderChange={onUpdateDisorder}
         onComplete={onComplete}
         onReturn={onReturn}
@@ -659,6 +835,10 @@ function LandmarkMiniGame({
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
         crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         onDisorderChange={onUpdateDisorder}
         onComplete={onComplete}
         onReturn={onReturn}
@@ -674,6 +854,10 @@ function LandmarkMiniGame({
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
         crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         onDisorderChange={onUpdateDisorder}
         onComplete={onComplete}
         onReturn={onReturn}
@@ -699,6 +883,14 @@ function LandmarkMiniGame({
             </div>
           ))}
         </div>
+        <CrewAssistHintButton
+          ability={crewAbility}
+          crewName={crewName}
+          targetName={location.name}
+          hint={crewAssistHint}
+          usedRecord={crewAssistRecord}
+          onUse={requestCrewAssist}
+        />
         {loreCheck && (
           <div className="chapter-two-lore-check">
             <div className="soft-label text-[10px] text-cyan-100/52">导览确认</div>
@@ -727,7 +919,27 @@ function LandmarkMiniGame({
         )}
         <div className="chapter-two-landmark-game__footer">
           <span>{loreReady ? loreCheck?.success : loreCheck?.retry ?? "读完导览后，确认这处设施的作用。"}</span>
-          <button type="button" disabled={!loreReady} onClick={() => onComplete()}>
+          <button
+            type="button"
+            disabled={!loreReady}
+            onClick={() =>
+              onComplete({
+                repairReadingDelta:
+                  location.id === "semantic-dispatch"
+                    ? { goalClarity: 1 }
+                    : location.id === "boundary-beacon"
+                      ? { unknownMarking: 1, boundaryAwareness: 2 }
+                      : undefined,
+                repairReadingSource: location.name,
+                repairReadingNote:
+                  location.id === "semantic-dispatch"
+                    ? "分流庭确认信息请求需要先拆清目标。"
+                    : location.id === "boundary-beacon"
+                      ? "边界灯标确认协助范围。"
+                      : `${location.name}导览确认完成。`
+              })
+            }
+          >
             写入星球职能图
           </button>
         </div>
@@ -746,6 +958,7 @@ export function ChapterTwoMissionPanel({
   onFocusPlanet,
   onFocusLocation,
   onUpdateDisorder,
+  onUseCrewAssist,
   onExploreLocation,
   onAdvance,
   onComplete
@@ -758,6 +971,8 @@ export function ChapterTwoMissionPanel({
 
   const activeCrew = crewRoster.find((crew) => crew.id === mission.leadCrewId) ?? crewRoster[0] ?? null;
   const crewAbility = resolveChapterTwoCrewAbility(activeCrew);
+  const getCrewAssistRecord = (targetId: ChapterTwoCrewAssistRequest["targetId"]) =>
+    mission.crewAssistRecords.find((record) => record.targetId === targetId) ?? null;
   const focusedPlanet = chapterTwoPlanetNodes.find((planet) => planet.id === mission.focusedPlanetId) ?? null;
   const focusedLocation = chapterTwoSurfaceLocations.find((location) => location.id === mission.focusedLocationId) ?? null;
   const evidenceWellCompleted = mission.exploredLocationIds.includes(chapterTwoEvidenceFragmentLocationId);
@@ -769,6 +984,14 @@ export function ChapterTwoMissionPanel({
   const scoutRevealLocation = (crewAbility?.kind === "scout" || mission.baseScanHints.length > 0) && !evidenceWellCompleted ? evidenceWellLocation : null;
   const blackBoxCompleted = Boolean(mission.outcome);
   const planetRestored = Boolean(mission.outcome);
+  const [recentCompletedLocation, setRecentCompletedLocation] = useState<{
+    id: ChapterTwoLocationId;
+    name: string;
+    detail: string;
+  } | null>(null);
+  const [blackboxReadyCue, setBlackboxReadyCue] = useState(false);
+  const previousExploredLocationIdsRef = useRef(mission.exploredLocationIds);
+  const previousBlackBoxUnlockedRef = useRef(mission.blackBoxUnlocked);
 
   const missionHint =
     mission.currentStep === "response"
@@ -795,11 +1018,63 @@ export function ChapterTwoMissionPanel({
     : chapterTwoSceneAssets.languageSurfaceGuide.imageUrl;
   const focusedLocationAsset = focusedLocation ? chapterTwoSceneAssets[focusedLocation.detailAssetKey].imageUrl : null;
 
+  useEffect(() => {
+    const previousExplored = new Set(previousExploredLocationIdsRef.current);
+    const newlyExploredId = mission.exploredLocationIds.find((locationId) => !previousExplored.has(locationId));
+
+    if (newlyExploredId) {
+      const location = chapterTwoSurfaceLocations.find((item) => item.id === newlyExploredId);
+      const detail =
+        newlyExploredId === chapterTwoEvidenceFragmentLocationId
+          ? "证据光路已回流"
+          : chapterTwoBlackboxFragmentLocationIds.includes(newlyExploredId)
+            ? "通向黑匣的光路更亮了"
+            : "星球职能图已写入";
+
+      setRecentCompletedLocation({
+        id: newlyExploredId,
+        name: location?.name ?? "言衡星地点",
+        detail
+      });
+    }
+
+    if (mission.blackBoxUnlocked && !previousBlackBoxUnlockedRef.current) {
+      setBlackboxReadyCue(true);
+    }
+
+    previousExploredLocationIdsRef.current = mission.exploredLocationIds;
+    previousBlackBoxUnlockedRef.current = mission.blackBoxUnlocked;
+  }, [mission.blackBoxUnlocked, mission.exploredLocationIds]);
+
+  useEffect(() => {
+    if (mission.sceneState !== "planet_surface") {
+      return;
+    }
+
+    const timers: number[] = [];
+
+    if (recentCompletedLocation) {
+      timers.push(window.setTimeout(() => setRecentCompletedLocation(null), 3000));
+    }
+
+    if (blackboxReadyCue) {
+      timers.push(window.setTimeout(() => setBlackboxReadyCue(false), 3600));
+    }
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [blackboxReadyCue, mission.sceneState, recentCompletedLocation]);
+
   const renderResponseStage = () => {
     const previewingPlanet = mission.sceneState === "planet_preview" && Boolean(focusedPlanet);
 
     return (
-      <section className={`chapter-two-world chapter-two-world--${mission.sceneState}`}>
+      <section
+        className={`chapter-two-world chapter-two-world--${mission.sceneState} ${
+          mission.blackBoxUnlocked ? "chapter-two-world--blackbox-ready" : ""
+        } ${blackboxReadyCue ? "chapter-two-world--blackbox-ready-new" : ""}`}
+      >
         <div className="chapter-two-world__viewport">
           {(mission.sceneState === "ship_bridge" || mission.sceneState === "launch_sequence") && (
             <>
@@ -808,6 +1083,17 @@ export function ChapterTwoMissionPanel({
                 transform={mission.sceneState === "launch_sequence" ? "scale(1.08)" : "scale(1.04)"}
               />
               <div className="chapter-two-launch-overlay" aria-hidden="true" />
+              <div className="chapter-two-launch-drive" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="chapter-two-launch-vector" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
               <div className={`chapter-two-departure-title ${mission.sceneState === "launch_sequence" ? "chapter-two-departure-title--fade" : ""}`}>
                 <div className="soft-label text-[10px] text-cyan-100/60">首次外部远征</div>
                 <h2>主舰正在锁定言衡星航线</h2>
@@ -820,6 +1106,18 @@ export function ChapterTwoMissionPanel({
               <SceneImage imageUrl={chapterTwoSceneAssets.launch.imageUrl} transform="scale(1.12)" />
               <div className="chapter-two-warp-streak" aria-hidden="true" />
               <div className="chapter-two-warp-centerline" aria-hidden="true" />
+              <div className="chapter-two-warp-rift" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+              <div className="chapter-two-warp-flash" aria-hidden="true" />
             </>
           )}
 
@@ -969,7 +1267,9 @@ export function ChapterTwoMissionPanel({
                 <svg className="chapter-two-light-paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                   {evidenceWellLocation ? (
                     <line
-                      className={`chapter-two-light-path chapter-two-light-path--evidence ${evidenceWellCompleted ? "chapter-two-light-path--lit" : ""}`}
+                      className={`chapter-two-light-path chapter-two-light-path--evidence ${evidenceWellCompleted ? "chapter-two-light-path--lit" : ""} ${
+                        recentCompletedLocation?.id === chapterTwoEvidenceFragmentLocationId ? "chapter-two-light-path--just-lit" : ""
+                      } ${blackboxReadyCue ? "chapter-two-light-path--blackbox-ready" : ""}`}
                       x1={evidenceWellLocation.position.x}
                       y1={evidenceWellLocation.position.y}
                       x2={blackboxLocation.position.x}
@@ -981,7 +1281,9 @@ export function ChapterTwoMissionPanel({
                     return (
                       <line
                         key={location.id}
-                        className={explored ? "chapter-two-light-path chapter-two-light-path--main chapter-two-light-path--lit" : "chapter-two-light-path chapter-two-light-path--main"}
+                        className={`${explored ? "chapter-two-light-path chapter-two-light-path--main chapter-two-light-path--lit" : "chapter-two-light-path chapter-two-light-path--main"} ${
+                          recentCompletedLocation?.id === location.id ? "chapter-two-light-path--just-lit" : ""
+                        } ${blackboxReadyCue ? "chapter-two-light-path--blackbox-ready" : ""}`}
                         x1={location.position.x}
                         y1={location.position.y}
                         x2={blackboxLocation.position.x}
@@ -1006,17 +1308,19 @@ export function ChapterTwoMissionPanel({
                         onFocusLocation(location.id);
                         onSetSceneState(location.id === "blackbox-vault" && mission.blackBoxUnlocked ? "blackbox_unlock" : "location_focus");
                       }}
-                      className={`chapter-two-location-hotspot chapter-two-location-hotspot--${location.size} ${
+                      className={`chapter-two-location-hotspot chapter-two-location-hotspot--${location.size} chapter-two-location-hotspot--${location.id} ${
                         explored ? "chapter-two-location-hotspot--done" : ""
                       } ${locked ? "chapter-two-location-hotspot--locked" : ""} ${
                         isBlackBox && mission.blackBoxUnlocked ? "chapter-two-location-hotspot--blackbox" : ""
                       } ${
                         isBlackBox && blackBoxCompleted ? "chapter-two-location-hotspot--restored" : ""
+                      } ${
+                        recentCompletedLocation?.id === location.id ? "chapter-two-location-hotspot--just-completed" : ""
                       }`}
                       style={{ left: `${location.position.x}%`, top: `${location.position.y}%` }}
+                      aria-label={`${location.name}，${locked ? "尚未响应" : explored ? "已修复" : location.challengeTitle}`}
                     >
                       <span className="chapter-two-location-hotspot__pulse" />
-                      <i className="chapter-two-location-hotspot__symbol" aria-hidden="true">{location.symbol}</i>
                       <strong>{location.name}</strong>
                     </button>
                   );
@@ -1056,7 +1360,20 @@ export function ChapterTwoMissionPanel({
               )}
               {mission.blackBoxUnlocked && (
                 <div className="chapter-two-short-cue">
-                  黑匣回应了你。
+                  {blackboxReadyCue ? "四束信息光已汇聚，黑匣已响应。" : "黑匣回应了你。"}
+                </div>
+              )}
+              {recentCompletedLocation && (
+                <div className="chapter-two-completion-cue" aria-live="polite">
+                  <span>地点稳定</span>
+                  <strong>{recentCompletedLocation.name}</strong>
+                  <small>{recentCompletedLocation.detail}</small>
+                </div>
+              )}
+              {blackboxReadyCue && (
+                <div className="chapter-two-blackbox-ready-cue" aria-live="polite">
+                  <span>黑匣封存台</span>
+                  <strong>四束信息光已汇聚</strong>
                 </div>
               )}
             </>
@@ -1087,10 +1404,13 @@ export function ChapterTwoMissionPanel({
                   location={focusedLocation}
                   completed={mission.exploredLocationIds.includes(focusedLocation.id)}
                   rewardClaim={mission.locationRewardClaims.find((claim) => claim.locationId === focusedLocation.id) ?? null}
+                  activeCrew={activeCrew}
                   crewAbility={crewAbility}
+                  crewAssistRecord={getCrewAssistRecord(focusedLocation.id)}
                   disorderLevel={mission.disorderLevel}
                   mistakeCount={mission.mistakeCount}
                   pollutedRecords={mission.pollutedRecords}
+                  onUseCrewAssist={onUseCrewAssist}
                   onUpdateDisorder={onUpdateDisorder}
                   onComplete={(payload) => onExploreLocation(focusedLocation.id, payload)}
                   onReturn={() => {
@@ -1150,7 +1470,11 @@ export function ChapterTwoMissionPanel({
         <BlackboxEchoTrial
           disorderLevel={mission.disorderLevel}
           mistakeCount={mission.mistakeCount}
+          activeCrew={activeCrew}
+          crewAbility={crewAbility}
+          crewAssistRecord={getCrewAssistRecord("blackbox-trial")}
           onDisorderChange={onUpdateDisorder}
+          onUseCrewAssist={onUseCrewAssist}
           onOpened={onComplete}
         />
       </div>

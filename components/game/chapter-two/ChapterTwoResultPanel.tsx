@@ -162,9 +162,9 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         </div>
 
         <div className="mt-8 rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
-          <div className="text-lg font-semibold text-white">船员协作记录</div>
+          <div className="text-lg font-semibold text-white">失联与回收记录</div>
           <div className="mt-2 text-xs leading-6 text-white/52">
-            {outcome.crewAssistSummary ?? "船员以远征伙伴身份留下旁路提示。"}
+            {outcome.crewAssistSummary ?? "坠毁后通讯失联，地标修复没有接入船员提示。"}
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
@@ -186,7 +186,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
               ))
             ) : (
               <div className="rounded-[18px] border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-6 text-white/50">
-                本次远征没有使用船员提示。船员仍作为同行见证者参与归档。
+                本次远征没有使用船员提示。坠毁前的同行记录已保留，后续信号等待复查。
               </div>
             )}
           </div>

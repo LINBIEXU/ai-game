@@ -66,6 +66,7 @@ export const emptyChapterTwoState = (): ChapterTwoState => ({
   settlementLogs: [],
   crewAssistRecords: [],
   blackBoxUnlocked: false,
+  fakeCrewSignalResolved: false,
   echo: null,
   truth: null,
   attemptCount: 0,

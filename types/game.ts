@@ -39,8 +39,14 @@ export type ChapterTwoSceneState =
   | "sector_view"
   | "planet_preview"
   | "planet_descent"
+  | "signal_attack"
+  | "crash_site"
+  | "hengdeng_dialogue"
+  | "tower_approach"
+  | "orbit_reveal"
   | "planet_surface"
   | "location_focus"
+  | "fake_crew_signal"
   | "blackbox_unlock"
   | "memory_archive"
   | "boss_trial"
@@ -816,6 +822,7 @@ export interface ChapterTwoState {
   settlementLogs: ChapterTwoSettlementLog[];
   crewAssistRecords: ChapterTwoCrewAssistRecord[];
   blackBoxUnlocked: boolean;
+  fakeCrewSignalResolved: boolean;
   echo: ChapterTwoEcho | null;
   truth: ChapterTwoTruth | null;
   attemptCount: number;

@@ -27,12 +27,12 @@ export function CrewAbilityHint({
 }
 
 export function CrewAssistHintButton({
-  ability,
-  crewName,
-  targetName,
-  hint,
-  usedRecord,
-  onUse
+  ability: _ability,
+  crewName: _crewName,
+  targetName: _targetName,
+  hint: _hint,
+  usedRecord: _usedRecord,
+  onUse: _onUse
 }: {
   ability: ChapterTwoCrewAbility | null;
   crewName: string;
@@ -41,20 +41,5 @@ export function CrewAssistHintButton({
   usedRecord: ChapterTwoCrewAssistRecord | null;
   onUse: () => void;
 }) {
-  const used = Boolean(usedRecord);
-
-  return (
-    <div
-      className={`chapter-two-crew-assist ${ability ? `chapter-two-crew-assist--${ability.kind}` : "chapter-two-crew-assist--idle"} ${used ? "chapter-two-crew-assist--used" : ""}`}
-      data-hint-ready={hint ? "true" : "false"}
-    >
-      <span>船员协助提示 / {targetName}</span>
-      <strong>{crewName} · {ability?.label ?? "同行提醒"}</strong>
-      <p>{usedRecord?.hint ?? "每处地点只接收一次同行提示，用来检查方向。"}</p>
-      <button type="button" onClick={onUse} disabled={used}>
-        {used ? "提示已记录" : ability?.triggerLabel ?? "请求提示"}
-      </button>
-      {!used ? <em>提示会写入本次远征记录，只提醒检查线索，不直接给答案。</em> : null}
-    </div>
-  );
+  return null;
 }

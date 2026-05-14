@@ -547,7 +547,7 @@ function normalizeChapterTwoCrewAssistRecords(input: ChapterTwoCrewAssistRecord[
 
 function createCrewAssistSummary(records: ChapterTwoCrewAssistRecord[]) {
   if (records.length === 0) {
-    return "本次远征没有请求船员提示，所有判断由小舰长独立完成。";
+    return "坠毁后通讯失联，本次地标修复没有请求船员提示，所有判断由你独立完成。";
   }
 
   const targetNames = records
@@ -555,7 +555,7 @@ function createCrewAssistSummary(records: ChapterTwoCrewAssistRecord[]) {
     .reverse()
     .map((record) => record.targetName);
 
-  return `本次远征使用 ${records.length} 次船员协助提示：${targetNames.join("、")}。提示只记录检查方向，没有替小舰长选择答案。`;
+  return `旧记录中保留 ${records.length} 次船员提示：${targetNames.join("、")}。当前剧情已切换为失联状态，后续地标不再接入船员协助。`;
 }
 
 function addChapterTwoRepairReadingLog({
@@ -717,6 +717,7 @@ function normalizeGameState(input: GameState): GameState {
       settlementLogs: normalizeChapterTwoSettlementLogs(input.chapterTwo?.settlementLogs ?? input.chapterTwo?.outcome?.settlementLogs),
       crewAssistRecords: chapterTwoCrewAssistRecords,
       blackBoxUnlocked: input.chapterTwo?.blackBoxUnlocked ?? false,
+      fakeCrewSignalResolved: input.chapterTwo?.fakeCrewSignalResolved ?? false,
       truth: input.chapterTwo?.truth ?? null,
       attemptCount: typeof input.chapterTwo?.attemptCount === "number" ? input.chapterTwo.attemptCount : 0,
       lastSetback: input.chapterTwo?.lastSetback ?? null,
@@ -1050,12 +1051,12 @@ function createLocationExpeditionArchiveRecord({
   createdAt: number;
 }): HomePlanetArchiveRecord {
   const crewLine = crewAssistRecord
-    ? `船员协作记录：${crewAssistRecord.crewName} 在${crewAssistRecord.targetName}留下提示：“${crewAssistRecord.hint}”。`
+    ? `失联前旧提示：${crewAssistRecord.crewName} 在${crewAssistRecord.targetName}留下提示：“${crewAssistRecord.hint}”。`
     : crewIntervention
-      ? `船员协作记录：${crewIntervention}`
+      ? `失联记录：${crewIntervention}`
       : leadCrew
-        ? `船员协作记录：${leadCrew.name} 随队完成节点回收，判断权仍由小舰长保留。`
-        : "船员协作记录：主舰基础引导完成记录，未调用额外伙伴提示。";
+        ? `失联记录：${leadCrew.name} 暂未回连，节点回收由你独立完成。`
+        : "失联记录：主舰基础引导完成记录，未调用伙伴提示。";
 
   return {
     id: `archive-expedition-${locationId}`,
@@ -1093,8 +1094,8 @@ function createBlackboxExpeditionArchiveRecord({
   const readings = outcome.systemReadings ?? emptyChapterTwoSystemReadings();
   const supportLine =
     supportCrew.id === leadCrew.id
-      ? `${leadCrew.name} 完成前线校验、碎片归档与返航记录。`
-      : `${leadCrew.name} 完成黑匣开启，${supportCrew.name} 协助校验表达边界。`;
+      ? `${leadCrew.name} 的坠毁前同行记录已保留，失联后由你完成碎片归档与返航记录。`
+      : `${leadCrew.name} 与 ${supportCrew.name} 暂未回连，失联后的黑匣开启由你独立完成。`;
 
   return {
     id: "archive-expedition-blackbox-trial",
@@ -1106,8 +1107,8 @@ function createBlackboxExpeditionArchiveRecord({
       "关键判断：让 AI 帮助整理、推测和表达，但事实核查、边界设定与最终判断仍由小舰长完成。",
       "仍需标记的未知：未给出资料来源、残片缺口和无法验证的外部结论继续保留为未知。",
       `获得资源：水源 +${languagePlanetResourceReward.water} / 矿物 +${languagePlanetResourceReward.minerals} / 能源 +${languagePlanetResourceReward.energy} / 文明碎片 +${languagePlanetResourceReward.fragments} / 科技点 +${outcome.technologyPointsAwarded ?? 0}`,
-      `船员协作记录：${supportLine}`,
-      outcome.crewAssistSummary ? `船员协作记录：${outcome.crewAssistSummary}` : null,
+      `失联记录：${supportLine}`,
+      outcome.crewAssistSummary ? `失联记录：${outcome.crewAssistSummary}` : null,
       formatSystemReadingLine(readings),
       `黑匣回信：${outcome.finalLetter?.join(" / ") ?? "让 AI 帮助你，而不是替代你。"}`
     ].filter(Boolean) as string[],
@@ -1289,8 +1290,8 @@ function createChapterTwoShipLog(outcome: ChapterTwoOutcome): ShipLogEntry {
 function createChapterTwoDossier(member: CrewMember, outcome: ChapterTwoOutcome): CrewDossierEntry {
   return {
     id: `dossier-language-civ-${member.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: "语言黑匣协作记录",
-    body: `${member.name} 参与开启 ${outcome.blackBoxTitle ?? "第一枚科技黑匣"}。${outcome.aiUpgrade ?? "主舰 AI 理解能力获得提升。"}`,
+    title: "语言黑匣失联记录",
+    body: `${member.name} 的坠毁前同行记录已保留。失联后的 ${outcome.blackBoxTitle ?? "第一枚科技黑匣"} 由你独立开启。${outcome.aiUpgrade ?? "主舰 AI 理解能力获得提升。"}`,
     tag: "黑匣"
   };
 }
@@ -1318,8 +1319,8 @@ function createResolvedChapterTwoOutcome(): ChapterTwoOutcome {
     chapterThreeHook: "主舰已获得第一项文明技术。更远处的星球仍在沉睡。",
     scannedZone: languageCivilizationKnowledge.scannedZone,
     logSummary: "第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。",
-    leadDossierNote: "船员参与黑匣开启，见证失序回声被稳定为可读文明记录。",
-    supportDossierNote: "船员协助校验表达边界，把四枚文明碎片写回主舰。",
+    leadDossierNote: "坠毁前的同行记录已保留。失联后，黑匣开启由你独立完成。",
+    supportDossierNote: "异常通讯仍待复查，船员没有参与地标修复或黑匣判断。",
     planetName: languageCivilizationKnowledge.planetName,
     blackBoxTitle: "语言黑匣",
     technologyPointsAwarded: 1,
@@ -2092,6 +2093,56 @@ export function useGameState() {
     });
   };
 
+  const resolveChapterTwoFakeCrewSignal = () => {
+    updateState((current) => {
+      const createdAt = Date.now();
+      const nextDisorderLevel = Math.max(0, current.chapterTwo.disorderLevel - 1);
+      const repairReadingState = addChapterTwoRepairReadingLog({
+        repairReadings: current.chapterTwo.repairReadings,
+        repairReadingLogs: current.chapterTwo.repairReadingLogs,
+        delta: {
+          evidenceIntegrity: 1,
+          unknownMarking: 1,
+          boundaryAwareness: 1
+        },
+        source: "异常通讯审查",
+        note: "异常船员通讯已用归档、接轨、铭文和扫描四种能力拆解：识别码相符不等于整段信息可靠。",
+        createdAt
+      });
+      const nextSystemReadings = createChapterTwoSystemReadings({
+        repairReadings: repairReadingState.repairReadings,
+        disorderLevel: nextDisorderLevel,
+        mistakeCount: current.chapterTwo.mistakeCount,
+        exploredLocationIds: current.chapterTwo.exploredLocationIds,
+        blackBoxUnlocked: current.chapterTwo.blackBoxUnlocked
+      });
+      const settlement = createChapterTwoSettlementLog({
+        scope: "blackbox",
+        sourceId: "blackbox-trial",
+        sourceName: "异常通讯审查",
+        readings: nextSystemReadings,
+        createdAt
+      });
+
+      return {
+        ...current,
+        chapterTwo: {
+          ...current.chapterTwo,
+          fakeCrewSignalResolved: true,
+          focusedLocationId: null,
+          sceneState: "planet_surface",
+          disorderLevel: nextDisorderLevel,
+          pollutedRecords: [],
+          repairReadings: repairReadingState.repairReadings,
+          repairReadingLogs: repairReadingState.repairReadingLogs,
+          systemReadings: nextSystemReadings,
+          settlementLogs: [settlement, ...current.chapterTwo.settlementLogs].slice(0, 16)
+        },
+        shipStatusNote: "异常通讯已归档：识别码相符，但结论和行动建议必须继续复查。"
+      };
+    });
+  };
+
   const exploreChapterTwoLocation = (locationId: ChapterTwoLocationId, payload?: ChapterTwoLocationCompletionPayload) => {
     updateState((current) => {
       const alreadyExplored = current.chapterTwo.exploredLocationIds.includes(locationId);
@@ -2099,6 +2150,11 @@ export function useGameState() {
         ? current.chapterTwo.exploredLocationIds
         : [...current.chapterTwo.exploredLocationIds, locationId];
       const blackBoxUnlocked = chapterTwoUnlockLocationIds.every((id) => exploredLocationIds.includes(id));
+      const shouldTriggerFakeCrewSignal =
+        !alreadyExplored &&
+        !blackBoxUnlocked &&
+        !current.chapterTwo.fakeCrewSignalResolved &&
+        locationId === "engraved-valley";
       const location = chapterTwoSurfaceLocations.find((item) => item.id === locationId) ?? null;
       const createdAt = Date.now();
       const rewardPlan = !alreadyExplored ? chapterTwoLocationRewardPlans[locationId] ?? null : null;
@@ -2355,7 +2411,7 @@ export function useGameState() {
         chapterTwo: {
           ...current.chapterTwo,
           exploredLocationIds,
-          focusedLocationId: blackBoxUnlocked ? null : locationId,
+          focusedLocationId: blackBoxUnlocked || shouldTriggerFakeCrewSignal ? null : locationId,
           disorderLevel: nextDisorderLevel,
           mistakeCount: nextMistakeCount,
           pollutedRecords: Array.isArray(payload?.pollutedRecords) ? payload.pollutedRecords : current.chapterTwo.pollutedRecords,
@@ -2365,7 +2421,7 @@ export function useGameState() {
           systemReadings: nextSystemReadings,
           settlementLogs: locationSettlement ? [locationSettlement, ...current.chapterTwo.settlementLogs].slice(0, 16) : current.chapterTwo.settlementLogs,
           blackBoxUnlocked,
-          sceneState: blackBoxUnlocked ? "planet_surface" : "location_focus"
+          sceneState: shouldTriggerFakeCrewSignal ? "fake_crew_signal" : blackBoxUnlocked ? "planet_surface" : "location_focus"
         },
         homePlanetHub:
           archiveRecord || archiveAppendixRecord || plannedArchiveRecord || expeditionArchiveRecord || ruleCard || plannedRuleCard || rewardPlan
@@ -2377,7 +2433,7 @@ export function useGameState() {
               }
             : current.homePlanetHub,
         shipLogs: shipLog ? appendShipLog(current, shipLog) : current.shipLogs,
-        shipStatusNote: locationStatusNote
+        shipStatusNote: shouldTriggerFakeCrewSignal ? "同行信标突然回连，但通讯语气出现异常。先审查，再行动。" : locationStatusNote
       };
     });
   };
@@ -2988,11 +3044,11 @@ export function useGameState() {
       chapterThreeHook: "主舰已获得第一项文明技术。更远处的星球仍在沉睡。",
       scannedZone: languageCivilizationKnowledge.scannedZone,
       logSummary: "第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。",
-      leadDossierNote: `${leadCrew.name} 参与黑匣开启，见证失序回声被稳定为可读文明记录。`,
+      leadDossierNote: `${leadCrew.name} 的坠毁前同行记录已保留。失联后，黑匣开启由你独立完成。`,
       supportDossierNote:
         supportCrew.id === leadCrew.id
-          ? `${supportCrew.name} 同时完成前线校验、碎片归档与返航记录。`
-          : `${supportCrew.name} 协助校验表达边界，把四枚文明碎片写回主舰。`,
+          ? `${supportCrew.name} 暂未回连，异常通讯等待复查。`
+          : `${supportCrew.name} 暂未回连，异常通讯等待复查。四枚文明碎片由你写回主舰。`,
       planetName: languageCivilizationKnowledge.planetName,
       blackBoxTitle: "语言黑匣",
       technologyPointsAwarded,
@@ -4376,6 +4432,7 @@ export function useGameState() {
     focusChapterTwoLocation,
     updateChapterTwoDisorder,
     useChapterTwoCrewAssist,
+    resolveChapterTwoFakeCrewSignal,
     exploreChapterTwoLocation,
     advanceChapterTwoStep,
     completeChapterTwo,

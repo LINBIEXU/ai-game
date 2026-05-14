@@ -23,11 +23,31 @@ export const chapterTwoSceneAssets = {
   },
   languageSurfaceGuide: {
     label: "语言与信息文明星球地表沉寂态背景",
-    imageUrl: "/images/chapter-two/language-surface-guide.png"
+    imageUrl: "/images/chapter-two/orbit-reveal-map.png"
   },
   languageSurfaceRestored: {
     label: "语言与信息文明星球地表复苏态背景",
-    imageUrl: "/images/chapter-two/language-surface-guide.png"
+    imageUrl: "/images/chapter-two/orbit-reveal-map.png"
+  },
+  signalAttack: {
+    label: "信息乱流攻击背景",
+    imageUrl: "/images/chapter-two/signal-attack.png"
+  },
+  crashSite: {
+    label: "坠毁现场第一视角背景",
+    imageUrl: "/images/chapter-two/crash-site.png"
+  },
+  hengdengPortrait: {
+    label: "衡灯角色立绘",
+    imageUrl: "/images/chapter-two/hengdeng-portrait.png"
+  },
+  orbitRevealMap: {
+    label: "高塔鸟瞰地表图",
+    imageUrl: "/images/chapter-two/orbit-reveal-map.png"
+  },
+  surfaceMapTitleCard: {
+    label: "言衡星地表图旧文明铭牌",
+    imageUrl: "/images/chapter-two/surface-map-title-card-transparent.png"
   },
   languageOrbitDormant: {
     label: "轨道视角星球沉寂态",
@@ -49,13 +69,25 @@ export const chapterTwoSceneAssets = {
     label: "刻字山谷 / 纸光回廊详情图",
     imageUrl: "/images/chapter-two/engraved-paper-corridor.png"
   },
+  engravedValley: {
+    label: "刻字山谷详情图",
+    imageUrl: "/images/chapter-two/engraved-valley.png"
+  },
   paperCorridor: {
     label: "纸光回廊详情图",
-    imageUrl: "/images/chapter-two/engraved-paper-corridor.png"
+    imageUrl: "/images/chapter-two/paper-corridor.png"
+  },
+  fakeCrewSignal: {
+    label: "异常船员通讯背景",
+    imageUrl: "/images/chapter-two/fake-crew-signal.png"
   },
   blackboxVault: {
     label: "黑匣封存台详情图",
     imageUrl: "/images/chapter-two/blackbox-vault.png"
+  },
+  blackboxCore: {
+    label: "语言黑匣核心详情图",
+    imageUrl: "/images/chapter-two/blackbox-core.png"
   }
 } as const;
 
@@ -67,11 +99,18 @@ export const chapter2Assets = {
   targetPlanet: chapterTwoSceneAssets.languagePlanet.imageUrl,
   surfaceDormant: chapterTwoSceneAssets.languageSurfaceGuide.imageUrl,
   surfaceRestored: chapterTwoSceneAssets.languageSurfaceRestored.imageUrl,
+  signalAttack: chapterTwoSceneAssets.signalAttack.imageUrl,
+  crashSite: chapterTwoSceneAssets.crashSite.imageUrl,
+  hengdengPortrait: chapterTwoSceneAssets.hengdengPortrait.imageUrl,
+  orbitRevealMap: chapterTwoSceneAssets.orbitRevealMap.imageUrl,
+  surfaceMapTitleCard: chapterTwoSceneAssets.surfaceMapTitleCard.imageUrl,
   archiveTower: chapterTwoSceneAssets.archiveTower.imageUrl,
   mailHarbor: chapterTwoSceneAssets.letterPort.imageUrl,
-  inscriptionValley: chapterTwoSceneAssets.engravedPaperCorridor.imageUrl,
+  inscriptionValley: chapterTwoSceneAssets.engravedValley.imageUrl,
   paperlightCorridor: chapterTwoSceneAssets.paperCorridor.imageUrl,
   blackboxPlatform: chapterTwoSceneAssets.blackboxVault.imageUrl,
+  blackboxCore: chapterTwoSceneAssets.blackboxCore.imageUrl,
+  fakeCrewSignal: chapterTwoSceneAssets.fakeCrewSignal.imageUrl,
   orbitDormant: chapterTwoSceneAssets.languageOrbitDormant.imageUrl,
   orbitRestored: chapterTwoSceneAssets.languageOrbitRestored.imageUrl
 } as const;
@@ -159,7 +198,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "一座像车站又像图书馆的庭院，负责把混杂的信息请求分流成去向。",
     detail: "这里说明：言衡星不是“聊天星球”，它曾经承担文书分流、知识整理和信息转送。",
     discovery: "你确认了言衡星的第一项职能：把模糊请求拆成可执行的信息任务。",
-    position: { x: 31, y: 63 },
+    position: { x: 44, y: 58 },
     size: "sm",
     detailAssetKey: "letterPort",
     symbol: "流",
@@ -190,7 +229,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "井壁会放出被污染的残记录，要求用探针扫出来源层级。",
     detail: "这里像一口预备扫描井，只留下可回看的来源分层。",
     discovery: "证据碎片回流主舰：残记录已经分层。",
-    position: { x: 49, y: 49 },
+    position: { x: 52, y: 78 },
     size: "sm",
     detailAssetKey: "archiveTower",
     symbol: "据",
@@ -221,7 +260,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "一组低空灯标标出协助范围。",
     detail: "这里只留下通行边界：能协助，也要守线。",
     discovery: "你校准了边界灯标：协助范围写入导览图。",
-    position: { x: 83, y: 57 },
+    position: { x: 73, y: 73 },
     size: "sm",
     detailAssetKey: "engravedPaperCorridor",
     symbol: "界",
@@ -252,7 +291,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "断裂高塔仍保留着前文明如何调用文字模型的核心记录。",
     detail: "塔身保存旧文明最后的文字层。",
     discovery: "你带回了一段文明遗言：语言能延长记忆，但不能替事实作证。",
-    position: { x: 35, y: 28 },
+    position: { x: 24, y: 73 },
     size: "md",
     detailAssetKey: "archiveTower",
     symbol: "档",
@@ -267,7 +306,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "低重力港湾里漂着无数未被送达的信件与信息碎片。",
     detail: "港口轨道只把原文、推测和缺口分开。",
     discovery: "你确认了：缺失信息必须标未知。",
-    position: { x: 19, y: 42 },
+    position: { x: 32, y: 22 },
     size: "lg",
     detailAssetKey: "letterPort",
     symbol: "信",
@@ -282,9 +321,9 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "整片地表像被巨型刻刀刻过，旧铭文一层层嵌进岩层。",
     detail: "这里只校准一件事：指令必须刻清楚。",
     discovery: "你看到前文明把清楚指令刻成了固定格式。",
-    position: { x: 75, y: 34 },
+    position: { x: 71, y: 23 },
     size: "md",
-    detailAssetKey: "engravedPaperCorridor",
+    detailAssetKey: "engravedValley",
     symbol: "证",
     fragmentName: "求证碎片",
     challengeTitle: "校准可靠铭文",
@@ -297,7 +336,7 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "半透明纸光突然写出一段很顺的结论，光带却仍在颤动。",
     detail: "回廊只检查一件事：表达顺畅，不等于可以相信。",
     discovery: "你点亮了一段表达回廊：顺口的句子也要经得起复查。",
-    position: { x: 88, y: 24 },
+    position: { x: 73, y: 50 },
     size: "md",
     detailAssetKey: "paperCorridor",
     symbol: "言",
@@ -312,9 +351,9 @@ export const chapterTwoSurfaceLocations: ChapterTwoLocationNode[] = [
     summary: "科技黑匣封存在中央高台，只有四个黑匣地标都被探索后才会亮起。",
     detail: "它不是宝箱，而是一段文明知识必须被验证后才能开启的入口。",
     discovery: "科技黑匣开始回应，中央高台进入可接触状态。",
-    position: { x: 68, y: 71 },
+    position: { x: 52, y: 48 },
     size: "lg",
-    detailAssetKey: "blackboxVault",
+    detailAssetKey: "blackboxCore",
     initiallyLocked: true,
     symbol: "匣",
     fragmentName: "科技黑匣",
@@ -328,6 +367,14 @@ export const chapterTwoUnlockLocationIds: ChapterTwoLocationId[] = [
   "letter-port",
   "engraved-valley",
   "paper-corridor"
+];
+
+export const chapterTwoStoryPathLocationIds: ChapterTwoLocationId[] = [
+  "archive-tower",
+  "letter-port",
+  "engraved-valley",
+  "paper-corridor",
+  "blackbox-vault"
 ];
 
 export const chapterTwoEvidenceFragmentLocationId: ChapterTwoLocationId = "evidence-well";
@@ -346,8 +393,14 @@ export const chapterTwoSceneLabelMap: Record<ChapterTwoSceneState, string> = {
   sector_view: "新宇宙区域",
   planet_preview: "星球预览",
   planet_descent: "进入星球",
+  signal_attack: "信息乱流",
+  crash_site: "坠毁现场",
+  hengdeng_dialogue: "衡灯初醒",
+  tower_approach: "前往档案塔",
+  orbit_reveal: "高塔鸟瞰",
   planet_surface: "地表导览",
   location_focus: "地点详情",
+  fake_crew_signal: "异常通讯",
   blackbox_unlock: "黑匣解锁",
   memory_archive: "黑匣学习层",
   boss_trial: "黑匣挑战层",

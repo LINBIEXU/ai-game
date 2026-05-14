@@ -32,6 +32,22 @@ import { useChapterOnePresentation } from "@/hooks/useChapterOnePresentation";
 import { useClassroomProfile } from "@/hooks/useClassroomProfile";
 import { useGameState } from "@/hooks/useGameState";
 import { getCurrentObjective } from "@/lib/current-objective";
+import type { ChapterTwoSceneState } from "@/types/game";
+
+const chapterTwoGroundSceneStates = new Set<ChapterTwoSceneState>([
+  "signal_attack",
+  "crash_site",
+  "hengdeng_dialogue",
+  "tower_approach",
+  "orbit_reveal",
+  "planet_surface",
+  "location_focus",
+  "fake_crew_signal",
+  "blackbox_unlock",
+  "memory_archive",
+  "boss_trial",
+  "chapter_reward"
+]);
 
 interface TransitionState {
   visible: boolean;
@@ -75,6 +91,7 @@ export function GameShell() {
     focusChapterTwoLocation,
     updateChapterTwoDisorder,
     useChapterTwoCrewAssist,
+    resolveChapterTwoFakeCrewSignal,
     exploreChapterTwoLocation,
     advanceChapterTwoStep,
     completeChapterTwo,
@@ -210,8 +227,51 @@ export function GameShell() {
   ]);
   const immersiveFullscreen = immersiveScenes.has(state.currentScene);
   const hideImmersiveHeader = state.currentScene === "chapter-two-mission";
+  const hideShipUiForChapterTwoGround =
+    state.currentScene === "chapter-two-mission" && chapterTwoGroundSceneStates.has(state.chapterTwo.sceneState);
+  const canRenderUtilityPanel =
+    utilityPanelOpen !== null && (!hideShipUiForChapterTwoGround || utilityPanelOpen === "control");
   const currentObjective = getCurrentObjective(state);
   const showPilotControls = process.env.NODE_ENV !== "production";
+
+  useEffect(() => {
+    if (hideShipUiForChapterTwoGround) {
+      setUtilityPanelOpen(null);
+    }
+  }, [hideShipUiForChapterTwoGround]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isTypingTarget =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (event.key === "Escape") {
+        setUtilityPanelOpen(null);
+        return;
+      }
+
+      if (isTypingTarget) {
+        return;
+      }
+
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        (event.code === "KeyP" || event.key.toLowerCase() === "p")
+      ) {
+        event.preventDefault();
+        setUtilityPanelOpen((current) => (current === "control" ? null : "control"));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const runTransition = async (
     config: Omit<TransitionState, "visible">,
@@ -260,15 +320,18 @@ export function GameShell() {
       }`}
       onPointerDownCapture={chapterOnePresentation.handlePointerDown}
     >
-      <ChapterOnePresentationLayer
-        stage={chapterOnePresentation.stage}
-        cueLabel={chapterOnePresentation.cueLabel}
-        soundEnabled={chapterOnePresentation.soundEnabled}
-        audioReady={chapterOnePresentation.audioReady}
-        onToggleSound={chapterOnePresentation.toggleSound}
-      />
-      <CurrentObjectiveBeacon objective={currentObjective} />
-      <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-2 md:right-4">
+      {!hideShipUiForChapterTwoGround && (
+        <ChapterOnePresentationLayer
+          stage={chapterOnePresentation.stage}
+          cueLabel={chapterOnePresentation.cueLabel}
+          soundEnabled={chapterOnePresentation.soundEnabled}
+          audioReady={chapterOnePresentation.audioReady}
+          onToggleSound={chapterOnePresentation.toggleSound}
+        />
+      )}
+      {!hideShipUiForChapterTwoGround && <CurrentObjectiveBeacon objective={currentObjective} />}
+      {!hideShipUiForChapterTwoGround && (
+        <div className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-2 md:right-4">
         <button
           type="button"
           onClick={() => setUtilityPanelOpen((current) => (current === "status" ? null : "status"))}
@@ -284,9 +347,17 @@ export function GameShell() {
           权限
         </button>
       </div>
+      )}
 
-      {utilityPanelOpen && (
+      {canRenderUtilityPanel && (
         <div className="fixed right-16 top-1/2 z-40 max-h-[min(82vh,720px)] w-[20rem] max-w-[calc(100vw-5.5rem)] -translate-y-1/2 overflow-y-auto rounded-[24px] border border-white/10 bg-black/72 p-4 text-white shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl md:right-20">
+          <button
+            type="button"
+            onClick={() => setUtilityPanelOpen(null)}
+            className="mb-3 ml-auto block rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/58 transition hover:border-white/22 hover:bg-white/[0.08] hover:text-white/82"
+          >
+            收起
+          </button>
           {utilityPanelOpen === "status" && (
             <div>
               <div className="soft-label text-[10px] text-cyan-100/50">主舰状态</div>
@@ -849,6 +920,7 @@ export function GameShell() {
               onFocusLocation={focusChapterTwoLocation}
               onUpdateDisorder={updateChapterTwoDisorder}
               onUseCrewAssist={useChapterTwoCrewAssist}
+              onResolveFakeCrewSignal={resolveChapterTwoFakeCrewSignal}
               onExploreLocation={exploreChapterTwoLocation}
               onAdvance={advanceChapterTwoStep}
               onComplete={() =>

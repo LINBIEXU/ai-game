@@ -2087,6 +2087,7 @@ export function useGameState() {
     updateState((current) => {
       const createdAt = Date.now();
       const nextDisorderLevel = Math.max(0, current.chapterTwo.disorderLevel - 1);
+      const blackBoxUnlocked = chapterTwoUnlockLocationIds.every((id) => current.chapterTwo.exploredLocationIds.includes(id));
       const repairReadingState = addChapterTwoRepairReadingLog({
         repairReadings: current.chapterTwo.repairReadings,
         repairReadingLogs: current.chapterTwo.repairReadingLogs,
@@ -2104,7 +2105,7 @@ export function useGameState() {
         disorderLevel: nextDisorderLevel,
         mistakeCount: current.chapterTwo.mistakeCount,
         exploredLocationIds: current.chapterTwo.exploredLocationIds,
-        blackBoxUnlocked: current.chapterTwo.blackBoxUnlocked
+        blackBoxUnlocked
       });
       const settlement = createChapterTwoSettlementLog({
         scope: "blackbox",
@@ -2119,6 +2120,7 @@ export function useGameState() {
         chapterTwo: {
           ...current.chapterTwo,
           fakeCrewSignalResolved: true,
+          blackBoxUnlocked,
           focusedLocationId: null,
           sceneState: "planet_surface",
           disorderLevel: nextDisorderLevel,
@@ -2128,7 +2130,9 @@ export function useGameState() {
           systemReadings: nextSystemReadings,
           settlementLogs: [settlement, ...current.chapterTwo.settlementLogs].slice(0, 16)
         },
-        shipStatusNote: "异常通讯已归档：识别码相符，但结论和行动建议必须继续复查。"
+        shipStatusNote: blackBoxUnlocked
+          ? "异常通讯已归档：四束信息光汇入中央封存台，黑匣开始回应。"
+          : "异常通讯已归档：识别码相符，但结论和行动建议必须继续复查。"
       };
     });
   };
@@ -2139,12 +2143,13 @@ export function useGameState() {
       const exploredLocationIds = current.chapterTwo.exploredLocationIds.includes(locationId)
         ? current.chapterTwo.exploredLocationIds
         : [...current.chapterTwo.exploredLocationIds, locationId];
-      const blackBoxUnlocked = chapterTwoUnlockLocationIds.every((id) => exploredLocationIds.includes(id));
+      const coreFragmentsComplete = chapterTwoUnlockLocationIds.every((id) => exploredLocationIds.includes(id));
       const shouldTriggerFakeCrewSignal =
         !alreadyExplored &&
-        !blackBoxUnlocked &&
+        coreFragmentsComplete &&
         !current.chapterTwo.fakeCrewSignalResolved &&
-        locationId === "engraved-valley";
+        locationId === "paper-corridor";
+      const blackBoxUnlocked = coreFragmentsComplete && !shouldTriggerFakeCrewSignal && current.chapterTwo.fakeCrewSignalResolved;
       const location = chapterTwoSurfaceLocations.find((item) => item.id === locationId) ?? null;
       const createdAt = Date.now();
       const rewardPlan = !alreadyExplored ? chapterTwoLocationRewardPlans[locationId] ?? null : null;

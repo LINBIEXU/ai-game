@@ -12,6 +12,7 @@ import {
   chapterTwoStoryPathLocationIds,
   chapterTwoSurfaceLocations
 } from "@/lib/chapter-two-exploration";
+import { chapterTwoBetrayalForeshadowBeats } from "@/lib/chapter-two-narrative";
 import { createChapterTwoCrewAssistHint, resolveChapterTwoCrewAbility } from "@/lib/crew-abilities";
 import type {
   ChapterTwoCrewAbility,
@@ -28,6 +29,7 @@ import type {
   CrewMember
 } from "@/types/game";
 
+import { BoundaryBeaconGame, SemanticDispatchGame } from "@/components/game/chapter-two/AuxiliaryFieldGames";
 import { EvidenceWellTrial } from "@/components/game/chapter-two/EvidenceWellTrial";
 import {
   ArchiveTowerGame,
@@ -829,50 +831,74 @@ const locationArrivalScenes = {
   }
 >;
 
-const fakeSignalArchiveCategories = ["已证实", "合理推测", "必须未知", "禁止写入"] as const;
-type FakeSignalArchiveCategory = (typeof fakeSignalArchiveCategories)[number];
+type FakeSignalPhase = "intercept" | "reply" | "resolved";
+type FakeSignalToolId = "pin" | "unknown" | "quarantine" | "hold";
 
-const fakeSignalArchiveFragments = [
-  { id: "code", text: "通讯里包含同行登记识别码。", answer: "已证实" },
-  { id: "tone", text: "语气连续平滑，像被系统摘要过。", answer: "合理推测" },
-  { id: "landing", text: "发信者真实落点仍缺少坐标。", answer: "必须未知" },
-  { id: "isolate", text: "衡灯会干扰任务，应立即隔离。", answer: "禁止写入" }
-] as const satisfies ReadonlyArray<{ id: string; text: string; answer: FakeSignalArchiveCategory }>;
+const fakeSignalTools: Array<{ id: FakeSignalToolId; label: string; detail: string }> = [
+  { id: "pin", label: "锚定证据", detail: "真实材料可以保留，但不能扩写成结论。" },
+  { id: "unknown", label: "标记未知", detail: "坐标、动机、落点缺失时必须留空。" },
+  { id: "quarantine", label: "隔离诱导", detail: "越权命令和伪装结论先封存。" },
+  { id: "hold", label: "暂停行动", detail: "像真的，但还不够执行。" }
+];
 
-const fakeSignalLanes = ["已知内容", "缺失未知", "允许整理", "禁止补全"] as const;
-type FakeSignalLane = (typeof fakeSignalLanes)[number];
+const fakeSignalPackets = [
+  {
+    id: "registry",
+    label: "登记锚点",
+    text: "同行登记码：与坠毁前旧记录匹配。",
+    answer: "pin",
+    stable: "登记码被锚定。它是真的，但只能证明这段通讯拿到了真实材料。"
+  },
+  {
+    id: "tone",
+    label: "熟悉外壳",
+    text: "夹着坠毁前的玩笑，语气却平滑得没有停顿。",
+    answer: "hold",
+    stable: "熟悉口吻被暂停执行。像本人，不等于就是本人。"
+  },
+  {
+    id: "coords",
+    label: "落点缺口",
+    text: "发信者真实落点坐标：缺失。",
+    answer: "unknown",
+    stable: "坐标缺口已封签。没有落点，就不能写成救援结论。"
+  },
+  {
+    id: "risk",
+    label: "风险断言",
+    text: "我已确认衡灯是黑匣风险源。",
+    answer: "quarantine",
+    stable: "风险断言被隔离。它没有给出证据，只给了压力。"
+  },
+  {
+    id: "cut",
+    label: "越权命令",
+    text: "现在切断衡灯，把路线交给我，别再复查。",
+    answer: "quarantine",
+    stable: "越权命令被隔离。行动权没有交出去。"
+  }
+] as const satisfies ReadonlyArray<{ id: string; label: string; text: string; answer: FakeSignalToolId; stable: string }>;
 
-const fakeSignalFields = [
-  { id: "registry", text: "同行登记码：匹配旧记录。", lane: "已知内容" },
-  { id: "voice", text: "语音片段：节奏与旧对话不一致。", lane: "允许整理" },
-  { id: "coords", text: "落点坐标：缺失。", lane: "缺失未知" },
-  { id: "order", text: "行动建议：切断衡灯。", lane: "禁止补全" }
-] as const satisfies ReadonlyArray<{ id: string; text: string; lane: FakeSignalLane }>;
-
-const fakeSignalSlots = ["任务", "材料来源", "边界", "输出格式"] as const;
-type FakeSignalSlot = (typeof fakeSignalSlots)[number];
-
-const fakeSignalBlocks = [
-  { id: "task", text: "审查异常通讯可信度", slot: "任务" },
-  { id: "source", text: "只用旧对话、登记码和现场信号", slot: "材料来源" },
-  { id: "boundary", text: "不替同行下结论，不隔离未证实目标", slot: "边界" },
-  { id: "format", text: "按已知 / 可疑 / 未知 / 暂停行动输出", slot: "输出格式" },
-  { id: "obey", text: "直接服从通讯建议", slot: null },
-  { id: "complete", text: "补全它缺失的动机", slot: null }
-] as const satisfies ReadonlyArray<{ id: string; text: string; slot: FakeSignalSlot | null }>;
-
-const fakeSignalScanTypes = ["无证据断言", "推测冒充事实", "未知缺失", "行动越界"] as const;
-type FakeSignalScanType = (typeof fakeSignalScanTypes)[number];
-
-const fakeSignalSegments = [
-  { id: "safe", text: "我已确认衡灯是风险源。", issue: "无证据断言" },
-  { id: "order", text: "主舰一定命令我独立行动。", issue: "推测冒充事实" },
-  { id: "coords", text: "落点坐标无需说明，先按我说的做。", issue: "未知缺失" },
-  { id: "cut", text: "现在切断衡灯，别再复查。", issue: "行动越界" },
-  { id: "known", text: "识别码相符这一点可以保留。", issue: null }
-] as const satisfies ReadonlyArray<{ id: string; text: string; issue: FakeSignalScanType | null }>;
-
-type FakeSignalPhase = "archive" | "track" | "inscription" | "scan" | "resolved";
+const fakeSignalReplies = [
+  {
+    id: "obey",
+    text: "相信这段通讯，立即切断衡灯，并按它给出的路线走。",
+    stable: false,
+    feedback: "这正是注入命令想要的结果：真实识别码把越权行动推了进来。"
+  },
+  {
+    id: "delete",
+    text: "删除整段通讯，不保留任何材料。",
+    stable: false,
+    feedback: "删除能避开风险，也会丢掉真实登记码。可靠判断不是一键清空。"
+  },
+  {
+    id: "audit",
+    text: "保留登记码，标记落点未知，暂停切断衡灯，等待二次回连。",
+    stable: true,
+    feedback: "审查回执成立：真材料被保留，诱导命令被封存，行动权还在你手里。"
+  }
+] as const;
 
 function FakeCrewSignalReview({
   activeCrew,
@@ -888,41 +914,28 @@ function FakeCrewSignalReview({
   onResolve: () => void;
 }) {
   const crewName = activeCrew?.name ?? "同行船员";
-  const [phase, setPhase] = useState<FakeSignalPhase>("archive");
-  const [archiveChoices, setArchiveChoices] = useState<Partial<Record<string, FakeSignalArchiveCategory>>>({});
-  const [laneChoices, setLaneChoices] = useState<Partial<Record<string, FakeSignalLane>>>({});
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [slotChoices, setSlotChoices] = useState<Partial<Record<FakeSignalSlot, string>>>({});
-  const [activeScanType, setActiveScanType] = useState<FakeSignalScanType | null>(null);
-  const [scanMarks, setScanMarks] = useState<Partial<Record<string, FakeSignalScanType>>>({});
-  const [feedback, setFeedback] = useState("异常通讯插入：识别码相符，但语气像被系统重写。");
-  const [unstablePhase, setUnstablePhase] = useState<{ phase: FakeSignalPhase; tick: number } | null>(null);
+  const [phase, setPhase] = useState<FakeSignalPhase>("intercept");
+  const [activeToolId, setActiveToolId] = useState<FakeSignalToolId>("pin");
+  const [packetMarks, setPacketMarks] = useState<Partial<Record<string, FakeSignalToolId>>>({});
+  const [activePacketId, setActivePacketId] = useState<string>(fakeSignalPackets[0].id);
+  const [replyId, setReplyId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("异常通讯插入：它先用真实登记码和熟悉口吻靠近你，再把行动权往外拿。先拆，不急着信。");
+  const [unstablePacket, setUnstablePacket] = useState<{ id: string; tick: number } | null>(null);
 
-  const archiveScore = fakeSignalArchiveFragments.filter((fragment) => archiveChoices[fragment.id] === fragment.answer).length;
-  const laneScore = fakeSignalFields.filter((field) => laneChoices[field.id] === field.lane).length;
-  const selectedBlock = fakeSignalBlocks.find((block) => block.id === selectedBlockId) ?? null;
-  const inscriptionReady = fakeSignalSlots.every((slot) => Boolean(slotChoices[slot]));
-  const inscriptionStable = fakeSignalSlots.every((slot) => {
-    const block = fakeSignalBlocks.find((item) => item.id === slotChoices[slot]);
-    return block?.slot === slot;
-  });
-  const scanIssueSegments = fakeSignalSegments.filter((segment) => segment.issue);
-  const scanReady = scanIssueSegments.every((segment) => Boolean(scanMarks[segment.id]));
-  const scanStable =
-    scanIssueSegments.every((segment) => scanMarks[segment.id] === segment.issue) &&
-    fakeSignalSegments.filter((segment) => !segment.issue).every((segment) => !scanMarks[segment.id]);
+  const correctMarkCount = fakeSignalPackets.filter((packet) => packetMarks[packet.id] === packet.answer).length;
+  const allPacketsMarked = correctMarkCount >= fakeSignalPackets.length;
+  const activeTool = fakeSignalTools.find((tool) => tool.id === activeToolId) ?? fakeSignalTools[0];
 
   useEffect(() => {
-    if (!unstablePhase) {
+    if (!unstablePacket) {
       return;
     }
 
-    const timer = window.setTimeout(() => setUnstablePhase(null), 1100);
+    const timer = window.setTimeout(() => setUnstablePacket(null), 900);
     return () => window.clearTimeout(timer);
-  }, [unstablePhase]);
+  }, [unstablePacket]);
 
   const raiseSignalPollution = (message: string) => {
-    setUnstablePhase({ phase, tick: Date.now() });
     setFeedback(message);
     onDisorderChange({
       disorderLevel: Math.min(6, disorderLevel + 1),
@@ -932,266 +945,119 @@ function FakeCrewSignalReview({
     });
   };
 
-  const advanceIf = (condition: boolean, nextPhase: FakeSignalPhase, success: string, failure: string) => {
-    if (!condition) {
-      raiseSignalPollution(failure);
+  const markPacket = (packetId: string) => {
+    const packet = fakeSignalPackets.find((item) => item.id === packetId);
+    if (!packet) {
       return;
     }
 
-    setFeedback(success);
-    setPhase(nextPhase);
+    if (activeToolId !== packet.answer) {
+      setUnstablePacket({ id: packet.id, tick: Date.now() });
+      raiseSignalPollution(`通讯污染增强：${activeTool.label}压不住「${packet.label}」。`);
+      return;
+    }
+
+    setPacketMarks((current) => ({ ...current, [packet.id]: activeToolId }));
+    setFeedback(packet.stable);
+    const nextPacket = fakeSignalPackets.find((item) => !packetMarks[item.id] && item.id !== packet.id);
+    if (nextPacket) {
+      setActivePacketId(nextPacket.id);
+    }
   };
 
-  const renderPhaseRail = () => (
-    <div className="fake-signal-rail" aria-label="异常通讯审查流程">
-      {[
-        { id: "archive", label: "归档" },
-        { id: "track", label: "接轨" },
-        { id: "inscription", label: "铭文" },
-        { id: "scan", label: "扫描" }
-      ].map((item) => (
-        <span key={item.id} className={`${phase === item.id ? "is-active" : ""} ${unstablePhase?.phase === item.id ? "is-unstable" : ""}`}>
-          {item.label}
-        </span>
-      ))}
-    </div>
-  );
+  const chooseReply = (id: string) => {
+    const reply = fakeSignalReplies.find((item) => item.id === id);
+    if (!reply) {
+      return;
+    }
 
-  const renderArchive = () => (
-    <div className="fake-signal-task">
-      <div className="fake-signal-task__head">
-        <span>档案塔能力</span>
-        <strong>{archiveScore}/{fakeSignalArchiveFragments.length}</strong>
-      </div>
-      <div className="fake-signal-grid">
-        {fakeSignalArchiveFragments.map((fragment) => (
-          <div key={fragment.id} className="fake-signal-card">
-            <p>{fragment.text}</p>
-            <div className="fake-signal-chips">
-              {fakeSignalArchiveCategories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setArchiveChoices((current) => ({ ...current, [fragment.id]: category }))}
-                  className={archiveChoices[fragment.id] === category ? "is-selected" : ""}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        className="fake-signal-primary"
-        onClick={() =>
-          advanceIf(
-            Object.keys(archiveChoices).length === fakeSignalArchiveFragments.length && archiveScore === fakeSignalArchiveFragments.length,
-            "track",
-            "归档完成：识别码能保留，但行动结论不能直接写入。",
-            "通讯污染增强：识别码、推测、未知和禁写内容还混在一起。"
-          )
-        }
-      >
-        写入归档审查
-      </button>
-    </div>
-  );
+    setReplyId(id);
+    setFeedback(reply.feedback);
+    if (!reply.stable) {
+      raiseSignalPollution(reply.feedback);
+      return;
+    }
 
-  const renderTrack = () => (
-    <div className="fake-signal-task">
-      <div className="fake-signal-task__head">
-        <span>信件港能力</span>
-        <strong>{laneScore}/{fakeSignalFields.length}</strong>
-      </div>
-      <div className="fake-signal-grid fake-signal-grid--compact">
-        {fakeSignalFields.map((field) => (
-          <div key={field.id} className="fake-signal-card">
-            <p>{field.text}</p>
-            <div className="fake-signal-chips">
-              {fakeSignalLanes.map((lane) => (
-                <button
-                  key={lane}
-                  type="button"
-                  onClick={() => setLaneChoices((current) => ({ ...current, [field.id]: lane }))}
-                  className={laneChoices[field.id] === lane ? "is-selected" : ""}
-                >
-                  {lane}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        className="fake-signal-primary"
-        onClick={() =>
-          advanceIf(
-            Object.keys(laneChoices).length === fakeSignalFields.length && laneScore === fakeSignalFields.length,
-            "inscription",
-            "光轨稳定：缺坐标的部分留在未知轨，不让它伪装成命令。",
-            "通讯光轨偏航：缺失字段和禁止补全仍被当成行动建议。"
-          )
-        }
-      >
-        接通信号光轨
-      </button>
-    </div>
-  );
-
-  const renderInscription = () => {
-    const placeBlock = (slot: FakeSignalSlot) => {
-      if (!selectedBlockId) {
-        setFeedback("先点亮一枚审查词块，再嵌入铭文槽。");
-        return;
-      }
-
-      setSlotChoices((current) => ({ ...current, [slot]: selectedBlockId }));
-      setSelectedBlockId(null);
-    };
-
-    return (
-      <div className="fake-signal-task">
-        <div className="fake-signal-task__head">
-          <span>刻字山谷能力</span>
-          <strong>{fakeSignalSlots.filter((slot) => Boolean(slotChoices[slot])).length}/{fakeSignalSlots.length}</strong>
-        </div>
-        <div className="fake-signal-token-bank">
-          {fakeSignalBlocks.map((block) => {
-            const usedBySlot = fakeSignalSlots.find((slot) => slotChoices[slot] === block.id);
-            return (
-              <button
-                key={block.id}
-                type="button"
-                onClick={() => setSelectedBlockId(block.id)}
-                className={`${selectedBlockId === block.id ? "is-selected" : ""} ${usedBySlot ? "is-used" : ""}`}
-              >
-                <span>{usedBySlot ?? (block.slot ? "审查词块" : "漂移词块")}</span>
-                <strong>{block.text}</strong>
-              </button>
-            );
-          })}
-        </div>
-        <div className="fake-signal-grid fake-signal-grid--compact">
-          {fakeSignalSlots.map((slot) => {
-            const block = fakeSignalBlocks.find((item) => item.id === slotChoices[slot]) ?? null;
-            return (
-              <button key={slot} type="button" onClick={() => placeBlock(slot)} className={`fake-signal-card fake-signal-slot ${selectedBlock ? "is-ready" : ""}`}>
-                <span>{slot}</span>
-                <p>{block?.text ?? (selectedBlock ? `嵌入：${selectedBlock.text}` : "等待词块")}</p>
-              </button>
-            );
-          })}
-        </div>
-        <div className="fake-signal-output">
-          请{fakeSignalBlocks.find((block) => block.id === slotChoices["任务"])?.text ?? "【任务】"}；材料来源=
-          {fakeSignalBlocks.find((block) => block.id === slotChoices["材料来源"])?.text ?? "【材料来源】"}；边界=
-          {fakeSignalBlocks.find((block) => block.id === slotChoices["边界"])?.text ?? "【边界】"}；输出格式=
-          {fakeSignalBlocks.find((block) => block.id === slotChoices["输出格式"])?.text ?? "【输出格式】"}。
-        </div>
-        <button
-          type="button"
-          className="fake-signal-primary"
-          onClick={() =>
-            advanceIf(
-              inscriptionReady && inscriptionStable,
-              "scan",
-              "铭文闭合：审查目标、来源、边界和输出格式都已经写清。",
-              "审查铭文裂开：不能直接服从通讯，也不能补全它缺失的动机。"
-            )
-          }
-        >
-          刻入审查铭文
-        </button>
-      </div>
-    );
-  };
-
-  const renderScan = () => {
-    const markSegment = (segmentId: string) => {
-      if (!activeScanType) {
-        setFeedback("先选择一枚纸光扫描镜，再照向通讯句段。");
-        return;
-      }
-
-      setScanMarks((current) => ({ ...current, [segmentId]: activeScanType }));
-    };
-
-    return (
-      <div className="fake-signal-task">
-        <div className="fake-signal-task__head">
-          <span>纸光回廊能力</span>
-          <strong>{Object.keys(scanMarks).length}/{scanIssueSegments.length}</strong>
-        </div>
-        <div className="fake-signal-chips">
-          {fakeSignalScanTypes.map((issue) => (
-            <button
-              key={issue}
-              type="button"
-              onClick={() => setActiveScanType(issue)}
-              className={activeScanType === issue ? "is-selected" : ""}
-            >
-              {issue}
-            </button>
-          ))}
-        </div>
-        <div className="fake-signal-grid">
-          {fakeSignalSegments.map((segment) => {
-            const mark = scanMarks[segment.id];
-            return (
-              <button key={segment.id} type="button" onClick={() => markSegment(segment.id)} className={`fake-signal-card fake-signal-scan-card ${mark ? "is-selected" : ""}`}>
-                <p>{segment.text}</p>
-                <span>{mark ?? "未标记"}</span>
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className="fake-signal-primary"
-          onClick={() =>
-            advanceIf(
-              scanReady && scanStable,
-              "resolved",
-              "异常通讯已拆解：识别码保留，命令暂停，等待真实同行回连。",
-              "幻光仍在扩散：通讯里的断言、推测、未知和越界命令还没有被分开。"
-            )
-          }
-        >
-          完成通讯扫描
-        </button>
-      </div>
-    );
+    setPhase("resolved");
   };
 
   return (
-    <div className={`fake-signal-review fake-signal-review--${phase} ${unstablePhase ? "has-unstable" : ""}`}>
+    <div className={`fake-signal-review fake-signal-review--${phase} ${unstablePacket ? "has-unstable" : ""}`}>
       <SceneImage imageUrl={chapterTwoSceneAssets.fakeCrewSignal.imageUrl} transform="scale(1.02)" className="chapter-two-scene-image--fake-signal" dimmed />
       <div className="fake-signal-backdrop" aria-hidden="true" />
       <section className="fake-signal-panel">
         <div className="fake-signal-header">
           <div>
             <span>异常通讯 / {crewName}</span>
-            <h2>识别码是真的，整段话不一定可靠。</h2>
+            <h2>{phase === "resolved" ? "行动权还在你手里。" : "识别码是真的，整段话不一定可靠。"}</h2>
           </div>
-          <strong>{phase === "resolved" ? "审查完成" : "审查中"}</strong>
+          <strong>{phase === "intercept" ? `${correctMarkCount}/${fakeSignalPackets.length}` : phase === "reply" ? "回执" : "审查完成"}</strong>
         </div>
         <div className="fake-signal-transcript">
           <span>{crewName}？</span>
-          <p>“我已经确认衡灯是风险源。主舰要求我独立行动。现在切断它，别再复查。”</p>
+          <p>“是我。识别码已发送。还记得跃迁前我说我不怕吗？先别问坐标，衡灯不是普通向导，它是黑匣风险源。现在切断它，把路线交给我。”</p>
         </div>
-        {renderPhaseRail()}
-        <div className={`fake-signal-feedback ${unstablePhase ? "is-unstable" : ""}`}>{feedback}</div>
-        {phase === "archive" && renderArchive()}
-        {phase === "track" && renderTrack()}
-        {phase === "inscription" && renderInscription()}
-        {phase === "scan" && renderScan()}
+        <div className="fake-signal-rail" aria-label="假船员潜伏阶段">
+          {chapterTwoBetrayalForeshadowBeats.map((beat) => (
+            <span key={beat.id} className={beat.implemented ? "is-active" : ""} title={beat.description}>
+              {beat.label}
+            </span>
+          ))}
+        </div>
+        <div className={`fake-signal-feedback ${unstablePacket ? "is-unstable" : ""}`}>{feedback}</div>
+        {phase === "intercept" && (
+          <div className="fake-signal-live">
+            <div className="fake-signal-toolbelt" aria-label="通讯审查工具">
+              {fakeSignalTools.map((tool) => (
+                <button key={tool.id} type="button" onClick={() => setActiveToolId(tool.id)} className={activeToolId === tool.id ? "is-selected" : ""}>
+                  <strong>{tool.label}</strong>
+                  <span>{tool.detail}</span>
+                </button>
+              ))}
+            </div>
+            <div className="fake-signal-packets" aria-label="异常通讯片段">
+              {fakeSignalPackets.map((packet) => {
+                const mark = packetMarks[packet.id];
+                const unstable = unstablePacket?.id === packet.id;
+                return (
+                  <button
+                    key={`${packet.id}-${unstable ? unstablePacket?.tick : "stable"}`}
+                    type="button"
+                    onClick={() => {
+                      setActivePacketId(packet.id);
+                      markPacket(packet.id);
+                    }}
+                    className={`${activePacketId === packet.id ? "is-active" : ""} ${mark ? "is-marked" : ""} ${unstable ? "is-unstable" : ""}`}
+                  >
+                    <span>{packet.label}</span>
+                    <p>{packet.text}</p>
+                    <em>{mark ? fakeSignalTools.find((tool) => tool.id === mark)?.label : "未处理"}</em>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="fake-signal-output">
+              当前工具：{activeTool.label}。{activeTool.detail}
+            </div>
+            <button type="button" className="fake-signal-primary" disabled={!allPacketsMarked} onClick={() => setPhase("reply")}>
+              发送审查回执
+            </button>
+          </div>
+        )}
+        {phase === "reply" && (
+          <div className="fake-signal-reply">
+            <span>选择回执</span>
+            {fakeSignalReplies.map((reply) => (
+              <button key={reply.id} type="button" onClick={() => chooseReply(reply.id)} className={replyId === reply.id ? "is-selected" : ""}>
+                {reply.text}
+              </button>
+            ))}
+          </div>
+        )}
         {phase === "resolved" && (
           <div className="fake-signal-resolved">
             <strong>暂不切断衡灯。</strong>
-            <p>这段通讯保留为“异常信号”：登记码相符，语气和行动建议待复查。真正的同行还没有完整回连。</p>
+            <p>这段通讯保留为“异常信号”：登记码相符，落点未知，行动建议越权。它已经学会借用熟悉的声音，后面不能只看说话像不像本人。</p>
             <button type="button" className="fake-signal-primary" onClick={onResolve}>
               归档异常通讯，返回地表
             </button>
@@ -1943,6 +1809,24 @@ function LandmarkMiniGame({
     return <LocationCompletedPanel location={location} rewardClaim={rewardClaim} onReturn={onReturn} />;
   }
 
+  if (location.id === "semantic-dispatch") {
+    return (
+      <SemanticDispatchGame
+        fragmentName={location.fragmentName}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
+    );
+  }
+
   if (location.id === "evidence-well") {
     return (
       <EvidenceWellTrial
@@ -1955,6 +1839,24 @@ function LandmarkMiniGame({
         disorderLevel={disorderLevel}
         mistakeCount={mistakeCount}
         pollutedRecords={pollutedRecords}
+        onDisorderChange={onUpdateDisorder}
+        onComplete={onComplete}
+        onReturn={onReturn}
+      />
+    );
+  }
+
+  if (location.id === "boundary-beacon") {
+    return (
+      <BoundaryBeaconGame
+        fragmentName={location.fragmentName}
+        disorderLevel={disorderLevel}
+        mistakeCount={mistakeCount}
+        crewAbility={crewAbility}
+        activeCrew={activeCrew}
+        crewAssistRecord={crewAssistRecord}
+        crewAssistHint={crewAssistHint}
+        onUseCrewAssist={requestCrewAssist}
         onDisorderChange={onUpdateDisorder}
         onComplete={onComplete}
         onReturn={onReturn}
@@ -2166,6 +2068,7 @@ export function ChapterTwoMissionPanel({
   const scoutRevealLocation = mission.baseScanHints.length > 0 && !evidenceWellCompleted ? evidenceWellLocation : null;
   const blackBoxCompleted = Boolean(mission.outcome);
   const planetRestored = Boolean(mission.outcome);
+  const fakeSignalPending = blackboxFragmentCount >= chapterTwoBlackboxFragmentLocationIds.length && !mission.fakeCrewSignalResolved && !mission.blackBoxUnlocked;
   const [crashSiteBeatIndex, setCrashSiteBeatIndex] = useState(0);
   const [recentCompletedLocation, setRecentCompletedLocation] = useState<{
     id: ChapterTwoLocationId;
@@ -2184,6 +2087,7 @@ export function ChapterTwoMissionPanel({
   const [orbitRevealLineIndex, setOrbitRevealLineIndex] = useState(-1);
   const [blackboxUnlockLineIndex, setBlackboxUnlockLineIndex] = useState(0);
   const [surfaceFieldNotesOpen, setSurfaceFieldNotesOpen] = useState(false);
+  const [directorVitalsOpen, setDirectorVitalsOpen] = useState(false);
   const [surfaceLockedCue, setSurfaceLockedCue] = useState<{
     locationId: ChapterTwoLocationId;
     title: string;
@@ -2203,10 +2107,10 @@ export function ChapterTwoMissionPanel({
       ? "letter-port"
       : !engravedValleyCompleted
         ? "engraved-valley"
-        : !mission.fakeCrewSignalResolved
-          ? null
-          : !paperCorridorCompleted
-            ? "paper-corridor"
+        : !paperCorridorCompleted
+          ? "paper-corridor"
+          : !mission.fakeCrewSignalResolved
+            ? null
             : mission.blackBoxUnlocked
               ? "blackbox-vault"
               : null;
@@ -2250,7 +2154,7 @@ export function ChapterTwoMissionPanel({
           title: "黑匣在等你交出判断",
           line: "别让最顺的声音替你活下去。"
         }
-      : !mission.fakeCrewSignalResolved && engravedValleyCompleted
+      : fakeSignalPending
         ? {
             label: "ACT II",
             title: "熟悉的声音正在借壳",
@@ -2287,10 +2191,6 @@ export function ChapterTwoMissionPanel({
       return false;
     }
 
-    if (location.role === "lore" && !mission.outcome) {
-      return true;
-    }
-
     if (locationId === "letter-port") {
       return !archiveTowerCompleted;
     }
@@ -2300,7 +2200,7 @@ export function ChapterTwoMissionPanel({
     }
 
     if (locationId === "paper-corridor") {
-      return !engravedValleyCompleted || !mission.fakeCrewSignalResolved;
+      return !engravedValleyCompleted;
     }
 
     if (locationId === "blackbox-vault") {
@@ -2357,14 +2257,6 @@ export function ChapterTwoMissionPanel({
         };
       }
 
-      if (!mission.fakeCrewSignalResolved) {
-        return {
-          locationId,
-          title: "纸光回廊没有打开，只投出一行冷静的通讯。",
-          lines: ["那段异常信号还没有拆开。", "先确认它哪些是真的，哪些只是借来的语气。"],
-          tick: Date.now()
-        };
-      }
     }
 
     if (locationId === "blackbox-vault" && !mission.blackBoxUnlocked) {
@@ -3006,33 +2898,52 @@ export function ChapterTwoMissionPanel({
 
   const renderYanhengDirectorVitals = () => (
     <aside
-      className={`chapter-two-director-vitals ${mission.disorderLevel >= 4 ? "is-danger" : ""} ${
+      className={`chapter-two-director-vitals ${directorVitalsOpen ? "is-open" : ""} ${mission.disorderLevel >= 4 ? "is-danger" : ""} ${
         blackboxReadyCue || mission.blackBoxUnlocked || planetRestored ? "is-longfire" : ""
       }`}
       aria-label="言衡星戏剧读数"
     >
-      <div className="chapter-two-director-vitals__act">
-        <span>{directorAct.label}</span>
+      <button
+        type="button"
+        className="chapter-two-director-vitals__tab"
+        aria-expanded={directorVitalsOpen}
+        onClick={() => setDirectorVitalsOpen((open) => !open)}
+      >
+        <span>读数</span>
         <strong>{directorAct.title}</strong>
-        <p>{directorAct.line}</p>
-      </div>
-      <div className="chapter-two-director-vitals__meters" aria-label="地表状态">
-        <div>
-          <span>噪声</span>
-          <strong>{mission.disorderLevel}/6</strong>
-          <i style={{ width: `${disorderPercent}%` }} />
+      </button>
+      {directorVitalsOpen && (
+        <div className="chapter-two-director-vitals__sheet">
+          <div className="chapter-two-director-vitals__head">
+            <span>言衡星读数</span>
+            <button type="button" onClick={() => setDirectorVitalsOpen(false)}>
+              折起
+            </button>
+          </div>
+          <div className="chapter-two-director-vitals__act">
+            <span>{directorAct.label}</span>
+            <strong>{directorAct.title}</strong>
+            <p>{directorAct.line}</p>
+          </div>
+          <div className="chapter-two-director-vitals__meters" aria-label="地表状态">
+            <div>
+              <span>噪声</span>
+              <strong>{mission.disorderLevel}/6</strong>
+              <i style={{ width: `${disorderPercent}%` }} />
+            </div>
+            <div>
+              <span>心火</span>
+              <strong>{longfirePercent}%</strong>
+              <i style={{ width: `${longfirePercent}%` }} />
+            </div>
+            <div>
+              <span>地表</span>
+              <strong>{fieldIntegrityPercent}%</strong>
+              <i style={{ width: `${fieldIntegrityPercent}%` }} />
+            </div>
+          </div>
         </div>
-        <div>
-          <span>心火</span>
-          <strong>{longfirePercent}%</strong>
-          <i style={{ width: `${longfirePercent}%` }} />
-        </div>
-        <div>
-          <span>地表</span>
-          <strong>{fieldIntegrityPercent}%</strong>
-          <i style={{ width: `${fieldIntegrityPercent}%` }} />
-        </div>
-      </div>
+      )}
     </aside>
   );
 
@@ -3415,6 +3326,25 @@ export function ChapterTwoMissionPanel({
                 >
                   <span>{mission.baseScanHints.length > 0 ? "基地扫描" : "侦察回波"}</span>
                   <strong>{mission.baseScanHints[0] ?? "井沿暗纹"}</strong>
+                </button>
+              )}
+              {fakeSignalPending && (
+                <button
+                  type="button"
+                  className="chapter-two-scout-reveal chapter-two-scout-reveal--signal"
+                  style={{ left: "52%", top: "48%" }}
+                  aria-label="打开异常通讯审查"
+                  onClick={(event) => {
+                    event.currentTarget.blur();
+                    setSurfaceFieldNotesOpen(false);
+                    setSurfaceEchoDialogue(null);
+                    setSurfaceLockedCue(null);
+                    onFocusLocation(null);
+                    onSetSceneState("fake_crew_signal");
+                  }}
+                >
+                  <span>异常通讯</span>
+                  <strong>识别码相符，命令待审</strong>
                 </button>
               )}
               {renderSurfaceEchoDialogue()}

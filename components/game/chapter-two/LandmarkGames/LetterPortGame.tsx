@@ -20,6 +20,7 @@ const letterPortMoments = [
     ],
     artifactTitle: "残信抬头",
     artifactLines: ["发件地：第七档案塔", "时间：逆熵前夜", "收件人：栏位损坏"],
+    unlockFieldIds: ["sender", "time", "receiver"],
     voice: "衡灯没有立刻说话，只把灯举低了一点，好让你看清纸面。",
     action: "读下去"
   },
@@ -34,6 +35,7 @@ const letterPortMoments = [
     ],
     artifactTitle: "原信留下的东西",
     artifactLines: ["发件地和时间可以确认", "收件人缺失", "情感来自写信的人，不来自整理系统"],
+    unlockFieldIds: ["receipt"],
     voice: "衡灯轻声说：别急着替它完整，先听它缺了什么。",
     action: "继续读"
   },
@@ -48,6 +50,7 @@ const letterPortMoments = [
     ],
     artifactTitle: "错位读数",
     artifactLines: ["轨道波形受到未知信号扰动", "写信人身份不可确认", "只能保留看见的片段"],
+    unlockFieldIds: ["wave"],
     voice: "衡灯的声音隔着很远传来：抓住已知，别被光带走。",
     action: "稳住信纸"
   },
@@ -62,6 +65,7 @@ const letterPortMoments = [
     ],
     artifactTitle: "草稿问题",
     artifactLines: ["格式更完整", "缺失被当作内容补上", "顺滑不等于真实"],
+    unlockFieldIds: ["fill-name"],
     voice: "衡灯说：这就是危险的地方。它很会整理，也很会让空白看起来不像空白。",
     action: "回到港口"
   },
@@ -76,6 +80,7 @@ const letterPortMoments = [
     ],
     artifactTitle: "待接轨字段",
     artifactLines: ["已知内容照录", "缺失未知保留", "允许整理与禁止补全分开"],
+    unlockFieldIds: [],
     voice: "衡灯把灯芯贴近光轨：现在，让这封信按真实的重量走。",
     action: "进入字段接线"
   }
@@ -134,6 +139,7 @@ export function LetterPortGame({
 }: LetterPortGameProps) {
   const [stage, setStage] = useState<LetterPortStage>("observe");
   const [letterMomentIndex, setLetterMomentIndex] = useState(0);
+  const [recoveredMomentIds, setRecoveredMomentIds] = useState<string[]>([]);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Record<string, LetterTrackLaneId>>({});
   const [unstableLane, setUnstableLane] = useState<LetterFacilityPulse | null>(null);
@@ -142,11 +148,18 @@ export function LetterPortGame({
 
   const currentMoment = letterPortMoments[letterMomentIndex] ?? letterPortMoments[0];
   const isLastMoment = letterMomentIndex >= letterPortMoments.length - 1;
+  const currentMomentRecovered = recoveredMomentIds.includes(currentMoment.id);
+  const recoveredFieldIds = new Set(
+    letterPortMoments
+      .filter((moment) => recoveredMomentIds.includes(moment.id))
+      .flatMap((moment) => moment.unlockFieldIds)
+  );
+  const activeLetterFields = letterFields.filter((field) => recoveredFieldIds.has(field.id));
   const connectedCount = Object.keys(connections).length;
-  const trackScore = letterFields.filter((item) => connections[item.id] === item.lane).length;
-  const tracksReady = connectedCount === letterFields.length;
+  const trackScore = activeLetterFields.filter((item) => connections[item.id] === item.lane).length;
+  const tracksReady = connectedCount === activeLetterFields.length && activeLetterFields.length === letterFields.length;
   const tracksStable = trackScore === letterFields.length;
-  const selectedField = letterFields.find((field) => field.id === selectedFieldId) ?? null;
+  const selectedField = activeLetterFields.find((field) => field.id === selectedFieldId) ?? null;
 
   useEffect(() => {
     if (!unstableLane) {
@@ -182,12 +195,20 @@ export function LetterPortGame({
   };
 
   const advanceLetterMoment = () => {
+    if (!currentMomentRecovered) {
+      setRecoveredMomentIds((current) => (current.includes(currentMoment.id) ? current : [...current, currentMoment.id]));
+      setFeedback(`时间锚封存：${currentMoment.artifactTitle}。现实光轨新增 ${currentMoment.unlockFieldIds.length} 个字段。`);
+      return;
+    }
+
     if (isLastMoment) {
       setStage("operate");
+      setFeedback(null);
       return;
     }
 
     setLetterMomentIndex((index) => Math.min(index + 1, letterPortMoments.length - 1));
+    setFeedback(null);
   };
 
   const connectSelectedField = (laneId: LetterTrackLaneId) => {
@@ -277,17 +298,25 @@ export function LetterPortGame({
             <p>{currentMoment.voice}</p>
           </div>
         </section>
-        <aside className="chapter-two-letter-story__artifact">
+        <aside className={`chapter-two-letter-story__artifact ${currentMomentRecovered ? "is-recovered" : ""}`}>
           <span>{currentMoment.artifactTitle}</span>
           {currentMoment.artifactLines.map((line) => (
             <p key={line}>{line}</p>
           ))}
+          <em>{currentMomentRecovered ? "时间锚已封存" : "时间锚未封存"}</em>
         </aside>
       </div>
+      {feedback && <div className="chapter-two-soft-success chapter-two-letter-time-feedback">{feedback}</div>}
       <div className="chapter-two-landmark-game__footer">
-        <span>{isLastMoment ? "残信已经回到现实。下一步，把字段接回正确光轨。" : "先读完这封信，不急着替它补完。"}</span>
+        <span>
+          {currentMomentRecovered
+            ? isLastMoment
+              ? "残信已经回到现实。下一步，把封存字段接回正确光轨。"
+              : "这段时间锚已经封存，可以继续向下一段错位滑落。"
+            : "先封存这一段真正留下的东西，再让时间继续流。"}
+        </span>
         <button type="button" onClick={advanceLetterMoment}>
-          {currentMoment.action}
+          {currentMomentRecovered ? currentMoment.action : "封存时间锚"}
         </button>
       </div>
     </>
@@ -316,7 +345,7 @@ export function LetterPortGame({
       </div>
       <div className="chapter-two-repair-board chapter-two-repair-board--letter">
         <div className="chapter-two-fragment-bank" aria-label="残信字段">
-          {letterFields.map((field) => {
+        {activeLetterFields.map((field) => {
             const connectedLane = letterTrackLanes.find((lane) => lane.id === connections[field.id]) ?? null;
             return (
               <button
@@ -370,10 +399,10 @@ export function LetterPortGame({
       <div className="chapter-two-landmark-game__footer">
         <span>
           {selectedField
-            ? `已选中：${selectedField.text}`
-            : tracksReady
+              ? `已选中：${selectedField.text}`
+              : tracksReady
               ? `当前轨道同步：${trackScore}/${letterFields.length}`
-              : `已接轨 ${connectedCount}/${letterFields.length} 个字段。`}
+              : `已接轨 ${connectedCount}/${letterFields.length} 个字段。时间锚 ${recoveredMomentIds.length}/${letterPortMoments.length}。`}
         </span>
         <button type="button" disabled={!tracksReady} onClick={runTrackSync}>
           启动光轨同步

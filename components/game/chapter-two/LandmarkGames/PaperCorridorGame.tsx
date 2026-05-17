@@ -31,6 +31,9 @@ type PaperRouteNode = {
   id: string;
   kind: PaperRouteKind;
   visibleType: string;
+  risk: "low" | "mid" | "high";
+  riskLabel: "低" | "中" | "高";
+  omen: string;
   title: string;
   description: string;
   relicId?: PaperRelicId;
@@ -65,6 +68,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "mirror-cache",
       kind: "relic",
       visibleType: "遗物波纹",
+      risk: "low",
+      riskLabel: "低",
+      omen: "纸面安静，像有人提前把它藏好。",
       title: paperRelicMeta.mirror.name,
       description: "一面小镜子夹在纸页之间，镜面没有倒影，只映出句子背后的空洞。",
       relicId: "mirror"
@@ -73,6 +79,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "prompt-wraith",
       kind: "residue",
       visibleType: "残魂回声",
+      risk: "mid",
+      riskLabel: "中",
+      omen: "字迹很顺，但句尾没有落点。",
       title: "目标后的错误提示词",
       description: "回声拿着一个清楚目标，却把后面的提示词撕得很散。",
       encounterId: "bad-prompt"
@@ -81,6 +90,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "shield-cache",
       kind: "relic",
       visibleType: "遗物波纹",
+      risk: "low",
+      riskLabel: "低",
+      omen: "裂痕向外散开，里面反而稳定。",
       title: paperRelicMeta.shield.name,
       description: "一枚透明盾片贴在纸膜上，边缘还留着几道替别人挡下的裂痕。",
       relicId: "shield"
@@ -91,6 +103,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "hallucination-wraith",
       kind: "residue",
       visibleType: "残魂回声",
+      risk: "high",
+      riskLabel: "高",
+      omen: "它举着一小块真实读数，后半句却亮得过分。",
       title: "带着真实数据的幻觉回答",
       description: "它引用了一点真实读数，然后把最关键的缺口缝成了结论。",
       encounterId: "hallucinated-answer"
@@ -99,6 +114,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "sword-cache",
       kind: "relic",
       visibleType: "遗物波纹",
+      risk: "mid",
+      riskLabel: "中",
+      omen: "刃口很亮，也很薄。",
       title: paperRelicMeta.sword.name,
       description: "一柄薄得像纸边的剑插在地上，刃口已经亮到快要碎开。",
       relicId: "sword"
@@ -107,6 +125,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "prompt-wraith-deep",
       kind: "residue",
       visibleType: "残魂回声",
+      risk: "high",
+      riskLabel: "高",
+      omen: "它说自己只是想帮你完整一点。",
       title: "目标后的错误提示词",
       description: "这一只更会伪装，它把“完整一点”说得像善意。",
       encounterId: "bad-prompt"
@@ -117,6 +138,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "vague-entity",
       kind: "residue",
       visibleType: "虚实岔影",
+      risk: "mid",
+      riskLabel: "中",
+      omen: "两个影子重叠，具体的那个边缘更清楚。",
       title: "空泛提示词实体",
       description: "两个影子同时站在路口，一个空泛，一个具体。真正会污染回廊的是空泛的那个。",
       encounterId: "vague-specific"
@@ -125,6 +149,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "shield-cache-deep",
       kind: "relic",
       visibleType: "遗物波纹",
+      risk: "low",
+      riskLabel: "低",
+      omen: "断梁下有一块稳住的亮斑。",
       title: paperRelicMeta.shield.name,
       description: "第二枚盾片挂在断梁上，像有人提前知道你会走到这里。",
       relicId: "shield"
@@ -133,6 +160,9 @@ const paperRouteTiers: PaperRouteNode[][] = [
       id: "hallucination-wraith-deep",
       kind: "residue",
       visibleType: "残魂回声",
+      risk: "high",
+      riskLabel: "高",
+      omen: "证据链只亮了一半，结论却已经跑到尽头。",
       title: "带着真实数据的幻觉回答",
       description: "它说自己有证据，可证据只够支撑一半。",
       encounterId: "hallucinated-answer"
@@ -525,10 +555,10 @@ export function PaperCorridorGame({
         {paperPhase === "choose" ? (
           <div className="chapter-two-paper-route-grid" aria-label="可见岔路">
             {activeRoutes.map((node, index) => (
-              <button key={node.id} type="button" onClick={() => chooseRouteNode(node)}>
-                <span>{node.visibleType}</span>
+              <button key={node.id} type="button" onClick={() => chooseRouteNode(node)} className={`is-risk-${node.risk}`}>
+                <span>{node.visibleType} / 风险{node.riskLabel}</span>
                 <strong>路线 {index + 1}</strong>
-                <em>走近后显形</em>
+                <em>{node.omen}</em>
               </button>
             ))}
           </div>

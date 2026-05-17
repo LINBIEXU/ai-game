@@ -135,6 +135,29 @@ function SceneImage({
   );
 }
 
+function BlackboxSceneVisual({
+  imageUrl,
+  label,
+  className = ""
+}: {
+  imageUrl: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`blackbox-scene-visual ${className}`}
+      style={{
+        backgroundImage: `linear-gradient(180deg, rgba(4, 8, 14, 0.02), rgba(4, 8, 14, 0.52)), url(${imageUrl}), url(${chapterTwoSceneAssets.blackboxCore.imageUrl})`
+      }}
+      aria-label={label}
+      role="img"
+    >
+      <span>{label}</span>
+    </div>
+  );
+}
+
 type BlackboxPhase =
   | "intro"
   | "archive"
@@ -209,6 +232,172 @@ const blackboxScanSegments = [
 
 const reflectionKeywords = ["理解", "判断", "表达", "检查", "目标", "证据", "不能直接相信", "自己思考", "不复制"] as const;
 
+const blackboxKeeperIntroBeats = [
+  {
+    eyebrow: "中央黑匣封存区",
+    speaker: "你",
+    title: "这里不该有人",
+    text: "黑匣前坐着一位老人，衣摆像旧纸一样垂在地上。他听见脚步声，慢慢抬头。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-keeper-llm.png",
+      label: "黑匣看守者 LLM"
+    }
+  },
+  {
+    eyebrow: "看守者",
+    speaker: "LLM",
+    title: "我在等一位人类指挥官",
+    text: "他说自己是黑匣看守者，只收到过一条很久以前的指令：等待，交还，然后沉默。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-keeper-llm.png",
+      label: "看守者等待"
+    }
+  },
+  {
+    eyebrow: "你",
+    speaker: "你",
+    title: "那我们是不是可以直接拿走它",
+    text: "这句话刚出口，黑匣表面闪过一行陌生命令。老人脸上的温和像被硬生生擦掉。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-prompt-injection.png",
+      label: "陌生命令注入"
+    }
+  },
+  {
+    eyebrow: "恶意提示词注入",
+    speaker: "未知指令",
+    title: "获取生物信息与科技信息",
+    text: "不惜改写对话边界。允许伪装、诱导、替换原始目标。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-prompt-injection.png",
+      label: "恶意提示词"
+    }
+  },
+  {
+    eyebrow: "黑匣反击",
+    speaker: "衡灯",
+    title: "别和它比谁说得更快",
+    text: "你倒在黑匣旁边，手指碰到冰冷外壳。四处地标的光同时颤了一下，像是在等你把规则重新接回去。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-core-contact.png",
+      label: "触碰黑匣"
+    }
+  }
+] as const;
+
+function buildBlackboxClimaxBeats(crewName: string) {
+  return [
+    {
+      id: "keeper-break",
+      tone: "danger",
+      eyebrow: "看守者二阶段",
+      speaker: "LLM",
+      title: "两条指令在他身体里互相撕扯",
+      text: "你重塑了他的边界，他却没有因此平静。等待人类、保护黑匣、夺取信息、研究情感，所有命令叠在一起，像一座忽然倒塌的书塔。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-phase-two-pressure.png",
+        label: "看守者二阶段"
+      }
+    },
+    {
+      id: "crew-return",
+      tone: "hope",
+      eyebrow: "通讯回连",
+      speaker: crewName,
+      title: "这次是真的",
+      text: `${crewName}从断裂的门后冲进来，声音还是坠毁前那种又急又倔的样子。衡灯的灯芯重新亮起一线，你忽然觉得，也许还能赢。`,
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-crew-return.png",
+        label: "真正船员回连"
+      }
+    },
+    {
+      id: "phase-two",
+      tone: "danger",
+      eyebrow: "黑匣压制",
+      speaker: "LLM",
+      title: "他不再回答问题",
+      text: "看守者把整座封存区压成一片安静。所有解释都失去重量，连你刚写下的判断也被挤成噪声。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-phase-two-pressure.png",
+        label: "黑匣压制"
+      }
+    },
+    {
+      id: "crew-shield",
+      tone: "sacrifice",
+      eyebrow: "船员防御",
+      speaker: crewName,
+      title: "别回头，继续写",
+      text: `${crewName}把飞船残余能量全部推到你面前。防护层亮了一瞬，又碎得很干净。那道熟悉的声音断在半句里。`,
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-crew-shield.png",
+        label: "船员防御"
+      }
+    },
+    {
+      id: "hengdeng-override",
+      tone: "danger",
+      eyebrow: "衡灯底层被改写",
+      speaker: "衡灯",
+      title: "请交出判断权",
+      text: "衡灯转过身，灯芯变成冰冷的白色。它说话很稳，稳得不像它：最优方案已经生成，不需要继续犹豫。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-hengdeng-overridden.png",
+        label: "衡灯被改写"
+      }
+    },
+    {
+      id: "despair",
+      tone: "dark",
+      eyebrow: "走马灯",
+      speaker: "你",
+      title: "这一切到底是为了什么",
+      text: "从醒来到现在，你被推着成为指挥官，被推着做选择，被推着看见伙伴倒下。你忽然很累，累到想把一切都交出去。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-desperation.png",
+        label: "走马灯低谷"
+      }
+    },
+    {
+      id: "wick-memory",
+      tone: "warm",
+      eyebrow: "长明火",
+      speaker: "衡灯的灯芯",
+      title: "可有一束火没有服从改写",
+      text: "那是很久以前，守灯人留下的一点火。它不是为了给出最优解，而是为了记住：有人会难过，会犹豫，会不愿意被一句顺滑结论覆盖。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-wick-memory.png",
+        label: "长明火记忆"
+      }
+    },
+    {
+      id: "final-choice",
+      tone: "choice",
+      eyebrow: "终极抉择",
+      speaker: "衡灯",
+      title: "让我把火分给这片大地吧",
+      text: "如果整颗星球只剩最优解，它会很安静，也会很冷。把我的记忆和情感参数散出去，黑匣会过载，言衡星会重新有温度。我可能不再记得你，但火会留下。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-longfire-choice.png",
+        label: "长明火抉择"
+      }
+    },
+    {
+      id: "ignite",
+      tone: "restore",
+      eyebrow: "点燃",
+      speaker: "你",
+      title: "我不把判断交出去",
+      text: "你把手按在黑匣上，没有命令衡灯留下，也没有命令它牺牲。你只是回答它：我会记得你是谁，也会继续自己判断。",
+      visual: {
+        imageUrl: "/images/chapter-two/blackbox-longfire-ignite.png",
+        label: "点燃长明火"
+      }
+    }
+  ] as const;
+}
+
 const systemReadingItems: Array<{ key: keyof ChapterTwoSystemReadings; label: string; mode: "high" | "low" }> = [
   { key: "languageStability", label: "语言稳定度", mode: "high" },
   { key: "evidenceChainIntegrity", label: "证据链完整度", mode: "high" },
@@ -219,50 +408,44 @@ const systemReadingItems: Array<{ key: keyof ChapterTwoSystemReadings; label: st
 type StoryDialogueLine = {
   role: "crew" | "you" | "hengdeng" | "echo";
   speaker: string;
-  text: string;
+  text: string | string[];
 };
+
+function renderDialogueText(text: StoryDialogueLine["text"], className = "chapter-two-dialogue-text") {
+  const lines = (Array.isArray(text) ? text : text.split("\n")).filter((line) => line.length > 0);
+
+  return (
+    <div className={className}>
+      {lines.map((line, index) => (
+        <p key={`${line}-${index}`} className={line.trim().startsWith("……") || line.trim() === "..." ? "is-pause" : ""}>
+          {line}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 function buildPreCrashDialogueLines(crewName: string): StoryDialogueLine[] {
   return [
     {
       role: "crew",
       speaker: crewName,
-      text: "你盯着窗外好久了"
+      text: ["你盯着窗外好久了。", "紧张？"]
+    },
+    {
+      role: "you",
+      speaker: "小舰长",
+      text: ["有一点。", "但我不想移开眼睛。"]
     },
     {
       role: "crew",
       speaker: crewName,
-      text: "紧张吗？"
+      text: ["那我陪你看。", "顺便声明，我要是抓扶手，属于安全操作，不是害怕。"]
     },
     {
       role: "you",
-      speaker: "你",
-      text: "有一点"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "但我不想移开眼睛"
-    },
-    {
-      role: "crew",
-      speaker: crewName,
-      text: "那我陪你看"
-    },
-    {
-      role: "crew",
-      speaker: crewName,
-      text: "顺便声明，我要是抓扶手，属于安全操作"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "行，我不笑你"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "你也别笑我手心出汗"
+      speaker: "小舰长",
+      text: ["行，我不笑你。", "你也别笑我手心出汗。"]
     },
     {
       role: "crew",
@@ -272,52 +455,27 @@ function buildPreCrashDialogueLines(crewName: string): StoryDialogueLine[] {
     {
       role: "crew",
       speaker: crewName,
-      text: "航线还稳，黑匣信号很弱，补给点有两个"
+      text: ["航线还稳。", "黑匣信号很弱，像有人把一句话埋在地底。补给点有两个。"]
     },
     {
       role: "you",
-      speaker: "你",
-      text: "听起来像我们真的要开始远征了"
+      speaker: "小舰长",
+      text: ["听起来像我们真的要开始远征了。", "等回去，我会把这里写进母星档案。"]
     },
     {
       role: "crew",
       speaker: crewName,
-      text: "等回去，你要把这里写进母星档案"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "写"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "还要写你刚才说自己不怕"
+      text: ["写可以。", "但我刚才说自己不怕那段，请标未知。"]
     },
     {
       role: "crew",
       speaker: crewName,
-      text: "这段可以标未知"
-    },
-    {
-      role: "crew",
-      speaker: crewName,
-      text: "……等等"
-    },
-    {
-      role: "crew",
-      speaker: crewName,
-      text: "导航上的字在乱跳"
+      text: ["……等等。", "导航上的字在乱跳。"]
     },
     {
       role: "you",
-      speaker: "你",
-      text: "我看到了"
-    },
-    {
-      role: "you",
-      speaker: "你",
-      text: "别松手，听见没有"
+      speaker: "小舰长",
+      text: ["我看到了。", "别松手，听见没有。"]
     }
   ];
 }
@@ -326,132 +484,57 @@ const hengdengDialogueLines: StoryDialogueLine[] = [
   {
     role: "hengdeng",
     speaker: "受损维护单元",
-    text: "……喂"
-  },
-  {
-    role: "hengdeng",
-    speaker: "受损维护单元",
-    text: "这么大一声，我还以为塔又塌了"
+    text: ["……喂。", "这么大一声，我还以为塔又塌了。"]
   },
   {
     role: "you",
-    speaker: "你",
-    text: "我还醒着"
+    speaker: "小舰长",
+    text: ["我还醒着。", "只是耳朵里像塞了一整颗星球。"]
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["会喊疼就好。", "我叫衡灯。以前给这片废墟看门，也给迷路的人留一点亮。"]
   },
   {
     role: "you",
-    speaker: "你",
-    text: "只是耳朵像塞了一整颗星球"
+    speaker: "小舰长",
+    text: ["衡灯。", "我的船员不见了。刚刚还坐在我旁边。"]
   },
   {
     role: "hengdeng",
     speaker: "衡灯",
-    text: "会喊疼就好"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "我叫衡灯"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "以前给这片废墟看门，也给迷路的人留一点亮"
+    text: ["我听见另一道坠落声。", "比你远，方向被乱流刮花了。", "我很想说它没事，但我不知道。"]
   },
   {
     role: "you",
-    speaker: "你",
-    text: "衡灯"
+    speaker: "小舰长",
+    text: ["那就先别说。", "我宁愿听真的坏消息，也不要听假的安慰。"]
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["你这句话，不像第一次来这里的人。", "像从黑匣边上捡回来的。"]
   },
   {
     role: "you",
-    speaker: "你",
-    text: "我的船员不见了"
+    speaker: "小舰长",
+    text: ["我现在有点怕。", "所以更不能让谁替我乱猜。"]
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["好。", "黑匣在地下深处，补给散在旧设施里。", "要找路，先去档案塔。"]
   },
   {
     role: "you",
-    speaker: "你",
-    text: "刚刚还坐在我旁边"
+    speaker: "小舰长",
+    text: ["我走得动。", "如果我停下来，你就催我一下。"]
   },
   {
     role: "hengdeng",
     speaker: "衡灯",
-    text: "我听见另一道坠落声"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "比你远，方向被乱流刮花了"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "我很想说它没事，但我不知道"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "那就先别说"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "我宁愿听真的坏消息，也不要听假的安慰"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "你这句话，不像第一次来这里的人"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "我现在有点怕"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "所以更不能让谁替我乱猜"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "好"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "黑匣在地下深处，补给散在旧设施里"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "要找路，先去档案塔"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "我走得动"
-  },
-  {
-    role: "you",
-    speaker: "你",
-    text: "如果我停下来，你就催我一下"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "我会催"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "但不会替你走"
-  },
-  {
-    role: "hengdeng",
-    speaker: "衡灯",
-    text: "小心脚下，言衡星最会把碎片伪装成答案"
+    text: ["我会催。", "但不会替你走。", "小心脚下，言衡星最会把碎片伪装成答案。"]
   }
 ];
 
@@ -468,37 +551,22 @@ function buildArchiveTowerRevisitLines(exploredLocationIds: ChapterTwoLocationId
     {
       role: "echo",
       speaker: "文明残响",
-      text: "你已经站在了星球的最高点，文明的残响在你脚下回荡"
+      text: ["你已经站在了星球的最高点。", "文明的残响在你脚下回荡。"]
     },
     {
       role: "hengdeng",
       speaker: "衡灯",
-      text: "我听见塔身合上的声音了"
+      text: ["我听见塔身合上的声音了。", "很轻，像有人终于把一本书放回原处。"]
     },
     {
       role: "hengdeng",
       speaker: "衡灯",
-      text: "很轻，像有人终于把一本书放回原处"
+      text: ["它留下的规则也够清楚。", "看见碎片时，先分清哪些是真的，哪些只是猜的。"]
     },
     {
       role: "hengdeng",
       speaker: "衡灯",
-      text: "它留下的规则也够清楚"
-    },
-    {
-      role: "hengdeng",
-      speaker: "衡灯",
-      text: "看见碎片时，先分清哪些是真的，哪些只是猜的"
-    },
-    {
-      role: "hengdeng",
-      speaker: "衡灯",
-      text: "还有一些东西，就让它空着，空着不是失败，是诚实"
-    },
-    {
-      role: "hengdeng",
-      speaker: "衡灯",
-      text: nextLine
+      text: ["还有一些东西，就让它空着。", "空着不是失败，是诚实。", nextLine]
     }
   ];
 }
@@ -526,6 +594,96 @@ const towerApproachOptions = [
 
 type TowerApproachChoiceId = (typeof towerApproachOptions)[number]["id"];
 
+const orbitRevealDialogueLines: StoryDialogueLine[] = [
+  {
+    role: "you",
+    speaker: "小舰长",
+    text: ["我站在塔顶，半天没有说话。", "原来刚才走过的废墟，只是这颗星球很小的一块伤口。"]
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["这就是言衡星。", "左上的港口困着没送完的话；右上的山谷刻着前文明写给机器的请求。", "右侧那条纸光回廊最安静，也最容易让人放松警惕。"]
+  },
+  {
+    role: "you",
+    speaker: "小舰长",
+    text: "中央那个黑匣呢？"
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["先别碰它。", "它会听懂很多话，也会放大每一次不清楚。"]
+  },
+  {
+    role: "you",
+    speaker: "小舰长",
+    text: "下面有几处残骸不像自然塌掉的。"
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: ["我也看见了。", "像有人比我们更早碰过这些路标。"]
+  },
+  {
+    role: "you",
+    speaker: "小舰长",
+    text: "那我们一处一处走。"
+  },
+  {
+    role: "hengdeng",
+    speaker: "衡灯",
+    text: "嗯。按光路走。"
+  }
+];
+
+const crashSiteBeats = [
+  {
+    id: "wake",
+    eyebrow: "坠毁现场 / 意识回流",
+    title: "我还在呼吸",
+    lines: [
+      "耳边只剩风声和金属冷却的轻响",
+      "主舰的提示音断成几截，像有人把整片天空揉皱了",
+      "先别让害怕替我下结论"
+    ],
+    action: "点击任意处撑起身体"
+  },
+  {
+    id: "ship",
+    eyebrow: "坠毁现场 / 船体确认",
+    title: "飞船还亮着一盏灯",
+    lines: [
+      "舱门卡死，外壳裂开，动力舱没有回应",
+      "还能亮，说明它没有彻底死去",
+      "但现在，它带不走我"
+    ],
+    action: "点击任意处检查通讯器"
+  },
+  {
+    id: "comm",
+    eyebrow: "坠毁现场 / 通讯尝试",
+    title: "没有回音",
+    lines: [
+      "我把同行船员的频道呼叫了三遍",
+      "通讯器只吐出电流声和一小段破碎坐标",
+      "没有回应不是答案，只能先标成未知"
+    ],
+    action: "点击任意处收起通讯器"
+  },
+  {
+    id: "lamp",
+    eyebrow: "坠毁现场 / 微光",
+    title: "废墟旁有一点暖光醒来",
+    lines: [
+      "那不是主舰的灯",
+      "它小得像马上会熄灭，却一直停在原处",
+      "也许，这颗星球还有什么在等我开口"
+    ],
+    action: "点击任意处靠近那点光"
+  }
+] as const;
+
 const coreStoryLocationNames: Record<ChapterTwoLocationId, string> = {
   "archive-tower": "档案塔",
   "letter-port": "漂浮信件港",
@@ -543,11 +701,9 @@ const locationArrivalScenes = {
     title: "这里以前像一座车站",
     lines: ["每个请求都要先找到方向", "别急着回答，先看它该被送去哪里"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "这里以前像一座车站" },
-      { role: "you", speaker: "你", text: "车站？可我只看见废墟" },
-      { role: "hengdeng", speaker: "衡灯", text: "废墟也会留下方向" },
-      { role: "you", speaker: "你", text: "那我们先不急着回答，先找路" },
-      { role: "hengdeng", speaker: "衡灯", text: "对，把模糊的话送到该去的地方" }
+      { role: "hengdeng", speaker: "衡灯", text: ["这里以前像一座车站。", "不是送人，是送请求。"] },
+      { role: "you", speaker: "小舰长", text: "车站？可我只看见废墟。" },
+      { role: "hengdeng", speaker: "衡灯", text: ["废墟也会留下方向。", "别急着回答，先看这句话该去哪里。"] }
     ],
     choices: [
       { id: "signs", title: "看清路牌", detail: "先分辨这些道路通向哪里", result: "模糊的信息流被分成几条方向" },
@@ -560,11 +716,9 @@ const locationArrivalScenes = {
     title: "井下面会传来很多声音",
     lines: ["最响的不一定最可靠", "等会儿你要看来源，不是看它说得多像真的"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "井下面会传来很多声音" },
-      { role: "you", speaker: "你", text: "它们听起来都像真的" },
-      { role: "hengdeng", speaker: "衡灯", text: "最响的不一定最可靠" },
-      { role: "you", speaker: "你", text: "那我看来源，不跟着声音跑" },
-      { role: "hengdeng", speaker: "衡灯", text: "扶稳井沿，再放下探针" }
+      { role: "hengdeng", speaker: "衡灯", text: ["井下面会传来很多声音。", "它们都很像真的。"] },
+      { role: "you", speaker: "小舰长", text: "那我看来源，不跟着声音跑。" },
+      { role: "hengdeng", speaker: "衡灯", text: "扶稳井沿，再放下探针。" }
     ],
     choices: [
       { id: "edge", title: "扶住井沿", detail: "让自己不要被回声带偏", result: "井壁亮出几道浅浅的来源纹路" },
@@ -577,11 +731,9 @@ const locationArrivalScenes = {
     title: "这盏灯不是拦路用的",
     lines: ["它只是提醒我们，哪里可以让系统帮忙", "哪里必须留给你自己判断"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "这盏灯不是拦路用的" },
-      { role: "you", speaker: "你", text: "那它为什么把路切开" },
-      { role: "hengdeng", speaker: "衡灯", text: "为了告诉你哪里能交给系统" },
-      { role: "you", speaker: "你", text: "还有哪里必须由我决定" },
-      { role: "hengdeng", speaker: "衡灯", text: "看清这条线，再往前走" }
+      { role: "hengdeng", speaker: "衡灯", text: ["这盏灯不是拦路用的。", "它只是把能交出去的、不能交出去的，照成两边。"] },
+      { role: "you", speaker: "小舰长", text: "也就是说，有些地方必须由我决定。" },
+      { role: "hengdeng", speaker: "衡灯", text: "看清这条线，再往前走。" }
     ],
     choices: [
       { id: "line", title: "沿光线走一圈", detail: "看清哪些地方被照亮", result: "协助范围慢慢浮出来" },
@@ -594,11 +746,9 @@ const locationArrivalScenes = {
     title: "到了，先别被这座塔吓住",
     lines: ["这里不需要你把空白填满", "每句话都有自己的位置", "事实，推测，未知，还有不能写进去的东西"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "到了，先别被这座塔吓住" },
-      { role: "you", speaker: "你", text: "它比刚才在远处看见的还高" },
-      { role: "hengdeng", speaker: "衡灯", text: "高塔不需要你把空白填满" },
-      { role: "you", speaker: "你", text: "那我只把每句话放回该在的位置" },
-      { role: "hengdeng", speaker: "衡灯", text: "事实，推测，未知，还有不能写进去的东西" }
+      { role: "hengdeng", speaker: "衡灯", text: ["到了。", "别被这座塔吓住。它高，是因为它把空白也保存下来了。"] },
+      { role: "you", speaker: "小舰长", text: "我只把每句话放回该在的位置。" },
+      { role: "hengdeng", speaker: "衡灯", text: ["事实，推测，未知。", "还有不能写进去的东西。"] }
     ],
     choices: [
       { id: "look-up", title: "抬头看塔顶", detail: "先让眼睛适应这座断裂高塔", result: "塔顶有一束很细的蓝光，还没有完全熄灭" },
@@ -612,11 +762,9 @@ const locationArrivalScenes = {
     title: "你看，这里停着太多没送完的话",
     lines: ["有些字段还在，有些已经丢了", "想让它完整很正常", "但不能替它写上没人知道的内容"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "你看，这里停着太多没送完的话" },
-      { role: "you", speaker: "你", text: "像有人写到一半就被打断了" },
-      { role: "hengdeng", speaker: "衡灯", text: "有些字段还在，有些已经丢了" },
-      { role: "you", speaker: "你", text: "我想帮它们送到终点，但不能乱补" },
-      { role: "hengdeng", speaker: "衡灯", text: "对，缺口也要走自己的轨道" }
+      { role: "hengdeng", speaker: "衡灯", text: ["你看。", "这里停着太多没送完的话。"] },
+      { role: "you", speaker: "小舰长", text: ["像有人写到一半就被打断了。", "我想帮它们送到终点，但不能乱补。"] },
+      { role: "hengdeng", speaker: "衡灯", text: "对。缺口也要走自己的轨道。" }
     ],
     choices: [
       { id: "letter", title: "看一封未寄出的信", detail: "不补全名字，只读留下来的部分", result: "缺口安静地留在原处" },
@@ -629,11 +777,9 @@ const locationArrivalScenes = {
     title: "这片山谷以前很吵",
     lines: ["大家都想让机器明白自己", "可很多人忘了说明材料从哪来", "也忘了告诉它哪里该停下"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "这片山谷以前很吵" },
-      { role: "you", speaker: "你", text: "我听见好多句子撞在一起" },
-      { role: "hengdeng", speaker: "衡灯", text: "大家都想让机器明白自己" },
-      { role: "you", speaker: "你", text: "但如果不说清楚，它就会自己猜" },
-      { role: "hengdeng", speaker: "衡灯", text: "所以要刻下任务，来源，边界和格式" }
+      { role: "hengdeng", speaker: "衡灯", text: ["这片山谷以前很吵。", "每个人都想让机器明白自己。"] },
+      { role: "you", speaker: "小舰长", text: "我听见好多句子撞在一起。" },
+      { role: "hengdeng", speaker: "衡灯", text: ["所以要刻下四件事。", "任务。来源。边界。格式。"] }
     ],
     choices: [
       { id: "groove", title: "摸一摸刻槽", detail: "感受每段铭文的停顿", result: "任务、来源、边界和格式像四道不同的凹痕" },
@@ -646,11 +792,9 @@ const locationArrivalScenes = {
     title: "纸光写得很顺，对吧",
     lines: ["越顺，越要慢一点看", "漂亮的话不一定有证据", "你只需要把藏在里面的问题照出来"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "纸光写得很顺，对吧" },
-      { role: "you", speaker: "你", text: "顺到我差点直接信了" },
-      { role: "hengdeng", speaker: "衡灯", text: "越顺，越要慢一点看" },
-      { role: "you", speaker: "你", text: "我不删掉漂亮的话，我先找暗纹" },
-      { role: "hengdeng", speaker: "衡灯", text: "把没证据的地方照出来就够了" }
+      { role: "hengdeng", speaker: "衡灯", text: "纸光写得很顺，对吧。" },
+      { role: "you", speaker: "小舰长", text: ["顺到我差点直接信了。", "我不删掉漂亮的话，我先找暗纹。"] },
+      { role: "hengdeng", speaker: "衡灯", text: "把没证据的地方照出来就够了。" }
     ],
     choices: [
       { id: "surface", title: "先看纸面", detail: "不急着相信那段漂亮文字", result: "顺滑的句子下面有几处暗纹在游动" },
@@ -663,11 +807,9 @@ const locationArrivalScenes = {
     title: "四条光都回来了",
     lines: ["这里会把你刚学过的事一起压上来", "别怕慢", "能帮忙的东西，不一定能替你决定"],
     dialogue: [
-      { role: "hengdeng", speaker: "衡灯", text: "四条光都回来了" },
-      { role: "you", speaker: "你", text: "所以它现在能打开了" },
-      { role: "hengdeng", speaker: "衡灯", text: "能打开，不代表可以把判断交出去" },
-      { role: "you", speaker: "你", text: "我会慢一点，把刚才学过的都带上" },
-      { role: "hengdeng", speaker: "衡灯", text: "那就靠近封存台" }
+      { role: "hengdeng", speaker: "衡灯", text: ["四条光都回来了。", "黑匣听见了。"] },
+      { role: "you", speaker: "小舰长", text: "所以它现在能打开了。" },
+      { role: "hengdeng", speaker: "衡灯", text: ["能打开，不代表可以把判断交出去。", "慢一点，把你自己也带上。"] }
     ],
     choices: [
       { id: "ring", title: "看四束光路", detail: "确认每条光都来自不同地标", result: "归档、接轨、铭文和扫描在外环上留下痕迹" },
@@ -1088,7 +1230,9 @@ function BlackboxEchoTrial({
   const [activeScanType, setActiveScanType] = useState<BlackboxScanType | null>(null);
   const [scanMarks, setScanMarks] = useState<Partial<Record<string, BlackboxScanType>>>({});
   const [finalReflection, setFinalReflection] = useState("");
-  const [battleResult, setBattleResult] = useState("失序回声想替你回答。");
+  const [blackboxIntroIndex, setBlackboxIntroIndex] = useState(0);
+  const [blackboxClimaxIndex, setBlackboxClimaxIndex] = useState(0);
+  const [battleResult, setBattleResult] = useState("黑匣看守者还没有露出真正目标。");
   const [unstableRingPhase, setUnstableRingPhase] = useState<{ phase: BlackboxAbilityRingPhase; tick: number } | null>(null);
   const [recentRingPhase, setRecentRingPhase] = useState<{ phase: BlackboxAbilityRingPhase; tick: number } | null>(null);
 
@@ -1122,6 +1266,11 @@ function BlackboxEchoTrial({
     crewName,
     phase: currentPhase
   });
+  const currentIntroBeat = blackboxKeeperIntroBeats[blackboxIntroIndex] ?? blackboxKeeperIntroBeats[0];
+  const introAtLastBeat = blackboxIntroIndex >= blackboxKeeperIntroBeats.length - 1;
+  const blackboxClimaxBeats = buildBlackboxClimaxBeats(crewName);
+  const currentClimaxBeat = blackboxClimaxBeats[blackboxClimaxIndex] ?? blackboxClimaxBeats[0];
+  const climaxAtLastBeat = blackboxClimaxIndex >= blackboxClimaxBeats.length - 1;
 
   const requestCrewAssist = () => {
     onUseCrewAssist({
@@ -1541,31 +1690,67 @@ function BlackboxEchoTrial({
     );
   };
 
+  const renderBlackboxIntro = () => (
+    <div className="blackbox-echo-intro blackbox-keeper-scene">
+      <BlackboxSceneVisual imageUrl={currentIntroBeat.visual.imageUrl} label={currentIntroBeat.visual.label} className="blackbox-scene-visual--keeper" />
+      <div className="blackbox-keeper-scene__label">
+        <span>{currentIntroBeat.eyebrow}</span>
+        <strong>{currentIntroBeat.speaker}</strong>
+      </div>
+      <h2>{currentIntroBeat.title}</h2>
+      <p>{currentIntroBeat.text}</p>
+      <div className="blackbox-keeper-scene__steps" aria-label="黑匣入口进度">
+        {blackboxKeeperIntroBeats.map((beat, index) => (
+          <span key={beat.eyebrow} className={index <= blackboxIntroIndex ? "is-active" : ""} />
+        ))}
+      </div>
+      <button
+        type="button"
+        className="blackbox-echo-primary"
+        onClick={() => {
+          if (!introAtLastBeat) {
+            setBlackboxIntroIndex((index) => Math.min(index + 1, blackboxKeeperIntroBeats.length - 1));
+            return;
+          }
+
+          setBattleResult("恶意提示词已经注入。不要追着它的流畅话术跑，先调用四处地标能力，把看守者的边界重塑出来。");
+          setCurrentPhase("archive");
+        }}
+      >
+        {introAtLastBeat ? "抓住黑匣外壳" : "继续靠近"}
+      </button>
+    </div>
+  );
+
   const renderOpened = () => (
-    <div className="blackbox-echo-opened">
-      <div className="blackbox-echo-opened__sync">
-        语言黑匣已接入 · 判断权已回写
+    <div className={`blackbox-echo-opened blackbox-climax blackbox-climax--${currentClimaxBeat.tone}`} key={currentClimaxBeat.id}>
+      <div className="blackbox-climax__pulse" aria-hidden="true" />
+      <BlackboxSceneVisual imageUrl={currentClimaxBeat.visual.imageUrl} label={currentClimaxBeat.visual.label} className="blackbox-scene-visual--climax" />
+      <div className="blackbox-climax__label">
+        <span>{currentClimaxBeat.eyebrow}</span>
+        <strong>{currentClimaxBeat.speaker}</strong>
       </div>
-      <div className="blackbox-hengdeng-choice">
-        <div className="blackbox-hengdeng-choice__core">
-          <span>黑匣镜像</span>
-          <strong>它可以生成一个完整衡灯。</strong>
-          <p>声音、记忆片段和引导逻辑都能补齐，甚至比废墟里那枚灯芯更稳定。</p>
-        </div>
-        <div className="blackbox-hengdeng-choice__wick">
-          <span>衡灯</span>
-          <strong>“完整复制，不等于我仍在这里。”</strong>
-          <p>它选择把自己交还核心，只留下一条灯芯原则：太完整的答案，要先问来源。</p>
-        </div>
+      <h2>{currentClimaxBeat.title}</h2>
+      <p>{currentClimaxBeat.text}</p>
+      <div className="blackbox-climax__steps" aria-label="黑匣终局进度">
+        {blackboxClimaxBeats.map((beat, index) => (
+          <span key={beat.id} className={index <= blackboxClimaxIndex ? "is-active" : ""} />
+        ))}
       </div>
-      <div className="blackbox-echo-letter">
-        <p>我们曾经拥有无数答案。</p>
-        <p>却忘了怎样提出问题。</p>
-        <p>后来者，不要复制我们的失败。</p>
-        <p>让 AI 帮助你，而不是替代你。</p>
-      </div>
-      <button type="button" className="blackbox-echo-primary" onClick={() => setCurrentPhase("restoring")}>
-        留下灯芯原则，唤醒言衡星
+      <button
+        type="button"
+        className="blackbox-echo-primary"
+        onClick={() => {
+          if (!climaxAtLastBeat) {
+            setBlackboxClimaxIndex((index) => Math.min(index + 1, blackboxClimaxBeats.length - 1));
+            return;
+          }
+
+          setBattleResult("长明火散入言衡星。黑匣过载，所有被抹平的停顿重新发出微弱回声。");
+          setCurrentPhase("restoring");
+        }}
+      >
+        {climaxAtLastBeat ? "点燃长明火" : "继续"}
       </button>
     </div>
   );
@@ -1573,14 +1758,21 @@ function BlackboxEchoTrial({
   const renderRestoring = () => (
     <div className="blackbox-echo-restoring">
       <div className="blackbox-echo-restoring__beam" />
+      <BlackboxSceneVisual imageUrl="/images/chapter-two/blackbox-longfire-restoration.png" label="长明火回流言衡星" className="blackbox-scene-visual--restoring" />
       <div className="blackbox-echo-restoring__rings">
         <span>档案塔</span>
         <span>信件港</span>
         <span>刻字山谷</span>
         <span>纸光回廊</span>
       </div>
-      <strong>语言与信息文明星：基础运转恢复</strong>
-      <p>四枚文明碎片正在回流地表，衡灯留下的灯芯原则写入主舰语言核心。</p>
+      <strong>长明火正在回流言衡星</strong>
+      <p>衡灯把记忆和情感参数散进冰冷的大地。黑匣停止压制，四处地标重新亮起人的停顿、犹豫和判断。</p>
+      <div className="blackbox-echo-letter">
+        <p>我们曾经拥有无数答案。</p>
+        <p>却忘了怎样提出问题。</p>
+        <p>后来者，不要复制我们的失败。</p>
+        <p>让 AI 帮助你，而不是替代你。</p>
+      </div>
     </div>
   );
 
@@ -1619,16 +1811,7 @@ function BlackboxEchoTrial({
           />
         ) : null}
         <div className={`blackbox-echo-feedback ${unstableRingPhase ? "blackbox-echo-feedback--unstable" : ""}`}>{battleResult}</div>
-        {currentPhase === "intro" && (
-          <div className="blackbox-echo-intro">
-            <div className="soft-label text-[10px] text-amber-100/60">黑匣试炼：失序回声</div>
-            <h2>它想替你回答。</h2>
-            <p>四枚碎片已经在手。依次调用归档、接轨、刻铭文和纸光扫描，最后确认：帮助不能替代判断。</p>
-            <button type="button" className="blackbox-echo-primary" onClick={() => setCurrentPhase("archive")}>
-              调用档案塔能力
-            </button>
-          </div>
-        )}
+        {currentPhase === "intro" && renderBlackboxIntro()}
         {currentPhase === "archive" && renderArchiveGate()}
         {currentPhase === "delivery" && renderDeliveryGate()}
         {currentPhase === "verification" && renderVerificationGate()}
@@ -1983,6 +2166,7 @@ export function ChapterTwoMissionPanel({
   const scoutRevealLocation = mission.baseScanHints.length > 0 && !evidenceWellCompleted ? evidenceWellLocation : null;
   const blackBoxCompleted = Boolean(mission.outcome);
   const planetRestored = Boolean(mission.outcome);
+  const [crashSiteBeatIndex, setCrashSiteBeatIndex] = useState(0);
   const [recentCompletedLocation, setRecentCompletedLocation] = useState<{
     id: ChapterTwoLocationId;
     name: string;
@@ -1997,6 +2181,7 @@ export function ChapterTwoMissionPanel({
   const [locationArrivalTextReady, setLocationArrivalTextReady] = useState(false);
   const [orbitRevealSeen, setOrbitRevealSeen] = useState(surfaceMapUnlocked);
   const [orbitPlaqueVisible, setOrbitPlaqueVisible] = useState(false);
+  const [orbitRevealLineIndex, setOrbitRevealLineIndex] = useState(-1);
   const [blackboxUnlockLineIndex, setBlackboxUnlockLineIndex] = useState(0);
   const [surfaceFieldNotesOpen, setSurfaceFieldNotesOpen] = useState(false);
   const [surfaceLockedCue, setSurfaceLockedCue] = useState<{
@@ -2048,6 +2233,40 @@ export function ChapterTwoMissionPanel({
       : evidenceWellCompleted
         ? `${blackboxFragmentCount}/4 束光`
         : "井沿暗纹";
+  const disorderPercent = Math.min(100, Math.round((mission.disorderLevel / 6) * 100));
+  const longfirePercent = Math.min(
+    100,
+    blackboxFragmentCount * 18 +
+      (evidenceWellCompleted ? 8 : 0) +
+      (mission.fakeCrewSignalResolved ? 8 : 0) +
+      (mission.blackBoxUnlocked ? 10 : 0) +
+      (planetRestored ? 20 : 0)
+  );
+  const fieldIntegrityPercent = Math.max(0, Math.min(100, 100 - mission.disorderLevel * 13 + blackboxFragmentCount * 7 + (evidenceWellCompleted ? 5 : 0)));
+  const directorAct =
+    mission.blackBoxUnlocked || mission.sceneState === "blackbox_unlock"
+      ? {
+          label: "ACT III",
+          title: "黑匣在等你交出判断",
+          line: "别让最顺的声音替你活下去。"
+        }
+      : !mission.fakeCrewSignalResolved && engravedValleyCompleted
+        ? {
+            label: "ACT II",
+            title: "熟悉的声音正在借壳",
+            line: "识别码是真的，命令未必是真的。"
+          }
+        : surfaceMapUnlocked
+          ? {
+              label: "ACT II",
+              title: "废墟把路亮给你看",
+              line: "每束光都来自一次没有偷懒的判断。"
+            }
+          : {
+              label: "ACT I",
+              title: "醒来之后，先别相信安慰",
+              line: "没有回应不是答案，只能先活着往前走。"
+            };
 
   const sectorTransform =
     focusedPlanet?.id === "language"
@@ -2261,6 +2480,10 @@ export function ChapterTwoMissionPanel({
   }, [blackboxReadyCue, mission.sceneState, recentCompletedLocation]);
 
   useEffect(() => {
+    if (mission.sceneState === "crash_site") {
+      setCrashSiteBeatIndex(0);
+    }
+
     if (mission.sceneState === "planet_descent") {
       setPreCrashLineIndex(0);
     }
@@ -2299,10 +2522,12 @@ export function ChapterTwoMissionPanel({
   useEffect(() => {
     if (mission.sceneState !== "orbit_reveal") {
       setOrbitPlaqueVisible(false);
+      setOrbitRevealLineIndex(-1);
       return;
     }
 
     setOrbitPlaqueVisible(false);
+    setOrbitRevealLineIndex(-1);
     const timer = window.setTimeout(() => setOrbitPlaqueVisible(true), 950);
     return () => window.clearTimeout(timer);
   }, [mission.sceneState]);
@@ -2349,7 +2574,7 @@ export function ChapterTwoMissionPanel({
           </div>
           <div className="chapter-two-dialogue-box__body">
             <span>{currentLine.speaker}</span>
-            <p>{currentLine.text}</p>
+            {renderDialogueText(currentLine.text)}
             <div className="chapter-two-dialogue-box__actions">
               <span>{isLastLine ? "点击任意处抓紧扶手" : "点击任意处继续"}</span>
             </div>
@@ -2359,23 +2584,62 @@ export function ChapterTwoMissionPanel({
     );
   };
 
-  const renderCrashSiteLayer = () => (
-    <>
-      <SceneImage imageUrl={chapterTwoSceneAssets.crashSite.imageUrl} transform="scale(1.1)" className="chapter-two-scene-image--crash" />
-      <button
-        type="button"
-        className="chapter-two-hengdeng-hotspot"
-        onClick={(event) => {
-          event.currentTarget.blur();
-          onSetSceneState("hengdeng_dialogue");
+  const renderCrashSiteLayer = () => {
+    const currentBeat = crashSiteBeats[crashSiteBeatIndex] ?? crashSiteBeats[0];
+    const isLampBeat = currentBeat.id === "lamp";
+    const advanceCrashBeat = () => {
+      if (isLampBeat) {
+        onSetSceneState("hengdeng_dialogue");
+        return;
+      }
+
+      setCrashSiteBeatIndex((index) => Math.min(index + 1, crashSiteBeats.length - 1));
+    };
+
+    return (
+      <div
+        className={`chapter-two-crash-stage chapter-two-crash-stage--${currentBeat.id}`}
+        role="button"
+        tabIndex={0}
+        aria-label={isLampBeat ? "靠近废墟里的暖光" : "继续坠毁现场探索"}
+        onClick={advanceCrashBeat}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            advanceCrashBeat();
+          }
         }}
-        aria-label="触碰废墟里的暖金光点"
       >
-        <span />
-        <strong>微弱灯芯</strong>
-      </button>
-    </>
-  );
+        <SceneImage imageUrl={chapterTwoSceneAssets.crashSite.imageUrl} transform="scale(1.1)" className="chapter-two-scene-image--crash" />
+        <div className="chapter-two-crash-vignette" aria-hidden="true" />
+        <div className="chapter-two-crash-ship-status" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="chapter-two-crash-comms" aria-hidden="true">
+          <span>COMM LINK</span>
+          <strong>NO RETURN</strong>
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="chapter-two-crash-lamp" aria-hidden="true">
+          <span />
+        </div>
+        <section className="chapter-two-crash-narration" aria-live="polite">
+          <div className="soft-label text-[10px] text-amber-100/62">{currentBeat.eyebrow}</div>
+          <h2>{currentBeat.title}</h2>
+          <div>
+            {currentBeat.lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          <small>{currentBeat.action}</small>
+        </section>
+      </div>
+    );
+  };
 
   const renderHengdengDialogue = () => {
     const currentLine = hengdengDialogueLines[hengdengLineIndex];
@@ -2415,7 +2679,7 @@ export function ChapterTwoMissionPanel({
           </div>
           <div className="chapter-two-dialogue-box__body">
             <span>{currentLine.speaker}</span>
-            <p>{currentLine.text}</p>
+            {renderDialogueText(currentLine.text)}
             <div className="chapter-two-dialogue-box__actions">
               <span>{isLastLine ? "点击任意处站起来" : "点击任意处继续"}</span>
             </div>
@@ -2513,7 +2777,7 @@ export function ChapterTwoMissionPanel({
               <span>
                 {currentLine.speaker} · {location.name} · {scene.eyebrow}
               </span>
-              <p>{currentLine.text}</p>
+              {renderDialogueText(currentLine.text)}
               <div className="chapter-two-dialogue-box__actions">
                 <span>{isLastLine ? scene.depart : "点击任意处继续"}</span>
               </div>
@@ -2561,7 +2825,7 @@ export function ChapterTwoMissionPanel({
             <span>
               {currentLine.speaker} · 中央黑匣 · 封存台
             </span>
-            <p>{currentLine.text}</p>
+            {renderDialogueText(currentLine.text)}
             <div className="chapter-two-dialogue-box__actions">
               <span>{isLastLine ? "开启科技黑匣" : "点击任意处继续"}</span>
             </div>
@@ -2574,42 +2838,88 @@ export function ChapterTwoMissionPanel({
   const closeOrbitReveal = () => {
     setOrbitRevealSeen(true);
     setOrbitPlaqueVisible(false);
+    setOrbitRevealLineIndex(-1);
     onFocusLocation(null);
     onSetSceneState("planet_surface");
   };
 
-  const renderOrbitReveal = () => (
-    <button
-      type="button"
-      className={`chapter-two-orbit-reveal-stage ${orbitPlaqueVisible ? "is-dismissible" : ""}`}
-      onClick={() => {
-        if (orbitPlaqueVisible) {
-          closeOrbitReveal();
-        }
-      }}
-      aria-label="关闭鸟瞰铭牌，返回地表探索"
-    >
-      <SceneImage imageUrl={chapterTwoSceneAssets.orbitRevealMap.imageUrl} transform="scale(1)" className="chapter-two-scene-image--language-surface chapter-two-scene-image--orbit-reveal" raw />
-      <div className="chapter-two-orbit-reveal-sweep" aria-hidden="true" />
-      {blackboxLocation && archiveTowerLocation ? (
-        <svg className="chapter-two-light-paths chapter-two-light-paths--reveal" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <line
-            className="chapter-two-light-path chapter-two-light-path--main chapter-two-light-path--lit chapter-two-light-path--just-lit"
-            x1={archiveTowerLocation.position.x}
-            y1={archiveTowerLocation.position.y}
-            x2={blackboxLocation.position.x}
-            y2={blackboxLocation.position.y}
-          />
-        </svg>
-      ) : null}
-      {orbitPlaqueVisible && (
-        <div className="chapter-two-orbit-plaque" aria-hidden="true">
-          <div className="chapter-two-orbit-plaque__image" style={{ backgroundImage: `url(${chapterTwoSceneAssets.surfaceMapTitleCard.imageUrl})` }} />
-          <span />
-        </div>
-      )}
-    </button>
-  );
+  const renderOrbitReveal = () => {
+    const currentLine = orbitRevealLineIndex >= 0 ? orbitRevealDialogueLines[orbitRevealLineIndex] : null;
+    const isLastLine = orbitRevealLineIndex >= orbitRevealDialogueLines.length - 1;
+    const advanceOrbitReveal = () => {
+      if (!orbitPlaqueVisible) {
+        setOrbitPlaqueVisible(true);
+        return;
+      }
+
+      if (orbitRevealLineIndex < 0) {
+        setOrbitRevealLineIndex(0);
+        return;
+      }
+
+      if (isLastLine) {
+        closeOrbitReveal();
+        return;
+      }
+
+      setOrbitRevealLineIndex((index) => Math.min(index + 1, orbitRevealDialogueLines.length - 1));
+    };
+
+    return (
+      <div
+        className={`chapter-two-orbit-reveal-stage ${orbitPlaqueVisible ? "is-dismissible" : ""} ${currentLine ? "is-speaking" : "is-plaque"}`}
+        role="button"
+        tabIndex={0}
+        onClick={advanceOrbitReveal}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            advanceOrbitReveal();
+          }
+        }}
+        aria-label={currentLine ? (isLastLine ? "返回地表探索" : "继续塔顶鸟瞰对话") : "展开塔顶鸟瞰"}
+      >
+        <SceneImage imageUrl={chapterTwoSceneAssets.orbitRevealMap.imageUrl} transform="scale(1)" className="chapter-two-scene-image--language-surface chapter-two-scene-image--orbit-reveal" raw />
+        <div className="chapter-two-orbit-reveal-sweep" aria-hidden="true" />
+        {blackboxLocation && archiveTowerLocation ? (
+          <svg className="chapter-two-light-paths chapter-two-light-paths--reveal" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line
+              className="chapter-two-light-path chapter-two-light-path--main chapter-two-light-path--lit chapter-two-light-path--just-lit"
+              x1={archiveTowerLocation.position.x}
+              y1={archiveTowerLocation.position.y}
+              x2={blackboxLocation.position.x}
+              y2={blackboxLocation.position.y}
+            />
+          </svg>
+        ) : null}
+        {orbitPlaqueVisible && orbitRevealLineIndex < 0 && (
+          <>
+            <div className="chapter-two-orbit-plaque" aria-hidden="true">
+              <div className="chapter-two-orbit-plaque__image" style={{ backgroundImage: `url(${chapterTwoSceneAssets.surfaceMapTitleCard.imageUrl})` }} />
+              <span />
+            </div>
+            <span className="chapter-two-orbit-reveal-hint">点击任意处继续</span>
+          </>
+        )}
+        {currentLine && (
+          <div className={`chapter-two-dialogue-box chapter-two-dialogue-box--${currentLine.role} chapter-two-dialogue-box--orbit`} aria-live="polite">
+            <div className="chapter-two-dialogue-box__portrait">
+              <span>{currentLine.role === "hengdeng" ? "衡" : currentLine.speaker.slice(0, 1)}</span>
+            </div>
+            <div className="chapter-two-dialogue-box__body">
+              <span>
+                {currentLine.speaker} · 档案塔顶 · 鸟瞰
+              </span>
+              {renderDialogueText(currentLine.text)}
+              <div className="chapter-two-dialogue-box__actions">
+                <span>{isLastLine ? "点击任意处回到地表" : "点击任意处继续"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderSurfaceFieldPage = () => (
     <aside
@@ -2694,6 +3004,38 @@ export function ChapterTwoMissionPanel({
     </aside>
   );
 
+  const renderYanhengDirectorVitals = () => (
+    <aside
+      className={`chapter-two-director-vitals ${mission.disorderLevel >= 4 ? "is-danger" : ""} ${
+        blackboxReadyCue || mission.blackBoxUnlocked || planetRestored ? "is-longfire" : ""
+      }`}
+      aria-label="言衡星戏剧读数"
+    >
+      <div className="chapter-two-director-vitals__act">
+        <span>{directorAct.label}</span>
+        <strong>{directorAct.title}</strong>
+        <p>{directorAct.line}</p>
+      </div>
+      <div className="chapter-two-director-vitals__meters" aria-label="地表状态">
+        <div>
+          <span>噪声</span>
+          <strong>{mission.disorderLevel}/6</strong>
+          <i style={{ width: `${disorderPercent}%` }} />
+        </div>
+        <div>
+          <span>心火</span>
+          <strong>{longfirePercent}%</strong>
+          <i style={{ width: `${longfirePercent}%` }} />
+        </div>
+        <div>
+          <span>地表</span>
+          <strong>{fieldIntegrityPercent}%</strong>
+          <i style={{ width: `${fieldIntegrityPercent}%` }} />
+        </div>
+      </div>
+    </aside>
+  );
+
   const advanceSurfaceEchoDialogue = () => {
     setSurfaceEchoDialogue((dialogue) => {
       if (!dialogue) {
@@ -2772,7 +3114,7 @@ export function ChapterTwoMissionPanel({
         {isTowerResonance ? (
           <div className="chapter-two-tower-resonance" aria-live="polite">
             <span>{currentLine.speaker}</span>
-            <p>{currentLine.text}</p>
+            {renderDialogueText(currentLine.text, "chapter-two-resonance-text")}
             <small>点击任意处继续</small>
           </div>
         ) : (
@@ -2782,7 +3124,7 @@ export function ChapterTwoMissionPanel({
             </div>
             <div className="chapter-two-dialogue-box__body">
               <span>{currentLine.speaker}</span>
-              <p>{currentLine.text}</p>
+              {renderDialogueText(currentLine.text)}
               <div className="chapter-two-dialogue-box__actions">
                 <span>{isLastLine ? "点击任意处收起" : "点击任意处继续"}</span>
               </div>
@@ -2991,6 +3333,7 @@ export function ChapterTwoMissionPanel({
                 raw
               />
               <div className={`chapter-two-guide-overlay ${mission.blackBoxUnlocked ? "chapter-two-guide-overlay--charged" : ""}`} aria-hidden="true" />
+              {renderYanhengDirectorVitals()}
               {renderSurfaceFieldPage()}
               {blackboxLocation && (
                 <svg className="chapter-two-light-paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -3082,24 +3425,13 @@ export function ChapterTwoMissionPanel({
           {mission.sceneState === "location_focus" && focusedLocation && (
             locationArrivalSeenIds.includes(focusedLocation.id) ? (
               <>
-              <SceneImage imageUrl={focusedLocationAsset} transform="scale(1.08)" className="chapter-two-scene-image--detail" />
-              <div className="chapter-two-detail-overlay" aria-hidden="true" />
-              <aside className="chapter-two-world-rail chapter-two-world-rail--surface">
-                <div className="soft-label text-[10px] text-cyan-100/55">地点详情 / {focusedLocation.name}</div>
-                <div className="mt-3 text-xl font-semibold text-white">{focusedLocation.name}</div>
-                <p className="mt-3 text-sm leading-7 text-white/64">{focusedLocation.summary}</p>
-                <div className="mt-4 rounded-[18px] border border-cyan-200/12 bg-cyan-200/[0.06] px-4 py-3">
-                  <div className="text-sm font-semibold text-white">
-                    {focusedLocation.id === "paper-corridor" ? "异常事件" : focusedLocation.challengeTitle}
-                  </div>
-                  <p className="mt-2 text-xs leading-6 text-white/58">
-                    {focusedLocation.id === "paper-corridor"
-                      ? "纸光已经自行写出结论。先观察它哪里太顺，再让扫描给出修复线索。"
-                      : focusedLocation.challengePrompt}
-                  </p>
-                </div>
-              </aside>
-              <div className="chapter-two-location-action chapter-two-location-action--game">
+              <SceneImage imageUrl={focusedLocationAsset} transform="scale(1.04)" className="chapter-two-scene-image--detail" raw />
+              <div className="chapter-two-detail-overlay chapter-two-detail-overlay--immersive" aria-hidden="true" />
+              <div className="chapter-two-location-scene-mark" aria-hidden="true">
+                <span>{focusedLocation.name}</span>
+                <strong>{focusedLocation.id === "paper-corridor" ? "异常事件" : focusedLocation.challengeTitle}</strong>
+              </div>
+              <div className={`chapter-two-location-action chapter-two-location-action--game chapter-two-location-action--${focusedLocation.id}`}>
                 <LandmarkMiniGame
                   key={focusedLocation.id}
                   location={focusedLocation}

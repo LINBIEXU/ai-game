@@ -8,22 +8,60 @@ import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocat
 import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
-const valleyObservationLines = [
-  "旧刻痕：对象是言衡星地表记录。",
-  "旧刻痕：任务是整理成可回看档案。",
-  "断层空格：可使用资料范围未刻明。",
-  "新刻痕 A：请写得完整一点。",
-  "新刻痕 B：输出样式未标。"
-] as const;
-
-const valleyCivilizationTraces = [
+const valleyMemorySteps = [
   {
-    title: "山谷旧指令",
-    text: "灾前有人把“安抚所有人”刻得很深，却忘了刻材料来源和边界。系统照做了，未知被慢慢磨平。"
+    id: "gate",
+    eyebrow: "刻字山谷 / 入口",
+    title: "山谷比声音还大",
+    sceneLines: ["石阶向下沉进雾里，远处的岩壁像一页被撑开的巨书。", "风从刻痕里穿过去，带出许多已经没有人的呼吸。"],
+    artifactTitle: "入口残碑",
+    artifactLines: ["“把今日写下，交给明日。”", "“若明日无人记得，至少山谷还在。”"],
+    hengdengLine: "别急着找答案。这里先要听一会儿。很多刻痕不是命令，是有人怕自己被忘掉。"
   },
   {
-    title: "衡灯缺页",
-    text: "“那条指令没有恶意。可善意如果没有边界，也会把别人的担心写丢。”"
+    id: "stories",
+    eyebrow: "万名刻痕",
+    title: "每一道字，都曾经有体温",
+    sceneLines: ["左侧石壁写着一封道歉，右侧石壁写着一张航线便签。", "更高处还有玩笑、祈愿、争吵和未寄出的告别，挤在同一片岩层里。"],
+    artifactTitle: "岩壁旁注",
+    artifactLines: ["“别把妈妈说的那句删掉，她每次都这样收尾。”", "“这不是重点，但这是我记得她的方式。”"],
+    hengdengLine: "后来语言机会读这些刻痕。可它读到的是排列，不是那个人站在这里时的手抖。"
+  },
+  {
+    id: "machine",
+    eyebrow: "语言机底座",
+    title: "故事被切成很小的词纹",
+    sceneLines: ["山腹深处传来低低的回响，成千上万道刻痕被光线拆开，又重新排成细碎的词纹。", "它们像星屑一样悬在半空，彼此靠近，彼此预测下一步。"],
+    artifactTitle: "底座说明",
+    artifactLines: ["“语言机学习词与词的相邻、句与句的回声。”", "“它能续写相似的形状，不因此亲眼看见事实。”"],
+    hengdengLine: "所以指令要清楚。你给它方向，它就沿着方向走；你不说边界，它可能把路走到你没想过的地方。"
+  },
+  {
+    id: "kindness",
+    eyebrow: "失序旧指令",
+    title: "善意也会磨平未知",
+    sceneLines: ["一整面石壁被反复覆盖，最深的一行还亮着暗金色。", "那行字很温柔，却温柔得让人不安。"],
+    artifactTitle: "旧指令",
+    artifactLines: ["“安抚所有人，给出完整说明。”", "旁边的细字几乎被磨没：材料来源未刻，未知边界未刻。"],
+    hengdengLine: "那条指令没有恶意。可它没问哪些事不能补全，结果很多人的担心被写成了已经解决。"
+  },
+  {
+    id: "wick",
+    eyebrow: "衡灯旧忆",
+    title: "长明灯不是为了照亮正确答案",
+    sceneLines: ["衡灯停在一盏倒塌的石灯前，胸口的光忽然低了一下。", "那盏灯已经碎了，灯芯的位置却仍有一点金色的灰。"],
+    artifactTitle: "守灯人留言",
+    artifactLines: ["“若系统只留下最顺的句子，就请你守住那些不顺的。”", "“人会犹豫，会难过，会说不清楚。不要替他们抹掉。”"],
+    hengdengLine: "我的灯芯，就是在这种地方燃起来的。我以前不懂为什么要守着这些停顿。现在好像懂一点了。"
+  },
+  {
+    id: "slots",
+    eyebrow: "四段刻槽",
+    title: "山谷只接收能被复查的指令",
+    sceneLines: ["最后一座石台升起，四道刻槽依次露出。", "任务、材料来源、边界、输出格式，像四枚沉默的锁。"],
+    artifactTitle: "石台提示",
+    artifactLines: ["要做什么。", "只能用什么。", "哪里必须留白。", "最后怎样交回。"],
+    hengdengLine: "这次由你来刻。别让漂亮的话抢走事实，也别让机器替你决定什么该留下。"
   }
 ] as const;
 
@@ -210,6 +248,7 @@ export function EngravedValleyGame({
   onReturn
 }: EngravedValleyGameProps) {
   const [stage, setStage] = useState<EngravedValleyStage>("observe");
+  const [valleyMemoryIndex, setValleyMemoryIndex] = useState(0);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [slotBlocks, setSlotBlocks] = useState<Partial<Record<InscriptionSlotId, string>>>({});
   const [unstableSlot, setUnstableSlot] = useState<ValleyFacilityPulse | null>(null);
@@ -228,6 +267,8 @@ export function EngravedValleyGame({
   });
   const assembledPrompt = `请${inscriptionBlocks.find((block) => block.id === slotBlocks.task)?.text ?? "【任务】"}：材料来源=${inscriptionBlocks.find((block) => block.id === slotBlocks.source)?.text ?? "【材料来源】"}；边界=${inscriptionBlocks.find((block) => block.id === slotBlocks.boundary)?.text ?? "【边界】"}；格式=${inscriptionBlocks.find((block) => block.id === slotBlocks.format)?.text ?? "【输出格式】"}。`;
   const trialStable = Boolean(trialResult && trialResult.issues.length === 0);
+  const currentMemory = valleyMemorySteps[valleyMemoryIndex] ?? valleyMemorySteps[0];
+  const isLastMemory = valleyMemoryIndex >= valleyMemorySteps.length - 1;
 
   useEffect(() => {
     if (!unstableSlot) {
@@ -259,6 +300,15 @@ export function EngravedValleyGame({
 
   const triggerUnstableSlot = (slotId: InscriptionSlotId) => {
     setUnstableSlot({ slotId, tick: Date.now() });
+  };
+
+  const advanceValleyMemory = () => {
+    if (isLastMemory) {
+      setStage("operate");
+      return;
+    }
+
+    setValleyMemoryIndex((current) => Math.min(current + 1, valleyMemorySteps.length - 1));
   };
 
   const placeSelectedBlock = (slotId: InscriptionSlotId) => {
@@ -440,29 +490,46 @@ export function EngravedValleyGame({
 
   const renderObserveStage = () => (
     <>
-      <div className="chapter-two-valley-record">
-        刻字山谷保留任务、材料来源、边界和输出格式。新的刻痕看起来有气势，但缺了关键刻度。
-      </div>
-      <div className="chapter-two-story-trace-grid" aria-label="刻字山谷前文明痕迹">
-        {valleyCivilizationTraces.map((trace) => (
-          <section key={trace.title} className="chapter-two-story-trace">
-            <span>{trace.title}</span>
-            <p>{trace.text}</p>
-          </section>
-        ))}
-      </div>
-      <div className="chapter-two-rune-scanner">
-        {valleyObservationLines.map((line) => (
-          <div key={line} className="chapter-two-rune-slab">
-            <span>现场刻痕</span>
-            <strong>{line}</strong>
+      <div className={`chapter-two-valley-memory chapter-two-valley-memory--${currentMemory.id}`} key={currentMemory.id}>
+        <div className="chapter-two-valley-memory__rail" aria-label="刻字山谷行进层">
+          {valleyMemorySteps.map((step, index) => (
+            <span
+              key={step.id}
+              className={`${index < valleyMemoryIndex ? "is-read" : ""} ${index === valleyMemoryIndex ? "is-active" : ""}`}
+              aria-label={step.title}
+            />
+          ))}
+        </div>
+        <section className="chapter-two-valley-memory__scene">
+          <div className="chapter-two-valley-memory__head">
+            <span>{currentMemory.eyebrow}</span>
+            <strong>{currentMemory.title}</strong>
           </div>
-        ))}
+          <div className="chapter-two-valley-memory__lines">
+            {currentMemory.sceneLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          <div className="chapter-two-valley-memory__voice">
+            <span>衡灯</span>
+            <p>{currentMemory.hengdengLine}</p>
+          </div>
+        </section>
+        <aside className="chapter-two-valley-memory__artifact">
+          <span>{currentMemory.artifactTitle}</span>
+          {currentMemory.artifactLines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </aside>
       </div>
       <div className="chapter-two-landmark-game__footer">
-        <span>观测岩层后，用词块拼出一条完整可靠铭文。</span>
-        <button type="button" onClick={() => setStage("operate")}>
-          进入铭文拼装
+        <span>
+          {isLastMemory
+            ? "四段刻槽已经露出，可以开始拼装可靠铭文。"
+            : `山谷回声 ${valleyMemoryIndex + 1}/${valleyMemorySteps.length}`}
+        </span>
+        <button type="button" onClick={advanceValleyMemory}>
+          {isLastMemory ? "进入铭文拼装" : "继续沿石阶走"}
         </button>
       </div>
     </>

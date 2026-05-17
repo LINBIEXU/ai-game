@@ -9,6 +9,7 @@ import { CurrentObjectiveBeacon } from "@/components/game/CurrentObjectiveBeacon
 import { CrewRecruitPanel } from "@/components/game/CrewRecruitPanel";
 import { CrewResultCard } from "@/components/game/CrewResultCard";
 import { ChapterCompletePanel } from "@/components/game/chapter-one/ChapterCompletePanel";
+import { ChapterTwoFieldAudioLayer } from "@/components/game/chapter-two/ChapterTwoFieldAudioLayer";
 import { ChapterTwoMissionPanel } from "@/components/game/chapter-two/ChapterTwoMissionPanel";
 import { ChapterTwoPortalScene } from "@/components/game/chapter-two/ChapterTwoPortalScene";
 import { ChapterTwoResultPanel } from "@/components/game/chapter-two/ChapterTwoResultPanel";
@@ -29,6 +30,7 @@ import { ShipHubScene } from "@/components/game/hub/ShipHubScene";
 import { TaskBoardPanel, TaskResultPanel } from "@/components/game/hub/TaskBoardPanel";
 import { TransitionOverlay } from "@/components/game/TransitionOverlay";
 import { useChapterOnePresentation } from "@/hooks/useChapterOnePresentation";
+import { useChapterTwoFieldAudio } from "@/hooks/useChapterTwoFieldAudio";
 import { useClassroomProfile } from "@/hooks/useClassroomProfile";
 import { useGameState } from "@/hooks/useGameState";
 import { getCurrentObjective } from "@/lib/current-objective";
@@ -229,6 +231,14 @@ export function GameShell() {
   const hideImmersiveHeader = state.currentScene === "chapter-two-mission";
   const hideShipUiForChapterTwoGround =
     state.currentScene === "chapter-two-mission" && chapterTwoGroundSceneStates.has(state.chapterTwo.sceneState);
+  const chapterTwoFieldAudio = useChapterTwoFieldAudio({
+    active: hideShipUiForChapterTwoGround,
+    sceneState: state.chapterTwo.sceneState,
+    soundEnabled: chapterOnePresentation.soundEnabled,
+    disorderLevel: state.chapterTwo.disorderLevel,
+    exploredCount: state.chapterTwo.exploredLocationIds.length,
+    blackBoxUnlocked: state.chapterTwo.blackBoxUnlocked
+  });
   const canRenderUtilityPanel =
     utilityPanelOpen !== null && (!hideShipUiForChapterTwoGround || utilityPanelOpen === "control");
   const currentObjective = getCurrentObjective(state);
@@ -318,7 +328,7 @@ export function GameShell() {
       className={`starfield relative min-h-screen overflow-hidden chapter-one-stage chapter-one-stage--${chapterOnePresentation.stage} ${
         immersiveFullscreen ? "px-0 py-0" : "px-4 py-6 md:px-6 md:py-8"
       }`}
-      onPointerDownCapture={chapterOnePresentation.handlePointerDown}
+      onPointerDownCapture={hideShipUiForChapterTwoGround ? chapterTwoFieldAudio.handlePointerDown : chapterOnePresentation.handlePointerDown}
     >
       {!hideShipUiForChapterTwoGround && (
         <ChapterOnePresentationLayer
@@ -326,6 +336,14 @@ export function GameShell() {
           cueLabel={chapterOnePresentation.cueLabel}
           soundEnabled={chapterOnePresentation.soundEnabled}
           audioReady={chapterOnePresentation.audioReady}
+          onToggleSound={chapterOnePresentation.toggleSound}
+        />
+      )}
+      {hideShipUiForChapterTwoGround && (
+        <ChapterTwoFieldAudioLayer
+          cueLabel={chapterTwoFieldAudio.cueLabel}
+          soundEnabled={chapterOnePresentation.soundEnabled}
+          audioReady={chapterTwoFieldAudio.audioReady}
           onToggleSound={chapterOnePresentation.toggleSound}
         />
       )}

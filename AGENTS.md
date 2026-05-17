@@ -292,6 +292,17 @@ Recommended next API sequence:
 - Use `rg` for searching and run focused checks after changing shared state, API routes, provider code, or deployment scripts.
 - Do not commit `.codex/`; it is local worktree/environment configuration.
 
+## UI Paradigm And Figma Handoff
+
+The current UI paradigm is documented in `docs/ui-paradigm.md` and mirrored in a Figma Slides concept board. Before changing global UI, chapter-two scenes, or motherworld surfaces, preserve the three-realm split:
+
+- Current creative priority: game-first. Do not flatten the game into a classroom presentation when improving art direction, pacing, sound, narrative tension, or player agency.
+- 主舰舱内: command-console holographic UI using deep navy, cyan, thin glass, compact utility controls, and restrained scan motion.
+- 言衡星地表: field-instrument UI using paper-light, engraved slots, oxidized green, amber longfire, magenta disorder warnings, and stronger landing/repair/black-box motion and sound.
+- 母星基地: archive/workshop UI using warm archive amber, cultivated green, portfolio surfaces, and sparse activation motion.
+
+Figma-to-code work should translate visual ideas into the project’s existing React/Tailwind structure, use `app/globals.css` custom properties for shared scene tokens, and keep long lore or teacher controls behind contextual surfaces instead of permanent dashboard chrome. Chapter-two copy should prefer artifact, survival, signal, memory, and judgment language over direct lesson labels.
+
 ## Current Git Remote
 
 The local `origin` remote is configured as:

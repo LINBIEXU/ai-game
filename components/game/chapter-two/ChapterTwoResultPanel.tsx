@@ -2,7 +2,6 @@
 
 import type { ChapterTwoOutcome, ChapterTwoRepairReadings, ChapterTwoSystemReadings, CrewMember } from "@/types/game";
 
-import { KidLearningCard } from "@/components/game/KidLearningCard";
 import { SystemFeedback } from "@/components/game/SystemFeedback";
 import { chapterTwoSceneAssets } from "@/lib/chapter-two-exploration";
 
@@ -95,7 +94,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         </div>
 
         <div className="mt-6 rounded-[28px] border border-cyan-200/14 bg-cyan-200/[0.06] p-5">
-          <div className="text-lg font-semibold text-white">获得奖励</div>
+          <div className="text-lg font-semibold text-white">回收之物</div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[18px] border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/72">科技点 +{outcome.technologyPointsAwarded ?? 1}</div>
             <div className="rounded-[18px] border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-white/72">称号：{outcome.titleEarned ?? "第一位黑匣解读者"}</div>
@@ -112,7 +111,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         </div>
 
         <div className="mt-6 rounded-[28px] border border-cyan-200/14 bg-cyan-200/[0.06] p-5">
-          <div className="text-lg font-semibold text-white">主舰结算回报</div>
+          <div className="text-lg font-semibold text-white">主舰回声读数</div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {systemReadingItems.map((item) => {
               const value = Math.max(0, Math.min(100, systemReadings[item.key]));
@@ -141,7 +140,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         </div>
 
         <div className="mt-6 rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
-          <div className="text-lg font-semibold text-white">修复指标明细</div>
+          <div className="text-lg font-semibold text-white">黑匣共鸣明细</div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {repairReadingItems.map((item) => {
               const value = Math.max(0, Math.min(4, repairReadings[item.key]));
@@ -197,7 +196,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
           onClick={onReturn}
           className="mt-8 rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] hover:bg-cyan-200"
         >
-          返回主舰整理归档
+          带着长明火返航
         </button>
       </div>
 
@@ -212,7 +211,7 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
         </div>
 
         <div className="panel-surface rounded-[28px] p-5">
-          <div className="soft-label text-[11px] text-white/42">学到的能力</div>
+          <div className="soft-label text-[11px] text-white/42">黑匣铭文</div>
           <div className="mt-4 space-y-3">
             {knowledge.length > 0 ? (
               knowledge.map((item) => (
@@ -222,21 +221,19 @@ export function ChapterTwoResultPanel({ outcome, leadCrew, supportCrew, onReturn
               ))
             ) : (
               <div className="rounded-[20px] border border-cyan-200/16 bg-cyan-200/10 px-4 py-4 text-sm leading-6 text-white">
-                语言黑匣规则已写入远征档案。
+                语言黑匣的第一层铭文已经刻进主舰深处。
               </div>
             )}
           </div>
         </div>
 
-        <KidLearningCard />
-
         <div className="panel-surface rounded-[28px] p-5">
-          <div className="soft-label text-[11px] text-white/42">主舰 AI 回写</div>
+          <div className="soft-label text-[11px] text-white/42">主舰深处的回写</div>
           <p className="mt-3 text-sm leading-7 text-white/62">
             {outcome.aiUpgrade ?? "语言黑匣已写入。主舰语言回路更稳定。"}
           </p>
           <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/50">
-            归档提示：第二章已经完成。现在可以回看黑匣记录，或返回母星整理作品。
+            黑匣已经闭合。现在能回看它留下的信，也能把长明火带回母星。
           </div>
         </div>
       </div>

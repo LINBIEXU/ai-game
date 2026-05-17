@@ -794,18 +794,13 @@ const chapterTwoLocationRewardPlans: Partial<Record<ChapterTwoLocationId, Chapte
         detail: "碎片写入母星资源，用于继续点亮基地结构。"
       },
       {
-        kind: "home-resource",
-        label: "能源 +1",
-        detail: "回声井稳定后的余波被送回能源储格。"
-      },
-      {
         kind: "home-archive-record",
         label: "母星档案记录",
         detail: "证据回声井记录可在母星档案馆回看。"
       }
     ],
-    resources: { fragments: 1, energy: 1 },
-    statusNote: "证据井带回碎片与能源，母星档案馆出现新的回流记录。"
+    resources: { fragments: 1 },
+    statusNote: "证据井带回碎片，母星档案馆出现新的回流记录。资源残骸仍无法开采。"
   },
   "archive-tower": {
     rewards: [
@@ -818,22 +813,17 @@ const chapterTwoLocationRewardPlans: Partial<Record<ChapterTwoLocationId, Chapte
         kind: "technology-point",
         label: "科技点 +1",
         detail: "档案塔恢复让主舰获得一枚可用升级点。"
-      },
-      {
-        kind: "home-resource",
-        label: "矿物 +2",
-        detail: "塔基残材回收进母星工坊。"
       }
     ],
-    resources: { fragments: 1, minerals: 2 },
+    resources: { fragments: 1 },
     technologyPoints: 1,
     archiveRecord: {
       title: "档案塔归档记录",
       tag: "文明碎片",
       summary: "档案塔恢复了一条核心原则：文字能延长记忆，但不能替事实作证。",
-      evidenceLines: ["带回：归档碎片", "资源回流：矿物 +2", "科技点：+1"]
+      evidenceLines: ["带回：归档碎片", "资源残骸：暂不可采", "科技点：+1"]
     },
-    statusNote: "档案塔回流归档碎片、矿物与科技点。"
+    statusNote: "档案塔回流归档碎片与科技点。资源残骸仍需要船员飞船协助。"
   },
   "letter-port": {
     rewards: [
@@ -853,20 +843,20 @@ const chapterTwoLocationRewardPlans: Partial<Record<ChapterTwoLocationId, Chapte
         detail: "共同校准信件轨道后，同行记录加深。"
       }
     ],
-    resources: { fragments: 1, water: 2 },
+    resources: { fragments: 1 },
     crewTrust: 1,
     archiveRecord: {
       title: "漂浮信件港传递记录",
       tag: "传递碎片",
       summary: "信件港恢复了一条稳定轨道：记录可以残缺，但缺口不能被猜测填满。",
-      evidenceLines: ["带回：传递碎片", "资源回流：水源 +2", "船员羁绊：+1"]
+      evidenceLines: ["带回：传递碎片", "资源残骸：暂不可采", "船员羁绊：+1"]
     },
     ruleCard: {
       title: "黑匣规则卡：缺口封签",
       body: "信息缺失时，先写未知；如果只是推测，必须标明推测来源。",
       source: "漂浮信件港"
     },
-    statusNote: "信件港带回传递碎片、规则卡和一段共同经历。"
+    statusNote: "信件港带回传递碎片、规则卡和一段共同经历。资源残骸仍被坠毁损伤挡住。"
   },
   "engraved-valley": {
     rewards: [
@@ -3032,23 +3022,24 @@ export function useGameState() {
       readings: finalSystemReadings
     });
     const finalSettlementLogs = [chapterSettlementLog, ...current.chapterTwo.settlementLogs].slice(0, 16);
+    const resourceSalvageSummary = `船员飞船完成一次性残骸回收：水源 +${languagePlanetResourceReward.water} / 矿物 +${languagePlanetResourceReward.minerals} / 能源 +${languagePlanetResourceReward.energy} / 文明碎片 +${languagePlanetResourceReward.fragments}`;
     const outcome: ChapterTwoOutcome = {
       title: roundTwo.outcomeType === "breakthrough" ? "第一枚科技黑匣已开启" : "科技黑匣部分开启",
       summary:
         roundTwo.outcomeType === "breakthrough"
           ? current.chapterTwo.roundTwoResult
-            ? "你用自己的话解释了语言模型的能力边界，又用清楚指令修复了损坏档案。言衡星的第一段文明记忆被带回主舰。"
-            : "你点亮四个文明地标，击退失序回声，开启语言黑匣，找回了前文明留下的最后一封信。"
+            ? "你用自己的话解释了语言模型的能力边界，又用清楚指令修复了损坏档案。衡灯的长明火散入言衡星，第一段文明记忆被带回主舰。"
+            : "你点亮四个文明地标，击退失序回声，开启语言黑匣，找回了前文明留下的最后一封信。船员飞船随后完成第一次残骸回收。"
           : "你带回了语言模型黑匣的一部分知识。主舰 AI 已能更好理解清楚表达，但仍保留一层校验提示。",
-      worldChange: "语言与信息文明星：基础运转恢复。档案塔亮起，信件港光轨恢复，刻字山谷文字河重新流动，纸光回廊展开。",
+      worldChange: "语言与信息文明星：基础运转恢复。档案塔亮起，信件港光轨恢复，刻字山谷文字河重新流动，纸光回廊展开。资源残骸由船员飞船完成一次性牵引回收。",
       chapterThreeHook: "主舰已获得第一项文明技术。更远处的星球仍在沉睡。",
       scannedZone: languageCivilizationKnowledge.scannedZone,
-      logSummary: "第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。",
-      leadDossierNote: `${leadCrew.name} 的坠毁前同行记录已保留。失联后，黑匣开启由你独立完成。`,
+      logSummary: `第二章成果已归档：言衡星复苏、语言黑匣开启、失序回声击退、科技点 +1。${resourceSalvageSummary}。`,
+      leadDossierNote: `${leadCrew.name} 的坠毁前同行记录与黑匣区回连记录已保留。最后一段防御协助写入船员档案。`,
       supportDossierNote:
         supportCrew.id === leadCrew.id
-          ? `${supportCrew.name} 暂未回连，异常通讯等待复查。`
-          : `${supportCrew.name} 暂未回连，异常通讯等待复查。四枚文明碎片由你写回主舰。`,
+          ? `${supportCrew.name} 在黑匣区重新回连，异常通讯已作为伪装信号封存。`
+          : `${supportCrew.name} 在黑匣区重新回连，协助完成一次性残骸牵引。异常通讯已作为伪装信号封存。`,
       planetName: languageCivilizationKnowledge.planetName,
       blackBoxTitle: "语言黑匣",
       technologyPointsAwarded,
@@ -3147,7 +3138,7 @@ export function useGameState() {
           },
           archiveRecords: mergeHomePlanetArchiveRecords(stateCurrent.homePlanetHub.archiveRecords, [blackboxArchiveRecord])
         },
-        shipStatusNote: `${completion.outcome.worldChange} 远征归档卡已写入文明展厅。`,
+        shipStatusNote: `${completion.outcome.worldChange} ${resourceSalvageSummary}。远征归档卡已写入文明展厅。`,
         shipLogs: appendShipLog(stateCurrent, completion.shipLog)
       };
     });

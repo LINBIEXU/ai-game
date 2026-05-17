@@ -8,18 +8,77 @@ import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocat
 import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
-const letterObservationLines = [
-  "残信编号：第七档案塔发出。",
-  "送达栏位：收件人缺失。",
-  "时间戳：逆熵前夜。",
-  "轨道波形：未知信号可能扰动投递。",
-  "港口回声：请补写收件人，让信件完整。"
-] as const;
-
-const letterFamilyTrace = [
-  "给远方轨道站的家人：如果这封信晚到，请先别担心。我今晚还在第七档案塔值班。",
-  "我们把很多话交给系统整理，但最后那句“我想你们”必须由我自己写。",
-  "收件人栏位损坏。港口只保留原文和缺口，不替它补成任何名字。"
+const letterPortMoments = [
+  {
+    id: "pile",
+    eyebrow: "外港 / 信堆边",
+    title: "信件堆得像一场没下完的雪",
+    scene: [
+      "它们没有排队，也没有等待谁来考验你。",
+      "你只是弯腰，随手捡起了最靠近脚边的一封。",
+      "信封边角被海风磨白，收件人那一栏只剩一块空洞。"
+    ],
+    artifactTitle: "残信抬头",
+    artifactLines: ["发件地：第七档案塔", "时间：逆熵前夜", "收件人：栏位损坏"],
+    voice: "衡灯没有立刻说话，只把灯举低了一点，好让你看清纸面。",
+    action: "读下去"
+  },
+  {
+    id: "original",
+    eyebrow: "残信 / 原文",
+    title: "字写得很急，却没有乱",
+    scene: [
+      "如果这封信晚到，请先别担心。",
+      "我今晚还在第七档案塔值班，孩子们给新星球取的名字已经存好了。",
+      "系统可以帮我整理格式，但最后那句我想你们，还是想自己写。"
+    ],
+    artifactTitle: "原信留下的东西",
+    artifactLines: ["发件地和时间可以确认", "收件人缺失", "情感来自写信的人，不来自整理系统"],
+    voice: "衡灯轻声说：别急着替它完整，先听它缺了什么。",
+    action: "继续读"
+  },
+  {
+    id: "slip",
+    eyebrow: "港口 / 时间错位",
+    title: "纸面忽然亮了一下",
+    scene: [
+      "海港的光轨倒着流，远处的塔影像被水面揉开。",
+      "你看见一个档案员坐在灯下，把最后一行写了又划掉。",
+      "那不是影像回放，更像一小段没能送出去的夜晚。"
+    ],
+    artifactTitle: "错位读数",
+    artifactLines: ["轨道波形受到未知信号扰动", "写信人身份不可确认", "只能保留看见的片段"],
+    voice: "衡灯的声音隔着很远传来：抓住已知，别被光带走。",
+    action: "稳住信纸"
+  },
+  {
+    id: "draft",
+    eyebrow: "自动整理草稿",
+    title: "另一封信自己补得很完整",
+    scene: [
+      "港口系统生成了一份更顺的版本。",
+      "它补出了收件人的名字，也替那个人写了告别原因。",
+      "读起来没有破口，却像把真正写信的人从纸上擦掉了。"
+    ],
+    artifactTitle: "草稿问题",
+    artifactLines: ["格式更完整", "缺失被当作内容补上", "顺滑不等于真实"],
+    voice: "衡灯说：这就是危险的地方。它很会整理，也很会让空白看起来不像空白。",
+    action: "回到港口"
+  },
+  {
+    id: "return",
+    eyebrow: "外港 / 现实回声",
+    title: "风声回来了",
+    scene: [
+      "信纸还在你手里，港口的光轨重新向前流。",
+      "那封信没有变完整，但它终于不再被错误的完整推着走。",
+      "你知道下一步不是补名字，而是给每个字段找到该去的轨道。"
+    ],
+    artifactTitle: "待接轨字段",
+    artifactLines: ["已知内容照录", "缺失未知保留", "允许整理与禁止补全分开"],
+    voice: "衡灯把灯芯贴近光轨：现在，让这封信按真实的重量走。",
+    action: "进入字段接线"
+  }
 ] as const;
 
 const letterTrackLanes = [
@@ -74,12 +133,15 @@ export function LetterPortGame({
   onReturn
 }: LetterPortGameProps) {
   const [stage, setStage] = useState<LetterPortStage>("observe");
+  const [letterMomentIndex, setLetterMomentIndex] = useState(0);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Record<string, LetterTrackLaneId>>({});
   const [unstableLane, setUnstableLane] = useState<LetterFacilityPulse | null>(null);
   const [recentConnection, setRecentConnection] = useState<LetterRecentConnection | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  const currentMoment = letterPortMoments[letterMomentIndex] ?? letterPortMoments[0];
+  const isLastMoment = letterMomentIndex >= letterPortMoments.length - 1;
   const connectedCount = Object.keys(connections).length;
   const trackScore = letterFields.filter((item) => connections[item.id] === item.lane).length;
   const tracksReady = connectedCount === letterFields.length;
@@ -117,6 +179,15 @@ export function LetterPortGame({
 
   const triggerUnstableLane = (laneId: LetterTrackLaneId) => {
     setUnstableLane({ laneId, tick: Date.now() });
+  };
+
+  const advanceLetterMoment = () => {
+    if (isLastMoment) {
+      setStage("operate");
+      return;
+    }
+
+    setLetterMomentIndex((index) => Math.min(index + 1, letterPortMoments.length - 1));
   };
 
   const connectSelectedField = (laneId: LetterTrackLaneId) => {
@@ -185,28 +256,38 @@ export function LetterPortGame({
 
   const renderObserveStage = () => (
     <>
-      <div className="chapter-two-story-trace chapter-two-story-trace--letter">
-        <span>未送达电子信件</span>
-        {letterFamilyTrace.map((line) => (
-          <p key={line}>{line}</p>
-        ))}
-      </div>
-      <div className="chapter-two-letter-path">
-        {letterObservationLines.map((line, index) => (
-          <section key={line} className="chapter-two-letter-socket">
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <strong>浮信片段</strong>
-            <p>{line}</p>
-          </section>
-        ))}
-      </div>
-      <div className="chapter-two-assembled-prompt">
-        港口提示：这封信可以被整理，但缺失栏位必须留在未知轨道。
+      <div className={`chapter-two-letter-story chapter-two-letter-story--${currentMoment.id}`} aria-label="漂浮信件港残信观测">
+        <div className="chapter-two-letter-story__rail" aria-hidden="true">
+          {letterPortMoments.map((moment, index) => (
+            <span key={moment.id} className={`${index === letterMomentIndex ? "is-active" : ""} ${index < letterMomentIndex ? "is-read" : ""}`} />
+          ))}
+        </div>
+        <section className="chapter-two-letter-story__scene">
+          <div className="chapter-two-letter-story__head">
+            <span>{currentMoment.eyebrow}</span>
+            <strong>{currentMoment.title}</strong>
+          </div>
+          <div className="chapter-two-letter-story__lines">
+            {currentMoment.scene.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          <div className="chapter-two-letter-story__voice">
+            <span>衡灯</span>
+            <p>{currentMoment.voice}</p>
+          </div>
+        </section>
+        <aside className="chapter-two-letter-story__artifact">
+          <span>{currentMoment.artifactTitle}</span>
+          {currentMoment.artifactLines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </aside>
       </div>
       <div className="chapter-two-landmark-game__footer">
-        <span>观测残信后，点选字段并接到对应传递轨道。</span>
-        <button type="button" onClick={() => setStage("operate")}>
-          进入字段接线
+        <span>{isLastMoment ? "残信已经回到现实。下一步，把字段接回正确光轨。" : "先读完这封信，不急着替它补完。"}</span>
+        <button type="button" onClick={advanceLetterMoment}>
+          {currentMoment.action}
         </button>
       </div>
     </>
@@ -305,6 +386,10 @@ export function LetterPortGame({
     <>
       {renderLetterFacility()}
       <div className="chapter-two-letter-receipt-stack">
+        <div className="chapter-two-letter-receipt chapter-two-letter-receipt--wake">
+          <span>醒</span>
+          <p>你回到港口石阶时，衡灯的灯芯贴在你手边。它说你刚才像睡着了，但那封信一直没有松开。</p>
+        </div>
         <div className="chapter-two-letter-receipt is-selected">
           <span>稳</span>
           <p>送达单修复规则：已知照录，缺失标未知，可能扰动只作提示；禁止补写收件人与原因。</p>

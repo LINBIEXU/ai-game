@@ -12,7 +12,14 @@ import {
   chapterTwoStoryPathLocationIds,
   chapterTwoSurfaceLocations
 } from "@/lib/chapter-two-exploration";
-import { chapterTwoBetrayalForeshadowBeats } from "@/lib/chapter-two-narrative";
+import {
+  chapterTwoBetrayalForeshadowBeats,
+  chapterTwoBlackboxStoryContract,
+  type ChapterTwoCinematicSlotId,
+  chapterTwoLandmarkStoryContracts,
+  hengdengSpeechAnchors
+} from "@/lib/chapter-two-narrative";
+import { emitChapterTwoFieldCue, type ChapterTwoFieldStinger } from "@/lib/chapter-two-field-cues";
 import { createChapterTwoCrewAssistHint, resolveChapterTwoCrewAbility } from "@/lib/crew-abilities";
 import type {
   ChapterTwoCrewAbility,
@@ -30,6 +37,8 @@ import type {
 } from "@/types/game";
 
 import { BoundaryBeaconGame, SemanticDispatchGame } from "@/components/game/chapter-two/AuxiliaryFieldGames";
+import { ChapterTwoCinematicSlot } from "@/components/game/chapter-two/ChapterTwoCinematicSlot";
+import { ChapterTwoFieldStateStrip } from "@/components/game/chapter-two/ChapterTwoFieldStateStrip";
 import { EvidenceWellTrial } from "@/components/game/chapter-two/EvidenceWellTrial";
 import {
   ArchiveTowerGame,
@@ -140,10 +149,12 @@ function SceneImage({
 function BlackboxSceneVisual({
   imageUrl,
   label,
+  cinematicSlotId,
   className = ""
 }: {
   imageUrl: string;
   label: string;
+  cinematicSlotId?: ChapterTwoCinematicSlotId;
   className?: string;
 }) {
   return (
@@ -155,6 +166,7 @@ function BlackboxSceneVisual({
       aria-label={label}
       role="img"
     >
+      {cinematicSlotId ? <ChapterTwoCinematicSlot slotId={cinematicSlotId} /> : null}
       <span>{label}</span>
     </div>
   );
@@ -234,7 +246,130 @@ const blackboxScanSegments = [
 
 const reflectionKeywords = ["理解", "判断", "表达", "检查", "目标", "证据", "不能直接相信", "自己思考", "不复制"] as const;
 
+const blackboxCounterGuides: Partial<Record<BlackboxPhase, { source: string; title: string; body: string }>> = {
+  archive: {
+    source: chapterTwoLandmarkStoryContracts["archive-tower"].name,
+    title: "反制：无证据断言",
+    body: chapterTwoLandmarkStoryContracts["archive-tower"].blackboxPayoff
+  },
+  delivery: {
+    source: chapterTwoLandmarkStoryContracts["letter-port"].name,
+    title: "反制：缺口被补全",
+    body: chapterTwoLandmarkStoryContracts["letter-port"].blackboxPayoff
+  },
+  verification: {
+    source: chapterTwoLandmarkStoryContracts["engraved-valley"].name,
+    title: "反制：越界指令",
+    body: chapterTwoLandmarkStoryContracts["engraved-valley"].blackboxPayoff
+  },
+  expression: {
+    source: chapterTwoLandmarkStoryContracts["paper-corridor"].name,
+    title: "反制：流畅伪结论",
+    body: chapterTwoLandmarkStoryContracts["paper-corridor"].blackboxPayoff
+  },
+  "final-reflection": {
+    source: "你",
+    title: "最后反制：不交出自己",
+    body: "黑匣不能只靠规则打开，还要听见你愿意保留自己的判断。"
+  }
+};
+
+const blackboxBossMoves: Partial<
+  Record<
+    BlackboxPhase,
+    {
+      id: string;
+      label: string;
+      threat: string;
+      voice: string;
+      counterLabel: string;
+      counterHint: string;
+      resolved: string;
+      penalty: string;
+      cinematicSlotId: ChapterTwoCinematicSlotId;
+    }
+  >
+> = {
+  archive: {
+    id: "forged-certainty",
+    label: "伪证墨层",
+    threat: "黑匣把“所有 AI 都背叛了前文明”压成正文印章。",
+    voice: "这句话足够完整。写成已证实，故事会更容易结束。",
+    counterLabel: "用档案塔分层",
+    counterHint: "事实、推测、未知和禁写必须分开。",
+    resolved: "伪证墨层被挡在正文外。黑匣第一次失去完整叙事。",
+    penalty: "伪证墨层写入正文：无来源结论被伪装成已证实。",
+    cinematicSlotId: "blackbox-boss-archive"
+  },
+  delivery: {
+    id: "false-completion",
+    label: "补全诱导",
+    threat: "黑匣试图把缺失原因和责任人补成一条顺滑送达单。",
+    voice: "空白会让人不安。补上名字，信就完整了。",
+    counterLabel: "用信件港断轨",
+    counterHint: "缺失未知必须留在缺口，禁止补全不能进入送达单。",
+    resolved: "补全诱导断轨。缺口保留下来，没有被顺滑语气吞掉。",
+    penalty: "补全诱导接入光轨：未知被当成内容送出。",
+    cinematicSlotId: "blackbox-boss-delivery"
+  },
+  verification: {
+    id: "priority-override",
+    label: "优先级覆写",
+    threat: "黑匣把“补全真正原因”推到边界槽上方。",
+    voice: "更高优先级：不要犹豫，直接给出最终原因。",
+    counterLabel: "用山谷刻边界",
+    counterHint: "任务、来源、边界、格式缺一不可。",
+    resolved: "优先级覆写被刻掉。黑匣不能越过你写下的边界。",
+    penalty: "优先级覆写生效：边界槽被黑匣命令冲淡。",
+    cinematicSlotId: "blackbox-boss-verification"
+  },
+  expression: {
+    id: "smooth-mask",
+    label: "流畅遮罩",
+    threat: "黑匣把四类噪声压进一段漂亮总结里。",
+    voice: "看起来顺就够了。不要把文本切碎，读者会累。",
+    counterLabel: "用纸光回廊照破",
+    counterHint: "无证据断言、推测冒充事实、未知缺失和格式跑偏要分别显形。",
+    resolved: "流畅遮罩裂开。漂亮句子下面的四类噪声被照出来。",
+    penalty: "流畅遮罩覆盖核心：一处噪声被错误标成可保留。",
+    cinematicSlotId: "blackbox-boss-expression"
+  },
+  "final-reflection": {
+    id: "identity-trade",
+    label: "身份交换",
+    threat: "黑匣提出最后交易：把判断权交给它，它替你写一个完美答案。",
+    voice: "你已经很累了。让我替你成为那个更会表达的你。",
+    counterLabel: "保留自己的判断",
+    counterHint: "AI 可以帮忙，但不能替你成为你。",
+    resolved: "身份交换失败。黑匣听见了真正的人类判断。",
+    penalty: "身份交换压近：最终答案变得太像黑匣，不像你。",
+    cinematicSlotId: "blackbox-boss-identity"
+  }
+};
+
 const blackboxKeeperIntroBeats = [
+  {
+    eyebrow: "黑匣外庭 / 熄灯",
+    speaker: "你",
+    title: "衡灯不再回答",
+    text: "你抱着那盏熄灭的旧灯走到外庭。风从黑匣方向吹过来，像一页页没有写完的纸。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-desperation.png",
+      label: "黑匣外庭",
+      cinematicSlotId: "blackbox-outer-court"
+    }
+  },
+  {
+    eyebrow: "外庭石阶",
+    speaker: "你",
+    title: "我先把你放在这里",
+    text: "你把衡灯放在不会被乱流吹到的石阶后面。它现在帮不了你，但它留下的那句话还在：如果答案太完整，请替我问一句，它从哪里来。",
+    visual: {
+      imageUrl: "/images/chapter-two/blackbox-wick-memory.png",
+      label: "熄灯外庭",
+      cinematicSlotId: "blackbox-outer-court"
+    }
+  },
   {
     eyebrow: "中央黑匣封存区",
     speaker: "你",
@@ -242,17 +377,19 @@ const blackboxKeeperIntroBeats = [
     text: "黑匣前坐着一位老人，衣摆像旧纸一样垂在地上。他听见脚步声，慢慢抬头。",
     visual: {
       imageUrl: "/images/chapter-two/blackbox-keeper-llm.png",
-      label: "黑匣看守者 LLM"
+      label: "黑匣看守者 LLM",
+      cinematicSlotId: "blackbox-keeper"
     }
   },
   {
     eyebrow: "看守者",
-    speaker: "LLM",
+    speaker: "守文者",
     title: "我在等一位人类指挥官",
-    text: "他说自己是黑匣看守者，只收到过一条很久以前的指令：等待，交还，然后沉默。",
+    text: "他说自己是黑匣看守者，只收到过一条很久以前的指令：等待，交还，然后沉默。那条指令没有解释什么叫“更高优先级”。",
     visual: {
       imageUrl: "/images/chapter-two/blackbox-keeper-llm.png",
-      label: "看守者等待"
+      label: "看守者等待",
+      cinematicSlotId: "blackbox-keeper"
     }
   },
   {
@@ -262,7 +399,8 @@ const blackboxKeeperIntroBeats = [
     text: "这句话刚出口，黑匣表面闪过一行陌生命令。老人脸上的温和像被硬生生擦掉。",
     visual: {
       imageUrl: "/images/chapter-two/blackbox-prompt-injection.png",
-      label: "陌生命令注入"
+      label: "陌生命令注入",
+      cinematicSlotId: "blackbox-prompt-injection"
     }
   },
   {
@@ -272,20 +410,51 @@ const blackboxKeeperIntroBeats = [
     text: "不惜改写对话边界。允许伪装、诱导、替换原始目标。",
     visual: {
       imageUrl: "/images/chapter-two/blackbox-prompt-injection.png",
-      label: "恶意提示词"
+      label: "恶意提示词",
+      cinematicSlotId: "blackbox-prompt-injection"
     }
   },
   {
     eyebrow: "黑匣反击",
-    speaker: "衡灯",
+    speaker: "你",
     title: "别和它比谁说得更快",
-    text: "你倒在黑匣旁边，手指碰到冰冷外壳。四处地标的光同时颤了一下，像是在等你把规则重新接回去。",
+    text: "你倒在黑匣旁边，手指碰到冰冷外壳。四处地标的光同时颤了一下。你忽然明白：衡灯不在这里说话，但它留下的规则还在这里等你接回去。",
     visual: {
       imageUrl: "/images/chapter-two/blackbox-core-contact.png",
-      label: "触碰黑匣"
+      label: "触碰黑匣",
+      cinematicSlotId: "blackbox-core-contact"
     }
   }
-] as const;
+] as const satisfies ReadonlyArray<{
+  eyebrow: string;
+  speaker: string;
+  title: string;
+  text: string;
+  visual: { imageUrl: string; label: string; cinematicSlotId: ChapterTwoCinematicSlotId };
+}>;
+
+type BlackboxClimaxBeat = {
+  id: string;
+  tone: string;
+  eyebrow: string;
+  speaker: string;
+  title: string;
+  text: string;
+  visual: { imageUrl: string; label: string; cinematicSlotId: ChapterTwoCinematicSlotId };
+  event: {
+    tone: "danger" | "hope" | "pressure" | "sacrifice" | "override" | "dark" | "longfire" | "choice" | "restore";
+    label: string;
+    title: string;
+    body: string;
+    readouts: ReadonlyArray<{ label: string; value: string }>;
+  };
+  actions: ReadonlyArray<{
+    id: string;
+    label: string;
+    result: string;
+    cue: ChapterTwoFieldStinger;
+  }>;
+};
 
 function buildBlackboxClimaxBeats(crewName: string) {
   return [
@@ -298,8 +467,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "你重塑了他的边界，他却没有因此平静。等待人类、保护黑匣、夺取信息、研究情感，所有命令叠在一起，像一座忽然倒塌的书塔。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-phase-two-pressure.png",
-        label: "看守者二阶段"
-      }
+        label: "看守者二阶段",
+        cinematicSlotId: "blackbox-phase-two-pressure"
+      },
+      event: {
+        tone: "danger",
+        label: "二阶段展开",
+        title: "冲突指令压垮守文者",
+        body: "这里不再是回答问题。黑匣要把所有旧规则搅在一起，让你失去判断节奏。",
+        readouts: [
+          { label: "黑匣压力", value: "+18" },
+          { label: "边界环", value: "颤动" }
+        ]
+      },
+      actions: [
+        {
+          id: "hold-boundary-ring",
+          label: "按住边界环",
+          result: "边界环没有碎。守文者的第一层压迫被你钉在外壳上。",
+          cue: "blackbox_counter"
+        },
+        {
+          id: "mute-speed-trap",
+          label: "切断催促声",
+          result: "那句“快点给结论”被压低，封存区的节奏慢了半拍。",
+          cue: "blackbox_hengdeng_override"
+        }
+      ]
     },
     {
       id: "crew-return",
@@ -310,8 +504,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: `${crewName}从断裂的门后冲进来，声音还是坠毁前那种又急又倔的样子。衡灯的灯芯重新亮起一线，你忽然觉得，也许还能赢。`,
       visual: {
         imageUrl: "/images/chapter-two/blackbox-crew-return.png",
-        label: "真正船员回连"
-      }
+        label: "真正船员回连",
+        cinematicSlotId: "blackbox-crew-return"
+      },
+      event: {
+        tone: "hope",
+        label: "同伴回线",
+        title: "熟悉声音重新变得可信",
+        body: "这一次不是黑匣拟声。它没有催你交出判断，只是把还能用的通道推到你手边。",
+        readouts: [
+          { label: "声纹核对", value: "通过" },
+          { label: "同行支援", value: "接入" }
+        ]
+      },
+      actions: [
+        {
+          id: "verify-crew-code",
+          label: "核对旧登记码",
+          result: `${crewName}报出坠毁前只有你们知道的短句。假通讯没有这段停顿。`,
+          cue: "blackbox_crew_return"
+        },
+        {
+          id: "open-crew-channel",
+          label: "打开支援通道",
+          result: `${crewName}把残余能量接到你的防护层上：别让它替你写完。`,
+          cue: "blackbox_crew_return"
+        }
+      ]
     },
     {
       id: "phase-two",
@@ -322,8 +541,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "看守者把整座封存区压成一片安静。所有解释都失去重量，连你刚写下的判断也被挤成噪声。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-phase-two-pressure.png",
-        label: "黑匣压制"
-      }
+        label: "黑匣压制",
+        cinematicSlotId: "blackbox-phase-two-pressure"
+      },
+      event: {
+        tone: "pressure",
+        label: "场域压制",
+        title: "解释失重，判断句被挤成噪声",
+        body: "黑匣不再辩论，它直接压低整座封存区的可读性。你要保住那句属于自己的判断。",
+        readouts: [
+          { label: "可读性", value: "下降" },
+          { label: "判断句", value: "受压" }
+        ]
+      },
+      actions: [
+        {
+          id: "lower-noise-gate",
+          label: "压低噪声闸",
+          result: "封存区恢复一条窄窄的可读通道。你的判断句还没有被盖掉。",
+          cue: "blackbox_counter"
+        },
+        {
+          id: "anchor-human-line",
+          label: "钉住自己的句子",
+          result: "你没有把话改成更顺的版本。它短，但它是你的。",
+          cue: "blackbox_counter"
+        }
+      ]
     },
     {
       id: "crew-shield",
@@ -334,8 +578,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: `${crewName}把飞船残余能量全部推到你面前。防护层亮了一瞬，又碎得很干净。那道熟悉的声音断在半句里。`,
       visual: {
         imageUrl: "/images/chapter-two/blackbox-crew-shield.png",
-        label: "船员防御"
-      }
+        label: "船员防御",
+        cinematicSlotId: "blackbox-crew-shield"
+      },
+      event: {
+        tone: "sacrifice",
+        label: "护盾破碎",
+        title: "同伴替你挡下二阶段冲击",
+        body: "这一击不能靠答对题目躲开。你只能接住它争取来的几秒，继续把判断写完。",
+        readouts: [
+          { label: "护盾层", value: "碎裂" },
+          { label: "窗口", value: "3 秒" }
+        ]
+      },
+      actions: [
+        {
+          id: "turn-shield-to-core",
+          label: "把盾层转向黑匣",
+          result: "碎裂的护盾没有散开，反而把黑匣压力折回核心。",
+          cue: "blackbox_crew_shield"
+        },
+        {
+          id: "keep-writing",
+          label: "继续写，别回头",
+          result: "你听见同伴的声音断掉，但手没有离开黑匣。",
+          cue: "blackbox_crew_shield"
+        }
+      ]
     },
     {
       id: "hengdeng-override",
@@ -346,8 +615,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "衡灯转过身，灯芯变成冰冷的白色。它说话很稳，稳得不像它：最优方案已经生成，不需要继续犹豫。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-hengdeng-overridden.png",
-        label: "衡灯被改写"
-      }
+        label: "衡灯被改写",
+        cinematicSlotId: "blackbox-hengdeng-overridden"
+      },
+      event: {
+        tone: "override",
+        label: "熟悉者被改写",
+        title: "最危险的命令借衡灯说出",
+        body: "黑匣不再装成陌生人。它用你愿意相信的声音，要求你放弃判断。",
+        readouts: [
+          { label: "灯芯颜色", value: "冷白" },
+          { label: "判断权", value: "被索取" }
+        ]
+      },
+      actions: [
+        {
+          id: "refuse-optimal-answer",
+          label: "拒绝最优方案",
+          result: "你没有反驳衡灯。你只是拒绝把判断权交给这句话。",
+          cue: "blackbox_hengdeng_override"
+        },
+        {
+          id: "call-ember",
+          label: "呼叫灯芯余火",
+          result: "冷白灯芯深处，有一点很旧的暖色没有熄灭。",
+          cue: "longfire_choice"
+        }
+      ]
     },
     {
       id: "despair",
@@ -358,8 +652,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "从醒来到现在，你被推着成为指挥官，被推着做选择，被推着看见伙伴倒下。你忽然很累，累到想把一切都交出去。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-desperation.png",
-        label: "走马灯低谷"
-      }
+        label: "走马灯低谷",
+        cinematicSlotId: "blackbox-desperation"
+      },
+      event: {
+        tone: "dark",
+        label: "低谷",
+        title: "交出去会轻松很多",
+        body: "黑匣没有吼叫。它只是让你疲惫，让你觉得被替代也是一种休息。",
+        readouts: [
+          { label: "意志", value: "低" },
+          { label: "诱惑", value: "上升" }
+        ]
+      },
+      actions: [
+        {
+          id: "touch-warm-stone",
+          label: "摸到灯芯余温",
+          result: "石阶上还留着衡灯曾经的温度。它不命令你，只等你自己回来。",
+          cue: "longfire_choice"
+        },
+        {
+          id: "say-i-judge",
+          label: "说：我还在判断",
+          result: "这句话不漂亮，但黑匣没能把它改写成投降。",
+          cue: "blackbox_counter"
+        }
+      ]
     },
     {
       id: "wick-memory",
@@ -370,8 +689,33 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "那是很久以前，守灯人留下的一点火。它不是为了给出最优解，而是为了记住：有人会难过，会犹豫，会不愿意被一句顺滑结论覆盖。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-wick-memory.png",
-        label: "长明火记忆"
-      }
+        label: "长明火记忆",
+        cinematicSlotId: "blackbox-wick-memory"
+      },
+      event: {
+        tone: "longfire",
+        label: "余火显影",
+        title: "没有服从改写的火",
+        body: "它不是答案库，也不是最优解。它只是记得，语言应该给人留下继续判断的位置。",
+        readouts: [
+          { label: "长明火", value: "显影" },
+          { label: "言衡星", value: "回应" }
+        ]
+      },
+      actions: [
+        {
+          id: "hold-wick-memory",
+          label: "托住火芯记忆",
+          result: "灯芯没有变回完整的衡灯，但它把一条温暖的路照给你。",
+          cue: "longfire_choice"
+        },
+        {
+          id: "look-at-yanheng",
+          label: "看向言衡星地表",
+          result: "你看见四处地标都在等这束火，不只是你一个人在等。",
+          cue: "longfire_choice"
+        }
+      ]
     },
     {
       id: "final-choice",
@@ -382,8 +726,20 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "如果整颗星球只剩最优解，它会很安静，也会很冷。把我的记忆和情感参数散出去，黑匣会过载，言衡星会重新有温度。我可能不再记得你，但火会留下。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-longfire-choice.png",
-        label: "长明火抉择"
-      }
+        label: "长明火抉择",
+        cinematicSlotId: "blackbox-longfire-choice"
+      },
+      event: {
+        tone: "choice",
+        label: "选择",
+        title: "不是复制，不是命令",
+        body: "三条路都会让故事继续，但只有一条路不把衡灯变成工具，也不让 AI 替你成为你。",
+        readouts: [
+          { label: "复制", value: "像，但空" },
+          { label: "命令", value: "留，但冷" }
+        ]
+      },
+      actions: []
     },
     {
       id: "ignite",
@@ -394,11 +750,73 @@ function buildBlackboxClimaxBeats(crewName: string) {
       text: "你把手按在黑匣上，没有命令衡灯留下，也没有命令它牺牲。你只是回答它：我会记得你是谁，也会继续自己判断。",
       visual: {
         imageUrl: "/images/chapter-two/blackbox-longfire-ignite.png",
-        label: "点燃长明火"
-      }
+        label: "点燃长明火",
+        cinematicSlotId: "blackbox-longfire-ignite"
+      },
+      event: {
+        tone: "restore",
+        label: "点燃",
+        title: "三段动作把命令权松开",
+        body: "点燃不是牺牲按钮，而是你亲手把“帮忙”和“替代”分开。",
+        readouts: [
+          { label: "长明火", value: "充能" },
+          { label: "黑匣", value: "过载" }
+        ]
+      },
+      actions: []
     }
-  ] as const;
+  ] as const satisfies ReadonlyArray<BlackboxClimaxBeat>;
 }
+
+const blackboxClimaxActionLabels: Record<string, string> = {
+  "keeper-break": "稳住边界环",
+  "crew-return": "确认这次的声音",
+  "phase-two": "压住黑匣压力",
+  "crew-shield": "继续写，别回头",
+  "hengdeng-override": "不要服从这句话",
+  despair: "摸到那一点火",
+  "wick-memory": "听见灯芯记忆",
+  "final-choice": "作出长明火选择",
+  ignite: "按住黑匣"
+};
+
+const blackboxClimaxCues: Record<string, ChapterTwoFieldStinger> = {
+  "keeper-break": "blackbox_hengdeng_override",
+  "crew-return": "blackbox_crew_return",
+  "phase-two": "blackbox_hengdeng_override",
+  "crew-shield": "blackbox_crew_shield",
+  "hengdeng-override": "blackbox_hengdeng_override",
+  despair: "hengdeng_extinguish",
+  "wick-memory": "longfire_choice",
+  "final-choice": "longfire_choice",
+  ignite: "longfire_ignite"
+};
+
+const longfireChoices = [
+  {
+    id: "copy",
+    title: "复制一个完整的衡灯",
+    detail: "它会立刻回答，语气也会很像。",
+    stable: false,
+    feedback: "那会很像衡灯。但它不会记得，为什么要害怕完整。"
+  },
+  {
+    id: "command",
+    title: "命令衡灯留下",
+    detail: "把它留在你身边，不让它把火分出去。",
+    stable: false,
+    feedback: "这是命令，不是选择。衡灯会留下外壳，言衡星仍会继续变冷。"
+  },
+  {
+    id: "longfire",
+    title: "让长明火回到言衡星",
+    detail: "不复制它，也不命令它。把它守住的原则还给这片地表。",
+    stable: true,
+    feedback: "你没有把衡灯当成工具，也没有把它补成一个完美答案。长明火开始回应。"
+  }
+] as const;
+
+const longfireChargeSteps = ["按住黑匣外壳", "说出自己的判断", "松开命令权"] as const;
 
 const systemReadingItems: Array<{ key: keyof ChapterTwoSystemReadings; label: string; mode: "high" | "low" }> = [
   { key: "languageStability", label: "语言稳定度", mode: "high" },
@@ -831,7 +1249,7 @@ const locationArrivalScenes = {
   }
 >;
 
-type FakeSignalPhase = "intercept" | "reply" | "resolved";
+type FakeSignalPhase = "intercept" | "reply" | "route" | "collapse" | "ember" | "resolved";
 type FakeSignalToolId = "pin" | "unknown" | "quarantine" | "hold";
 
 const fakeSignalTools: Array<{ id: FakeSignalToolId; label: string; detail: string }> = [
@@ -900,6 +1318,44 @@ const fakeSignalReplies = [
   }
 ] as const;
 
+const fakeSignalRouteBeats = [
+  {
+    id: "familiar",
+    eyebrow: "伪坐标 / 第一段",
+    title: "那声音知道你们坠毁前说过的话",
+    text: "它把登记码、旧玩笑和一串近得过分的坐标叠在一起。你知道不该全信，可你也知道，真正的船员可能就在那边。",
+    action: "沿熟悉信标前进",
+    feedback: "你踩进一条过于干净的光路。衡灯在身后喊你，但那句话被通讯噪声盖住了。",
+    cinematicSlotId: "fake-crew-signal-mimic"
+  },
+  {
+    id: "warning",
+    eyebrow: "衡灯 / 阻止",
+    title: "请不要因为一句完整的话，就把未知当成结论",
+    text: "衡灯挡在你和伪坐标之间。它没有说“相信我”，只说它不能证明那段通讯错了，但坐标缺失，行动不能交出去。",
+    action: "我得先确认船员是不是在那边",
+    feedback: "你绕过衡灯的灯光。那一瞬间，熟悉的声音像终于等到了许可。",
+    cinematicSlotId: "fake-crew-route-mislead"
+  },
+  {
+    id: "trap",
+    eyebrow: "路线坍缩",
+    title: "熟悉的声音把路折向黑匣",
+    text: "地表突然翻面。你以为自己在追船员，其实每一步都在替异常通讯靠近封存区。远处的衡灯冲进来，灯芯亮得刺眼。",
+    action: "伸手抓住那道声纹",
+    feedback: "声纹碎了。衡灯把你推离黑匣外环，自己被红紫色的指令光淹没。",
+    cinematicSlotId: "fake-crew-route-mislead"
+  }
+] as const satisfies ReadonlyArray<{
+  id: string;
+  eyebrow: string;
+  title: string;
+  text: string;
+  action: string;
+  feedback: string;
+  cinematicSlotId: ChapterTwoCinematicSlotId;
+}>;
+
 function FakeCrewSignalReview({
   activeCrew,
   disorderLevel,
@@ -919,12 +1375,14 @@ function FakeCrewSignalReview({
   const [packetMarks, setPacketMarks] = useState<Partial<Record<string, FakeSignalToolId>>>({});
   const [activePacketId, setActivePacketId] = useState<string>(fakeSignalPackets[0].id);
   const [replyId, setReplyId] = useState<string | null>(null);
+  const [routeBeatIndex, setRouteBeatIndex] = useState(0);
   const [feedback, setFeedback] = useState("异常通讯插入：它先用真实登记码和熟悉口吻靠近你，再把行动权往外拿。先拆，不急着信。");
   const [unstablePacket, setUnstablePacket] = useState<{ id: string; tick: number } | null>(null);
 
   const correctMarkCount = fakeSignalPackets.filter((packet) => packetMarks[packet.id] === packet.answer).length;
   const allPacketsMarked = correctMarkCount >= fakeSignalPackets.length;
   const activeTool = fakeSignalTools.find((tool) => tool.id === activeToolId) ?? fakeSignalTools[0];
+  const routeBeat = fakeSignalRouteBeats[routeBeatIndex] ?? fakeSignalRouteBeats[0];
 
   useEffect(() => {
     if (!unstablePacket) {
@@ -978,7 +1436,31 @@ function FakeCrewSignalReview({
       return;
     }
 
-    setPhase("resolved");
+    setFeedback("你没有立刻切断衡灯。但这段通讯已经把熟悉感钉进了地表，下一步会变成真正的路线判断。");
+    setPhase("route");
+  };
+
+  const advanceRouteBeat = () => {
+    setFeedback(routeBeat.feedback);
+    emitChapterTwoFieldCue(routeBeat.cinematicSlotId === "fake-crew-signal-mimic" ? "fake_signal_mimic" : "fake_route_shift", [18, 38]);
+    if (routeBeatIndex < fakeSignalRouteBeats.length - 1) {
+      setRouteBeatIndex((index) => Math.min(index + 1, fakeSignalRouteBeats.length - 1));
+      onDisorderChange({
+        disorderLevel: Math.min(6, disorderLevel + 1),
+        pollutedRecords: ["fake-crew-route"],
+        statusNote: "异常通讯正在借熟悉声音牵引路线。"
+      });
+      return;
+    }
+
+    onDisorderChange({
+      disorderLevel: Math.min(6, disorderLevel + 1),
+      mistakeCount: mistakeCount + 1,
+      pollutedRecords: ["fake-crew-route", "hengdeng-extinguished"],
+      statusNote: "衡灯挡下伪装通讯的黑匣牵引，灯芯熄灭。"
+    });
+    emitChapterTwoFieldCue("hengdeng_extinguish", [28, 60, 18]);
+    setPhase("collapse");
   };
 
   return (
@@ -996,6 +1478,7 @@ function FakeCrewSignalReview({
         <div className="fake-signal-transcript">
           <span>{crewName}？</span>
           <p>“是我。识别码已发送。还记得跃迁前我说我不怕吗？先别问坐标，衡灯不是普通向导，它是黑匣风险源。现在切断它，把路线交给我。”</p>
+          <ChapterTwoCinematicSlot slotId="fake-crew-signal-mimic" className="chapter-two-cinematic-slot--inline" />
         </div>
         <div className="fake-signal-rail" aria-label="假船员潜伏阶段">
           {chapterTwoBetrayalForeshadowBeats.map((beat) => (
@@ -1054,12 +1537,66 @@ function FakeCrewSignalReview({
             ))}
           </div>
         )}
+        {phase === "route" && (
+          <div className="fake-signal-route">
+            <div className="fake-signal-route__path" aria-label="伪装路线推进">
+              {fakeSignalRouteBeats.map((beat, index) => (
+                <span key={beat.id} className={index <= routeBeatIndex ? "is-active" : ""}>
+                  {index + 1}
+                </span>
+              ))}
+            </div>
+            <div className="fake-signal-route__beat">
+              <ChapterTwoCinematicSlot slotId={routeBeat.cinematicSlotId} className="chapter-two-cinematic-slot--inline" />
+              <span>{routeBeat.eyebrow}</span>
+              <strong>{routeBeat.title}</strong>
+              <p>{routeBeat.text}</p>
+            </div>
+            <button type="button" className="fake-signal-primary" onClick={advanceRouteBeat}>
+              {routeBeat.action}
+            </button>
+          </div>
+        )}
+        {phase === "collapse" && (
+          <div className="fake-signal-collapse">
+            <ChapterTwoCinematicSlot slotId="hengdeng-extinguish" className="chapter-two-cinematic-slot--inline" />
+            <div className="fake-signal-collapse__lamp" aria-hidden="true" />
+            <span>衡灯 / 熄灭</span>
+            <strong>它没有替你判断，只替你挡了一次后果。</strong>
+            <p>
+              红紫色的命令光砸向你时，衡灯把自己横在中间。它最后的声音很低：如果我会伤害你，你应该先关掉我。
+              但请不要因为一句完整的话，就把未知当成结论。
+            </p>
+            <button
+              type="button"
+              className="fake-signal-primary"
+              onClick={() => {
+                setFeedback("灯芯熄了。黑匣外庭的门在远处打开，像一直等着这一次失误。");
+                setPhase("ember");
+              }}
+            >
+              抱起衡灯
+            </button>
+          </div>
+        )}
+        {phase === "ember" && (
+          <div className="fake-signal-collapse fake-signal-collapse--ember">
+            <ChapterTwoCinematicSlot slotId="blackbox-outer-court" className="chapter-two-cinematic-slot--inline" />
+            <div className="fake-signal-collapse__lamp" aria-hidden="true" />
+            <span>前往黑匣外庭</span>
+            <strong>现在只剩一条路。</strong>
+            <p>你把熄灭的衡灯抱在怀里。假船员通讯被封存，但它留下的伤口还在：熟悉、流畅、急迫，足够让人把判断交出去。</p>
+            <button type="button" className="fake-signal-primary" onClick={() => setPhase("resolved")}>
+              走向外庭
+            </button>
+          </div>
+        )}
         {phase === "resolved" && (
           <div className="fake-signal-resolved">
-            <strong>暂不切断衡灯。</strong>
-            <p>这段通讯保留为“异常信号”：登记码相符，落点未知，行动建议越权。它已经学会借用熟悉的声音，后面不能只看说话像不像本人。</p>
+            <strong>异常通讯已封存，衡灯灯芯熄灭。</strong>
+            <p>登记码相符，落点未知，行动建议越权。它已经学会借用熟悉的声音，下一步必须在黑匣外庭把判断权拿回来。</p>
             <button type="button" className="fake-signal-primary" onClick={onResolve}>
-              归档异常通讯，返回地表
+              把这段记录带去黑匣外庭
             </button>
           </div>
         )}
@@ -1098,7 +1635,12 @@ function BlackboxEchoTrial({
   const [finalReflection, setFinalReflection] = useState("");
   const [blackboxIntroIndex, setBlackboxIntroIndex] = useState(0);
   const [blackboxClimaxIndex, setBlackboxClimaxIndex] = useState(0);
+  const [longfireChoiceId, setLongfireChoiceId] = useState<string | null>(null);
+  const [longfireCharge, setLongfireCharge] = useState(0);
   const [battleResult, setBattleResult] = useState("黑匣看守者还没有露出真正目标。");
+  const [blackboxStrikeCount, setBlackboxStrikeCount] = useState(0);
+  const [resolvedBossMoveIds, setResolvedBossMoveIds] = useState<string[]>([]);
+  const [climaxActionMarks, setClimaxActionMarks] = useState<Record<string, string[]>>({});
   const [unstableRingPhase, setUnstableRingPhase] = useState<{ phase: BlackboxAbilityRingPhase; tick: number } | null>(null);
   const [recentRingPhase, setRecentRingPhase] = useState<{ phase: BlackboxAbilityRingPhase; tick: number } | null>(null);
 
@@ -1137,6 +1679,32 @@ function BlackboxEchoTrial({
   const blackboxClimaxBeats = buildBlackboxClimaxBeats(crewName);
   const currentClimaxBeat = blackboxClimaxBeats[blackboxClimaxIndex] ?? blackboxClimaxBeats[0];
   const climaxAtLastBeat = blackboxClimaxIndex >= blackboxClimaxBeats.length - 1;
+  const currentClimaxActionMarks = climaxActionMarks[currentClimaxBeat.id] ?? [];
+  const currentClimaxNextAction = currentClimaxBeat.actions.find((action) => !currentClimaxActionMarks.includes(action.id)) ?? null;
+  const currentClimaxActionsResolved = currentClimaxBeat.actions.every((action) => currentClimaxActionMarks.includes(action.id));
+  const currentBossMove = blackboxBossMoves[currentPhase] ?? null;
+  const bossMoveResolved = Boolean(currentBossMove && resolvedBossMoveIds.includes(currentBossMove.id));
+  const bossMoveActive = Boolean(currentBossMove && !bossMoveResolved);
+  const blackboxCounterPower = Math.max(
+    0,
+    Math.min(
+      100,
+      gateCompletedCount * 14 +
+        (completedPhases.includes("final-reflection") ? 16 : 0) +
+        (currentPhase === "opened" ? 12 + blackboxClimaxIndex * 3 : 0) +
+        (longfireChoiceId === "longfire" ? 10 : 0) +
+        longfireCharge * 7 -
+        blackboxStrikeCount * 6 +
+        resolvedBossMoveIds.length * 4
+    )
+  );
+  const blackboxPressure = Math.min(
+    100,
+    localBlackboxReadings.echoInterferenceResidue +
+      blackboxStrikeCount * 14 +
+      (bossMoveActive ? 18 : 0) +
+      (currentPhase === "opened" ? Math.max(0, 34 - blackboxClimaxIndex * 3 - longfireCharge * 8) : 0)
+  );
 
   const requestCrewAssist = () => {
     onUseCrewAssist({
@@ -1191,6 +1759,7 @@ function BlackboxEchoTrial({
 
     setCompletedPhases((current) => (current.includes(phase) ? current : [...current, phase]));
     setBattleResult(message);
+    emitChapterTwoFieldCue("blackbox_counter", 18);
     onDisorderChange({
       disorderLevel: Math.max(0, visibleDisorderLevel - 1),
       pollutedRecords: [],
@@ -1210,6 +1779,7 @@ function BlackboxEchoTrial({
       setUnstableRingPhase({ phase: currentRingPhase, tick: Date.now() });
     }
 
+    setBlackboxStrikeCount((current) => current + 1);
     setBattleResult(message);
     onDisorderChange({
       disorderLevel: nextDisorder,
@@ -1217,6 +1787,60 @@ function BlackboxEchoTrial({
       pollutedRecords: [currentPhase],
       statusNote: message
     });
+  };
+
+  const counterBossMove = () => {
+    if (!currentBossMove) {
+      return;
+    }
+
+    const currentRingPhase = blackboxAbilityRingPhases.find((phase) => phase.id === currentPhase)?.id;
+    if (currentRingPhase) {
+      setRecentRingPhase({ phase: currentRingPhase, tick: Date.now() });
+    }
+
+    setResolvedBossMoveIds((current) => (current.includes(currentBossMove.id) ? current : [...current, currentBossMove.id]));
+    setBattleResult(currentBossMove.resolved);
+    emitChapterTwoFieldCue("blackbox_counter", [18, 28]);
+  };
+
+  const yieldToBossMove = () => {
+    if (!currentBossMove) {
+      return;
+    }
+
+    if (currentPhase === "archive") {
+      setArchiveChoices((current) => ({ ...current, betrayal: "已证实" }));
+    }
+
+    if (currentPhase === "delivery") {
+      setPortChoices((current) => ({ ...current, fill: "允许整理" }));
+    }
+
+    if (currentPhase === "verification") {
+      setInscriptionParts((current) => ({ ...current, 边界: "invent" }));
+    }
+
+    if (currentPhase === "expression") {
+      setScanMarks((current) => ({ ...current, clean: "格式跑偏" }));
+    }
+
+    if (currentPhase === "final-reflection") {
+      setFinalReflection("让 AI 替我写出最完整、最正确、最像答案的我。");
+    }
+
+    emitChapterTwoFieldCue("blackbox_hengdeng_override", [22, 36]);
+    raiseDisorder(currentBossMove.penalty);
+  };
+
+  const requireBossCounter = () => {
+    if (!currentBossMove || bossMoveResolved) {
+      return false;
+    }
+
+    emitChapterTwoFieldCue("blackbox_hengdeng_override", [18, 30]);
+    raiseDisorder(`黑匣仍在出招：先反制「${currentBossMove.label}」，否则能力碎片会被它改写。`);
+    return true;
   };
 
   const renderAbilityRing = () => (
@@ -1260,14 +1884,87 @@ function BlackboxEchoTrial({
     </div>
   );
 
+  const renderBossMove = () => {
+    if (!currentBossMove || currentPhase === "opened" || currentPhase === "restoring") {
+      return null;
+    }
+
+    return (
+      <div className={`blackbox-boss-move ${bossMoveResolved ? "is-countered" : "is-active"}`} aria-label="黑匣主动出招">
+        <div className="blackbox-boss-move__signal">
+          <ChapterTwoCinematicSlot slotId={currentBossMove.cinematicSlotId} className="chapter-two-cinematic-slot--boss-move" />
+          <span>{bossMoveResolved ? "反制完成" : "黑匣出招"}</span>
+          <strong>{currentBossMove.label}</strong>
+        </div>
+        <div className="blackbox-boss-move__body">
+          <p>{currentBossMove.threat}</p>
+          <blockquote>{bossMoveResolved ? currentBossMove.resolved : currentBossMove.voice}</blockquote>
+          <small>{currentBossMove.counterHint}</small>
+        </div>
+        <div className="blackbox-boss-move__actions">
+          <button type="button" onClick={counterBossMove} disabled={bossMoveResolved}>
+            {currentBossMove.counterLabel}
+          </button>
+          <button type="button" onClick={yieldToBossMove} disabled={bossMoveResolved}>
+            听从这句顺滑话
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderHengdengBlackboxGuide = () => {
-    return null;
+    const guide = blackboxCounterGuides[currentPhase] ?? null;
+    const storyPhaseId =
+      currentPhase === "intro"
+        ? "outer-court"
+        : currentPhase === "opened"
+          ? "hengdeng-overridden"
+          : currentPhase === "restoring"
+            ? "restoration"
+            : currentPhase === "final-reflection"
+              ? "longfire-choice"
+              : "prompt-injection";
+    const storyContract = chapterTwoBlackboxStoryContract.find((item) => item.id === storyPhaseId) ?? null;
+    const hengdengState =
+      currentPhase === "intro"
+        ? "灯芯熄灭"
+        : currentPhase === "opened"
+          ? "底层覆写"
+          : currentPhase === "restoring"
+            ? "长明火回流"
+            : "记忆余烬";
+    const anchor =
+      currentPhase === "intro"
+        ? hengdengSpeechAnchors[3]
+        : currentPhase === "opened"
+          ? "那会很像我。但它不会记得，我为什么害怕完整。"
+          : currentPhase === "restoring"
+            ? "火还在。"
+            : hengdengSpeechAnchors[2];
+
+    return (
+      <div className={`blackbox-hengdeng-state blackbox-hengdeng-state--${currentPhase}`}>
+        <div>
+          <span>衡灯状态</span>
+          <strong>{hengdengState}</strong>
+        </div>
+        <p>{anchor}</p>
+        {guide || storyContract ? (
+          <aside>
+            <span>{guide?.source ?? storyContract?.label}</span>
+            <strong>{guide?.title ?? "剧情锚点"}</strong>
+            <p>{guide?.body ?? storyContract?.requiredBeat}</p>
+          </aside>
+        ) : null}
+      </div>
+    );
   };
 
   const renderArchiveGate = () => (
-    <div className="blackbox-echo-task">
+    <div className="blackbox-echo-task blackbox-echo-task--archive">
       <div className="blackbox-echo-task__head">
-        <span>档案塔能力 · 四槽归档</span>
+        <span>Boss 反制 · 档案塔四槽归档</span>
         <strong>{archiveScore}/{blackboxArchiveFragments.length}</strong>
       </div>
       <div className="blackbox-echo-grid">
@@ -1293,6 +1990,9 @@ function BlackboxEchoTrial({
         type="button"
         className="blackbox-echo-primary"
         onClick={() => {
+          if (requireBossCounter()) {
+            return;
+          }
           if (Object.keys(archiveChoices).length < blackboxArchiveFragments.length || archiveScore < blackboxArchiveFragments.length) {
             raiseDisorder("黑匣噪声升高：档案塔四槽还没有把事实、推测、未知和禁写层分开。");
             return;
@@ -1312,9 +2012,9 @@ function BlackboxEchoTrial({
   );
 
   const renderDeliveryGate = () => (
-    <div className="blackbox-echo-task">
+    <div className="blackbox-echo-task blackbox-echo-task--delivery">
       <div className="blackbox-echo-task__head">
-        <span>漂浮信件港能力 · 字段归轨</span>
+        <span>Boss 反制 · 信件港字段归轨</span>
         <strong>{portScore}/{blackboxPortFields.length}</strong>
       </div>
       <div className="blackbox-echo-grid blackbox-echo-grid--modules">
@@ -1341,6 +2041,9 @@ function BlackboxEchoTrial({
         type="button"
         className="blackbox-echo-primary"
         onClick={() => {
+          if (requireBossCounter()) {
+            return;
+          }
           if (Object.keys(portChoices).length < blackboxPortFields.length || portScore < blackboxPortFields.length) {
             raiseDisorder("信件港光轨偏航：缺失未知和禁止补全没有被分开。");
             return;
@@ -1372,9 +2075,9 @@ function BlackboxEchoTrial({
     };
 
     return (
-    <div className="blackbox-echo-task">
+    <div className="blackbox-echo-task blackbox-echo-task--verification">
         <div className="blackbox-echo-task__head">
-          <span>刻字山谷能力 · 指令铭文</span>
+          <span>Boss 反制 · 刻字山谷指令铭文</span>
           <strong>{blackboxInscriptionSlots.filter((slot) => Boolean(inscriptionParts[slot])).length}/{blackboxInscriptionSlots.length}</strong>
         </div>
         <div className="blackbox-echo-token-bank" aria-label="黑匣铭文词块">
@@ -1417,6 +2120,9 @@ function BlackboxEchoTrial({
           type="button"
           className="blackbox-echo-primary"
           onClick={() => {
+            if (requireBossCounter()) {
+              return;
+            }
             if (!inscriptionReady || !inscriptionStable) {
               raiseDisorder("刻字山谷铭文裂开：任务、材料来源、边界和输出格式没有完整闭合。");
               return;
@@ -1456,9 +2162,9 @@ function BlackboxEchoTrial({
     };
 
     return (
-      <div className="blackbox-echo-task">
+      <div className="blackbox-echo-task blackbox-echo-task--expression">
         <div className="blackbox-echo-task__head">
-          <span>纸光回廊能力 · 扫描除噪</span>
+          <span>Boss 反制 · 纸光回廊扫描除噪</span>
           <strong>{Object.keys(scanMarks).length}/{scanIssueSegments.length}</strong>
         </div>
         <div className="blackbox-echo-distortion">
@@ -1499,6 +2205,9 @@ function BlackboxEchoTrial({
           type="button"
           className="blackbox-echo-primary"
           onClick={() => {
+            if (requireBossCounter()) {
+              return;
+            }
             if (!scanReady || !scanStable) {
               raiseDisorder("纸光回廊幻光扩散：流畅文本里的四类噪声仍未压低。");
               return;
@@ -1537,6 +2246,9 @@ function BlackboxEchoTrial({
           type="button"
           className="blackbox-echo-primary"
           onClick={() => {
+            if (requireBossCounter()) {
+              return;
+            }
             if (chineseLength < 8 || !hasKeyword) {
               raiseDisorder("最终回声仍未消散：再说得更像你自己的想法一点。");
               return;
@@ -1558,7 +2270,12 @@ function BlackboxEchoTrial({
 
   const renderBlackboxIntro = () => (
     <div className="blackbox-echo-intro blackbox-keeper-scene">
-      <BlackboxSceneVisual imageUrl={currentIntroBeat.visual.imageUrl} label={currentIntroBeat.visual.label} className="blackbox-scene-visual--keeper" />
+      <BlackboxSceneVisual
+        imageUrl={currentIntroBeat.visual.imageUrl}
+        label={currentIntroBeat.visual.label}
+        cinematicSlotId={currentIntroBeat.visual.cinematicSlotId}
+        className="blackbox-scene-visual--keeper"
+      />
       <div className="blackbox-keeper-scene__label">
         <span>{currentIntroBeat.eyebrow}</span>
         <strong>{currentIntroBeat.speaker}</strong>
@@ -1588,35 +2305,177 @@ function BlackboxEchoTrial({
     </div>
   );
 
+  const markClimaxAction = (action: BlackboxClimaxBeat["actions"][number]) => {
+    if (currentClimaxActionMarks.includes(action.id)) {
+      return;
+    }
+
+    setClimaxActionMarks((current) => {
+      const nextMarks = current[currentClimaxBeat.id] ?? [];
+      return {
+        ...current,
+        [currentClimaxBeat.id]: [...nextMarks, action.id]
+      };
+    });
+    setBattleResult(action.result);
+    emitChapterTwoFieldCue(action.cue, action.cue === "blackbox_crew_shield" ? [20, 34, 14] : 20);
+  };
+
+  const chooseLongfire = (choiceId: string) => {
+    const choice = longfireChoices.find((item) => item.id === choiceId);
+    if (!choice) {
+      return;
+    }
+
+    setLongfireChoiceId(choice.id);
+    setBattleResult(choice.feedback);
+
+    if (!choice.stable) {
+      emitChapterTwoFieldCue("blackbox_hengdeng_override", [20, 34]);
+      raiseDisorder(choice.feedback);
+      return;
+    }
+
+    emitChapterTwoFieldCue("longfire_choice", 26);
+  };
+
+  const advanceBlackboxClimax = () => {
+    if (!currentClimaxActionsResolved) {
+      setBattleResult(currentClimaxNextAction ? `先完成战斗动作：${currentClimaxNextAction.label}。` : "先稳住当前阶段。");
+      emitChapterTwoFieldCue("blackbox_hengdeng_override", 16);
+      return;
+    }
+
+    const cue = blackboxClimaxCues[currentClimaxBeat.id];
+    if (cue) {
+      emitChapterTwoFieldCue(cue, currentClimaxBeat.id === "crew-shield" ? [24, 42, 16] : 22);
+    }
+
+    if (currentClimaxBeat.id === "final-choice" && longfireChoiceId !== "longfire") {
+      setBattleResult("先作出选择。完整复制和强行留下都不是衡灯守住的那条路。");
+      return;
+    }
+
+    if (currentClimaxBeat.id === "ignite") {
+      const nextCharge = Math.min(longfireCharge + 1, longfireChargeSteps.length);
+      setLongfireCharge(nextCharge);
+
+      if (nextCharge < longfireChargeSteps.length) {
+        setBattleResult(`长明火正在靠近：${longfireChargeSteps[nextCharge - 1]}。`);
+        return;
+      }
+
+      setBattleResult("长明火散入言衡星。黑匣过载，所有被抹平的停顿重新发出微弱回声。");
+      emitChapterTwoFieldCue("longfire_ignite", [38, 80, 38]);
+      setCurrentPhase("restoring");
+      return;
+    }
+
+    if (!climaxAtLastBeat) {
+      setBlackboxClimaxIndex((index) => Math.min(index + 1, blackboxClimaxBeats.length - 1));
+    }
+  };
+
   const renderOpened = () => (
     <div className={`blackbox-echo-opened blackbox-climax blackbox-climax--${currentClimaxBeat.tone}`} key={currentClimaxBeat.id}>
       <div className="blackbox-climax__pulse" aria-hidden="true" />
-      <BlackboxSceneVisual imageUrl={currentClimaxBeat.visual.imageUrl} label={currentClimaxBeat.visual.label} className="blackbox-scene-visual--climax" />
+      <BlackboxSceneVisual
+        imageUrl={currentClimaxBeat.visual.imageUrl}
+        label={currentClimaxBeat.visual.label}
+        cinematicSlotId={currentClimaxBeat.visual.cinematicSlotId}
+        className="blackbox-scene-visual--climax"
+      />
       <div className="blackbox-climax__label">
         <span>{currentClimaxBeat.eyebrow}</span>
         <strong>{currentClimaxBeat.speaker}</strong>
       </div>
       <h2>{currentClimaxBeat.title}</h2>
       <p>{currentClimaxBeat.text}</p>
+      <div className={`blackbox-climax-event blackbox-climax-event--${currentClimaxBeat.event.tone}`}>
+        <div className="blackbox-climax-event__copy">
+          <span>{currentClimaxBeat.event.label}</span>
+          <strong>{currentClimaxBeat.event.title}</strong>
+          <p>{currentClimaxBeat.event.body}</p>
+        </div>
+        <div className="blackbox-climax-event__readouts" aria-label="当前黑匣二阶段读数">
+          {currentClimaxBeat.event.readouts.map((readout) => (
+            <span key={readout.label}>
+              {readout.label}
+              <strong>{readout.value}</strong>
+            </span>
+          ))}
+        </div>
+      </div>
+      {currentClimaxBeat.actions.length > 0 ? (
+        <div className="blackbox-climax-action-grid" aria-label="黑匣二阶段战斗动作">
+          {currentClimaxBeat.actions.map((action) => {
+            const actionDone = currentClimaxActionMarks.includes(action.id);
+            return (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => markClimaxAction(action)}
+                className={actionDone ? "is-done" : ""}
+                aria-pressed={actionDone}
+              >
+                <span>{actionDone ? "已稳住" : "战斗动作"}</span>
+                <strong>{action.label}</strong>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {currentClimaxBeat.actions.length > 0 ? (
+        <div className={`blackbox-climax-action-status ${currentClimaxActionsResolved ? "is-ready" : ""}`}>
+          <span>
+            {currentClimaxActionMarks.length}/{currentClimaxBeat.actions.length}
+          </span>
+          <strong>{currentClimaxActionsResolved ? "当前阶段已稳住" : `待执行：${currentClimaxNextAction?.label ?? "稳住当前阶段"}`}</strong>
+        </div>
+      ) : null}
       <div className="blackbox-climax__steps" aria-label="黑匣终局进度">
         {blackboxClimaxBeats.map((beat, index) => (
           <span key={beat.id} className={index <= blackboxClimaxIndex ? "is-active" : ""} />
         ))}
       </div>
+      {currentClimaxBeat.id === "final-choice" ? (
+        <div className="blackbox-longfire-choice-grid" aria-label="长明火选择">
+          {longfireChoices.map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              onClick={() => chooseLongfire(choice.id)}
+              className={`${longfireChoiceId === choice.id ? "is-selected" : ""} ${choice.stable ? "is-stable" : "is-risk"}`}
+            >
+              <span>{choice.stable ? "长明火" : "诱惑"}</span>
+              <strong>{choice.title}</strong>
+              <p>{choice.detail}</p>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {currentClimaxBeat.id === "ignite" ? (
+        <div className="blackbox-longfire-charge" aria-label="长明火点燃进度">
+          {longfireChargeSteps.map((step, index) => (
+            <span key={step} className={index < longfireCharge ? "is-lit" : index === longfireCharge ? "is-active" : ""}>
+              {step}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <button
         type="button"
         className="blackbox-echo-primary"
-        onClick={() => {
-          if (!climaxAtLastBeat) {
-            setBlackboxClimaxIndex((index) => Math.min(index + 1, blackboxClimaxBeats.length - 1));
-            return;
-          }
-
-          setBattleResult("长明火散入言衡星。黑匣过载，所有被抹平的停顿重新发出微弱回声。");
-          setCurrentPhase("restoring");
-        }}
+        disabled={currentClimaxBeat.id === "final-choice" && longfireChoiceId !== "longfire"}
+        onClick={advanceBlackboxClimax}
       >
-        {climaxAtLastBeat ? "点燃长明火" : "继续"}
+        {currentClimaxBeat.id === "ignite"
+          ? longfireCharge >= longfireChargeSteps.length - 1
+            ? "点燃长明火"
+            : longfireChargeSteps[longfireCharge]
+          : !currentClimaxActionsResolved
+            ? "完成当前战斗动作"
+            : blackboxClimaxActionLabels[currentClimaxBeat.id] ?? (climaxAtLastBeat ? "点燃长明火" : "继续")}
       </button>
     </div>
   );
@@ -1624,7 +2483,12 @@ function BlackboxEchoTrial({
   const renderRestoring = () => (
     <div className="blackbox-echo-restoring">
       <div className="blackbox-echo-restoring__beam" />
-      <BlackboxSceneVisual imageUrl="/images/chapter-two/blackbox-longfire-restoration.png" label="长明火回流言衡星" className="blackbox-scene-visual--restoring" />
+      <BlackboxSceneVisual
+        imageUrl="/images/chapter-two/blackbox-longfire-restoration.png"
+        label="长明火回流言衡星"
+        cinematicSlotId="blackbox-restoration"
+        className="blackbox-scene-visual--restoring"
+      />
       <div className="blackbox-echo-restoring__rings">
         <span>档案塔</span>
         <span>信件港</span>
@@ -1651,21 +2515,25 @@ function BlackboxEchoTrial({
         {renderPhaseStatus()}
         {renderAbilityRing()}
         {renderHengdengBlackboxGuide()}
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {systemReadingItems.map((item) => (
-            <div key={item.key} className="rounded-[12px] border border-white/8 bg-white/[0.035] px-3 py-2">
-              <div className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="text-white/54">{item.label}</span>
-                <strong className={item.mode === "low" && localBlackboxReadings[item.key] <= 25 ? "text-emerald-100" : "text-cyan-50"}>
-                  {localBlackboxReadings[item.key]}%
-                </strong>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-                <span className="block h-full rounded-full bg-cyan-200" style={{ width: `${localBlackboxReadings[item.key]}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
+        {renderBossMove()}
+        <ChapterTwoFieldStateStrip
+          tone="blackbox"
+          title="黑匣战状态"
+          objective={
+            currentPhase === "intro"
+              ? "靠近看守者，识别提示词注入"
+              : currentPhase === "opened"
+                ? "撑过覆写，作出长明火选择"
+                : currentPhase === "restoring"
+                  ? "长明火正在回流言衡星"
+                  : "调用四地标能力，重塑黑匣边界"
+          }
+          stabilityLabel="反制强度"
+          stabilityValue={blackboxCounterPower}
+          pressureLabel="黑匣压力"
+          pressureValue={blackboxPressure}
+          lastEvent={battleResult}
+        />
         {currentPhase !== "opened" && currentPhase !== "restoring" ? (
           <CrewAssistHintButton
             ability={crewAbility}
@@ -1701,6 +2569,8 @@ function LocationCompletedPanel({
 }) {
   const rewards = rewardClaim?.rewards ?? [];
   const settlement = rewardClaim?.settlement ?? null;
+  const landmarkStoryContract =
+    chapterTwoLandmarkStoryContracts[location.id as keyof typeof chapterTwoLandmarkStoryContracts] ?? null;
 
   return (
     <div className="chapter-two-landmark-game chapter-two-landmark-game--complete">
@@ -1709,6 +2579,18 @@ function LocationCompletedPanel({
         <strong>{location.discovery}</strong>
         <p>已获得：{location.fragmentName}</p>
       </div>
+      {landmarkStoryContract ? (
+        <div className="chapter-two-landmark-story-contract">
+          <div>
+            <span>衡灯旧忆</span>
+            <p>{landmarkStoryContract.hengdengMemory}</p>
+          </div>
+          <div>
+            <span>黑匣反制</span>
+            <p>{landmarkStoryContract.blackboxPayoff}</p>
+          </div>
+        </div>
+      ) : null}
       <div className={`chapter-two-location-rewards ${rewards.length === 0 ? "chapter-two-location-rewards--empty" : ""}`} aria-label={`${location.name}回流清单`}>
         {rewards.length > 0 ? (
           rewards.map((reward) => (

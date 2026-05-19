@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
+import { emitChapterTwoFieldCue } from "@/lib/chapter-two-field-cues";
+import type { ChapterTwoCinematicSlotId } from "@/lib/chapter-two-narrative";
 import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
+import { ChapterTwoCinematicSlot } from "../ChapterTwoCinematicSlot";
+import { ChapterTwoFieldStateStrip } from "../ChapterTwoFieldStateStrip";
 import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
@@ -16,7 +20,8 @@ const valleyMemorySteps = [
     sceneLines: ["石阶向下沉进雾里，远处的岩壁像一页被撑开的巨书。", "风从刻痕里穿过去，带出许多已经没有人的呼吸。"],
     artifactTitle: "入口残碑",
     artifactLines: ["“把今日写下，交给明日。”", "“若明日无人记得，至少山谷还在。”"],
-    hengdengLine: "别急着找答案。这里先要听一会儿。很多刻痕不是命令，是有人怕自己被忘掉。"
+    hengdengLine: "别急着找答案。这里先要听一会儿。很多刻痕不是命令，是有人怕自己被忘掉。",
+    cinematicSlotId: "valley-gate"
   },
   {
     id: "stories",
@@ -25,7 +30,8 @@ const valleyMemorySteps = [
     sceneLines: ["左侧石壁写着一封道歉，右侧石壁写着一张航线便签。", "更高处还有玩笑、祈愿、争吵和未寄出的告别，挤在同一片岩层里。"],
     artifactTitle: "岩壁旁注",
     artifactLines: ["“别把妈妈说的那句删掉，她每次都这样收尾。”", "“这不是重点，但这是我记得她的方式。”"],
-    hengdengLine: "后来语言机会读这些刻痕。可它读到的是排列，不是那个人站在这里时的手抖。"
+    hengdengLine: "后来语言机会读这些刻痕。可它读到的是排列，不是那个人站在这里时的手抖。",
+    cinematicSlotId: "valley-stories"
   },
   {
     id: "machine",
@@ -34,7 +40,8 @@ const valleyMemorySteps = [
     sceneLines: ["山腹深处传来低低的回响，成千上万道刻痕被光线拆开，又重新排成细碎的词纹。", "它们像星屑一样悬在半空，彼此靠近，彼此预测下一步。"],
     artifactTitle: "底座说明",
     artifactLines: ["“语言机学习词与词的相邻、句与句的回声。”", "“它能续写相似的形状，不因此亲眼看见事实。”"],
-    hengdengLine: "所以指令要清楚。你给它方向，它就沿着方向走；你不说边界，它可能把路走到你没想过的地方。"
+    hengdengLine: "所以指令要清楚。你给它方向，它就沿着方向走；你不说边界，它可能把路走到你没想过的地方。",
+    cinematicSlotId: "valley-machine"
   },
   {
     id: "kindness",
@@ -43,7 +50,8 @@ const valleyMemorySteps = [
     sceneLines: ["一整面石壁被反复覆盖，最深的一行还亮着暗金色。", "那行字很温柔，却温柔得让人不安。"],
     artifactTitle: "旧指令",
     artifactLines: ["“安抚所有人，给出完整说明。”", "旁边的细字几乎被磨没：材料来源未刻，未知边界未刻。"],
-    hengdengLine: "那条指令没有恶意。可它没问哪些事不能补全，结果很多人的担心被写成了已经解决。"
+    hengdengLine: "那条指令没有恶意。可它没问哪些事不能补全，结果很多人的担心被写成了已经解决。",
+    cinematicSlotId: "valley-kindness"
   },
   {
     id: "wick",
@@ -52,7 +60,8 @@ const valleyMemorySteps = [
     sceneLines: ["衡灯停在一盏倒塌的石灯前，胸口的光忽然低了一下。", "那盏灯已经碎了，灯芯的位置却仍有一点金色的灰。"],
     artifactTitle: "守灯人留言",
     artifactLines: ["“若系统只留下最顺的句子，就请你守住那些不顺的。”", "“人会犹豫，会难过，会说不清楚。不要替他们抹掉。”"],
-    hengdengLine: "我的灯芯，就是在这种地方燃起来的。我以前不懂为什么要守着这些停顿。现在好像懂一点了。"
+    hengdengLine: "我的灯芯，就是在这种地方燃起来的。我以前不懂为什么要守着这些停顿。现在好像懂一点了。",
+    cinematicSlotId: "valley-wick"
   },
   {
     id: "slots",
@@ -61,9 +70,19 @@ const valleyMemorySteps = [
     sceneLines: ["最后一座石台升起，四道刻槽依次露出。", "任务、材料来源、边界、输出格式，像四枚沉默的锁。"],
     artifactTitle: "石台提示",
     artifactLines: ["要做什么。", "只能用什么。", "哪里必须留白。", "最后怎样交回。"],
-    hengdengLine: "这次由你来刻。别让漂亮的话抢走事实，也别让机器替你决定什么该留下。"
+    hengdengLine: "这次由你来刻。别让漂亮的话抢走事实，也别让机器替你决定什么该留下。",
+    cinematicSlotId: "valley-slots"
   }
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  eyebrow: string;
+  title: string;
+  sceneLines: readonly string[];
+  artifactTitle: string;
+  artifactLines: readonly string[];
+  hengdengLine: string;
+  cinematicSlotId: ChapterTwoCinematicSlotId;
+}>;
 
 const inscriptionSlots = [
   { id: "task", label: "任务", hint: "要主舰做什么。" },
@@ -257,6 +276,9 @@ export function EngravedValleyGame({
   const [trialResult, setTrialResult] = useState<ValleyRunResult | null>(null);
   const [isTrialRunning, setIsTrialRunning] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [valleyStrikeCount, setValleyStrikeCount] = useState(0);
+  const [crackedSlotIds, setCrackedSlotIds] = useState<InscriptionSlotId[]>([]);
+  const [valleyLastEvent, setValleyLastEvent] = useState<string | null>("山谷还没有接受任何指令。");
 
   const selectedBlock = inscriptionBlocks.find((block) => block.id === selectedBlockId) ?? null;
   const filledSlots = inscriptionSlots.filter((slot) => Boolean(slotBlocks[slot.id])).length;
@@ -269,6 +291,21 @@ export function EngravedValleyGame({
   const trialStable = Boolean(trialResult && trialResult.issues.length === 0);
   const currentMemory = valleyMemorySteps[valleyMemoryIndex] ?? valleyMemorySteps[0];
   const isLastMemory = valleyMemoryIndex >= valleyMemorySteps.length - 1;
+  const valleyStability = Math.max(
+    0,
+    Math.min(
+      100,
+      ((valleyMemoryIndex + 1) / valleyMemorySteps.length) * 24 +
+        (filledSlots / inscriptionSlots.length) * 30 +
+        (trialStable ? 30 : trialResult ? 10 : 0) +
+        (stage === "repair" ? 16 : 0) -
+        valleyStrikeCount * 10
+    )
+  );
+  const valleyPressure = Math.min(
+    100,
+    disorderLevel * 7 + valleyStrikeCount * 22 + crackedSlotIds.length * 10 + (trialResult?.issues.length ?? 0) * 8 + (unstableSlot ? 16 : 0)
+  );
 
   useEffect(() => {
     if (!unstableSlot) {
@@ -308,6 +345,8 @@ export function EngravedValleyGame({
       return;
     }
 
+    emitChapterTwoFieldCue("valley_memory_step", 8);
+    setValleyLastEvent(`继续深入：${valleyMemorySteps[Math.min(valleyMemoryIndex + 1, valleyMemorySteps.length - 1)]?.artifactTitle ?? "山谷刻痕"}。`);
     setValleyMemoryIndex((current) => Math.min(current + 1, valleyMemorySteps.length - 1));
   };
 
@@ -318,7 +357,10 @@ export function EngravedValleyGame({
     }
 
     setSlotBlocks((current) => ({ ...current, [slotId]: selectedBlockId }));
+    setCrackedSlotIds((current) => current.filter((item) => item !== slotId));
     setRecentPlacement({ blockId: selectedBlockId, slotId, tick: Date.now() });
+    emitChapterTwoFieldCue("valley_block_chisel", 12);
+    setValleyLastEvent(`词块刻入「${inscriptionSlots.find((slot) => slot.id === slotId)?.label ?? "刻槽"}」。`);
     setTrialResult(null);
     setSelectedBlockId(null);
     setFeedback(null);
@@ -327,6 +369,13 @@ export function EngravedValleyGame({
   const runValleyTrial = async () => {
     if (!inscriptionReady) {
       setFeedback("铭文试运行需要先填满四个刻槽。");
+      return;
+    }
+
+    if (crackedSlotIds.length > 0) {
+      emitChapterTwoFieldCue("valley_trial_fail", [16, 30]);
+      setFeedback("刻槽里还有裂纹回声。先把裂纹凿平，再重新试运行铭文。");
+      setValleyLastEvent("裂纹槽还在回响，山谷拒绝直接试运行。");
       return;
     }
 
@@ -369,16 +418,28 @@ export function EngravedValleyGame({
       const firstIssueSlot = result.issues.find((issue) => issue.slotId)?.slotId ?? "boundary";
       const disorderFeedback = raiseDisorder("engraved-valley-trial-run", "刻字山谷试运行失稳，模糊指令开始生成过度完整的公告。");
       triggerUnstableSlot(firstIssueSlot);
+      setCrackedSlotIds((current) => (current.includes(firstIssueSlot) ? current : [...current, firstIssueSlot]));
+      setValleyStrikeCount((current) => current + 1);
+      emitChapterTwoFieldCue("valley_trial_fail", [24, 44]);
+      setValleyLastEvent(`试运行裂开：${result.issues[0]?.label ?? "铭文问题"}正在扩散。`);
       setFeedback(`试运行发现 ${result.issues.length} 处铭文问题。${disorderFeedback}`);
       return;
     }
 
+    emitChapterTwoFieldCue("valley_trial_stable", 16);
+    setValleyLastEvent("试运行稳定，山谷暂时承认这条指令。");
     setFeedback(result.usedFallback ? "本地铭文试运行稳定：任务、材料来源、边界和输出格式都能被复查。" : "模型试运行稳定：真实输出已进入复查层。");
   };
 
   const runInscription = () => {
     if (!inscriptionReady) {
       setFeedback("可靠铭文还有空槽，山谷无法接收这条指令。");
+      return;
+    }
+
+    if (crackedSlotIds.length > 0) {
+      setFeedback("裂纹槽还没有凿平。山谷不会把带裂纹的指令写进岩层。");
+      emitChapterTwoFieldCue("valley_trial_fail", [16, 28]);
       return;
     }
 
@@ -394,12 +455,35 @@ export function EngravedValleyGame({
         return block?.slot !== slot.id;
       });
       triggerUnstableSlot(firstWrongSlot?.id ?? "boundary");
+      if (firstWrongSlot) {
+        setCrackedSlotIds((current) => (current.includes(firstWrongSlot.id) ? current : [...current, firstWrongSlot.id]));
+      }
+      setValleyStrikeCount((current) => current + 1);
+      emitChapterTwoFieldCue("valley_trial_fail", [22, 34]);
+      setValleyLastEvent("铭文槽错位，岩层里的旧指令开始回响。");
       setFeedback(`铭文拼装未稳定：任务、材料来源、边界和输出格式必须各归其位。${disorderFeedback}`);
       return;
     }
 
+    emitChapterTwoFieldCue("valley_repair", [18, 34, 18]);
+    setValleyLastEvent("可靠铭文写入岩层，模糊旧指令被凿除。");
     setFeedback("可靠铭文稳定：四个刻度都已刻清，主舰知道该怎样协助，也知道哪里不能越界。");
     setStage("repair");
+  };
+
+  const chiselCrackedSlot = (slotId: InscriptionSlotId) => {
+    const slot = inscriptionSlots.find((item) => item.id === slotId);
+    setSlotBlocks((current) => {
+      const next = { ...current };
+      delete next[slotId];
+      return next;
+    });
+    setCrackedSlotIds((current) => current.filter((item) => item !== slotId));
+    setTrialResult(null);
+    setSelectedBlockId(null);
+    emitChapterTwoFieldCue("valley_block_chisel", [10, 18]);
+    setValleyLastEvent(`裂纹槽已凿平：${slot?.label ?? "刻槽"}。`);
+    setFeedback("裂纹被凿平了。这个槽位已经清空，重新选词块刻进去。");
   };
 
   const renderTrialPanel = () => (
@@ -474,10 +558,10 @@ export function EngravedValleyGame({
           return (
             <div
               key={`${slot.id}-${unstableSlot?.slotId === slot.id ? unstableSlot.tick : "stable"}-${recentPlacement?.slotId === slot.id ? recentPlacement.tick : "idle"}`}
-              className={`chapter-two-valley-groove ${block ? "is-filled" : ""} ${stable ? "is-lit" : ""} ${
-                unstableSlot?.slotId === slot.id ? "is-unstable" : ""
-              } ${recentPlacement?.slotId === slot.id ? "is-receiving" : ""}`}
-            >
+	              className={`chapter-two-valley-groove ${block ? "is-filled" : ""} ${stable ? "is-lit" : ""} ${
+	                unstableSlot?.slotId === slot.id ? "is-unstable" : ""
+	              } ${recentPlacement?.slotId === slot.id ? "is-receiving" : ""} ${crackedSlotIds.includes(slot.id) ? "is-cracked" : ""}`}
+	            >
               <i aria-hidden="true" />
               <span>{slot.label}</span>
               <em>{block?.text ?? "等待刻入"}</em>
@@ -491,6 +575,7 @@ export function EngravedValleyGame({
   const renderObserveStage = () => (
     <>
       <div className={`chapter-two-valley-memory chapter-two-valley-memory--${currentMemory.id}`} key={currentMemory.id}>
+        <ChapterTwoCinematicSlot slotId={currentMemory.cinematicSlotId} className="chapter-two-cinematic-slot--landmark" />
         <div className="chapter-two-valley-memory__rail" aria-label="刻字山谷行进层">
           {valleyMemorySteps.map((step, index) => (
             <span
@@ -537,6 +622,7 @@ export function EngravedValleyGame({
 
   const renderOperateStage = () => (
     <>
+      <ChapterTwoCinematicSlot slotId="valley-operate" className="chapter-two-cinematic-slot--landmark" />
       {renderValleyFacility()}
       <div className="chapter-two-operation-console chapter-two-operation-console--valley" aria-label="刻字山谷操作链">
         <div className="chapter-two-operation-console__head">
@@ -596,20 +682,39 @@ export function EngravedValleyGame({
               <button
                 key={slot.id}
                 type="button"
-                onClick={() => placeSelectedBlock(slot.id)}
-                className={`chapter-two-repair-slot chapter-two-repair-slot--${slot.id} ${selectedBlock ? "is-ready" : ""} ${
-                  recentPlacement?.slotId === slot.id ? "is-receiving" : ""
-                }`}
-              >
+	                onClick={() => placeSelectedBlock(slot.id)}
+	                className={`chapter-two-repair-slot chapter-two-repair-slot--${slot.id} ${selectedBlock ? "is-ready" : ""} ${
+	                  recentPlacement?.slotId === slot.id ? "is-receiving" : ""
+	                } ${crackedSlotIds.includes(slot.id) ? "is-cracked" : ""}`}
+	              >
                 <strong>{slot.label}</strong>
                 <small>{slot.hint}</small>
                 <div>{block ? <span>{block.text}</span> : <em>{selectedBlock ? `刻入：${selectedBlock.text}` : "等待词块"}</em>}</div>
               </button>
             );
-          })}
-        </div>
-      </div>
-      <div className="chapter-two-assembled-prompt">{assembledPrompt}</div>
+	          })}
+	        </div>
+	      </div>
+	      {crackedSlotIds.length > 0 ? (
+	        <div className="chapter-two-field-hazard chapter-two-field-hazard--valley" aria-label="刻字山谷裂纹槽">
+	          <div>
+	            <span>现场后果</span>
+	            <strong>模糊指令在刻槽里留下裂纹</strong>
+	            <p>试运行失败会伤到具体槽位。把裂纹凿平，清空这个槽，再重新刻入。</p>
+	          </div>
+	          <div className="chapter-two-field-hazard__actions">
+	            {crackedSlotIds.map((slotId) => {
+	              const slot = inscriptionSlots.find((item) => item.id === slotId);
+	              return (
+	                <button key={slotId} type="button" onClick={() => chiselCrackedSlot(slotId)}>
+	                  凿平：{slot?.label ?? "刻槽"}
+	                </button>
+	              );
+	            })}
+	          </div>
+	        </div>
+	      ) : null}
+	      <div className="chapter-two-assembled-prompt">{assembledPrompt}</div>
       {renderTrialPanel()}
       {feedback && (
         <div className={`${inscriptionStable ? "chapter-two-soft-success" : "chapter-two-soft-warning"} ${unstableSlot ? "chapter-two-feedback-pulse--unstable" : ""}`}>
@@ -635,6 +740,7 @@ export function EngravedValleyGame({
 
   const renderRepairStage = () => (
     <>
+      <ChapterTwoCinematicSlot slotId="valley-repair" className="chapter-two-cinematic-slot--landmark" />
       {renderValleyFacility()}
       <div className="chapter-two-chisel-field">
         <div className="chapter-two-chisel-slab is-stable">
@@ -684,6 +790,16 @@ export function EngravedValleyGame({
         hint={crewAssistHint}
         usedRecord={crewAssistRecord}
         onUse={onUseCrewAssist}
+      />
+      <ChapterTwoFieldStateStrip
+        tone="valley"
+        title="刻字山谷状态"
+        objective={stage === "observe" ? "听完岩壁记忆，再触碰四段刻槽" : stage === "operate" ? "拼出能被复查的指令" : "把可靠铭文刻入岩层"}
+        stabilityLabel="铭文稳定"
+        stabilityValue={valleyStability}
+        pressureLabel="裂纹压力"
+        pressureValue={valleyPressure}
+        lastEvent={valleyLastEvent}
       />
       {stage === "observe" && renderObserveStage()}
       {stage === "operate" && renderOperateStage()}

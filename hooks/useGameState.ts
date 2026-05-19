@@ -2097,7 +2097,7 @@ export function useGameState() {
           boundaryAwareness: 1
         },
         source: "异常通讯审查",
-        note: "异常船员通讯已用归档、接轨、铭文和扫描四种能力拆解：识别码相符不等于整段信息可靠。",
+        note: "异常船员通讯已封存：识别码和熟悉口吻被确认是伪装材料，衡灯为阻断黑匣牵引而熄灭。",
         createdAt
       });
       const nextSystemReadings = createChapterTwoSystemReadings({
@@ -2131,8 +2131,8 @@ export function useGameState() {
           settlementLogs: [settlement, ...current.chapterTwo.settlementLogs].slice(0, 16)
         },
         shipStatusNote: blackBoxUnlocked
-          ? "异常通讯已归档：四束信息光汇入中央封存台，黑匣开始回应。"
-          : "异常通讯已归档：识别码相符，但结论和行动建议必须继续复查。"
+          ? "异常通讯已封存：衡灯灯芯熄灭，黑匣外庭打开。"
+          : "异常通讯已封存：识别码相符，但结论和行动建议必须继续复查。"
       };
     });
   };

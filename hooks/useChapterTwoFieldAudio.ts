@@ -3,6 +3,7 @@
 import type { PointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { ChapterTwoFieldStinger } from "@/lib/chapter-two-field-cues";
 import type { ChapterTwoSceneState } from "@/types/game";
 
 export type ChapterTwoFieldAudioStage =
@@ -258,6 +259,217 @@ export function useChapterTwoFieldAudio({
     [active, playNoise, playTone, soundEnabled]
   );
 
+  const playStinger = useCallback(
+    (cue: ChapterTwoFieldStinger) => {
+      if (!active || !soundEnabled) return;
+
+      if (cue === "archive_clue_record") {
+        playNoise(0.07, 0.035);
+        playTone(392, 0.08, 0.052, "triangle", 0.02);
+        playTone(523, 0.12, 0.045, "sine", 0.1);
+        return;
+      }
+
+      if (cue === "archive_fragment_place") {
+        playTone(294, 0.06, 0.055, "triangle");
+        playTone(440, 0.08, 0.048, "triangle", 0.08);
+        return;
+      }
+
+      if (cue === "archive_misfile") {
+        playNoise(0.16, 0.082);
+        playTone(132, 0.11, 0.078, "square", 0.04);
+        return;
+      }
+
+      if (cue === "archive_repair") {
+        playTone(330, 0.1, 0.065, "triangle");
+        playTone(494, 0.15, 0.056, "sine", 0.1);
+        playTone(659, 0.24, 0.046, "sine", 0.24);
+        return;
+      }
+
+      if (cue === "letter_time_anchor") {
+        playNoise(0.08, 0.032);
+        playTone(262, 0.08, 0.052, "triangle");
+        playTone(392, 0.16, 0.046, "sine", 0.1);
+        return;
+      }
+
+      if (cue === "letter_route_connect") {
+        playTone(330, 0.05, 0.054, "triangle");
+        playTone(370, 0.05, 0.048, "triangle", 0.07);
+        playTone(440, 0.08, 0.044, "sine", 0.14);
+        return;
+      }
+
+      if (cue === "letter_wrong_track") {
+        playNoise(0.15, 0.075);
+        playTone(110, 0.12, 0.072, "square", 0.05);
+        return;
+      }
+
+      if (cue === "letter_repair") {
+        playTone(247, 0.1, 0.06, "triangle");
+        playTone(370, 0.16, 0.052, "sine", 0.12);
+        playTone(554, 0.24, 0.044, "sine", 0.26);
+        return;
+      }
+
+      if (cue === "valley_memory_step") {
+        playTone(196, 0.09, 0.054, "triangle");
+        playNoise(0.09, 0.03, 0.06);
+        playTone(294, 0.15, 0.046, "sine", 0.12);
+        return;
+      }
+
+      if (cue === "valley_block_chisel") {
+        playTone(176, 0.045, 0.062, "square");
+        playTone(352, 0.06, 0.044, "triangle", 0.06);
+        return;
+      }
+
+      if (cue === "valley_trial_fail") {
+        playNoise(0.2, 0.08);
+        playTone(98, 0.16, 0.072, "sawtooth", 0.05);
+        return;
+      }
+
+      if (cue === "valley_trial_stable") {
+        playTone(220, 0.1, 0.06, "triangle");
+        playTone(330, 0.15, 0.052, "sine", 0.12);
+        return;
+      }
+
+      if (cue === "valley_repair") {
+        playTone(165, 0.12, 0.058, "triangle");
+        playTone(247, 0.18, 0.052, "sine", 0.12);
+        playTone(494, 0.28, 0.044, "sine", 0.28);
+        return;
+      }
+
+      if (cue === "paper_route_reveal") {
+        playNoise(0.08, 0.036);
+        playTone(523, 0.07, 0.046, "triangle", 0.02);
+        return;
+      }
+
+      if (cue === "paper_relic_claim") {
+        playTone(440, 0.08, 0.058, "triangle");
+        playTone(660, 0.14, 0.05, "sine", 0.09);
+        return;
+      }
+
+      if (cue === "paper_residue_hit") {
+        playNoise(0.12, 0.062);
+        playTone(392, 0.08, 0.052, "triangle", 0.08);
+        return;
+      }
+
+      if (cue === "paper_residue_miss") {
+        playNoise(0.16, 0.082);
+        playTone(124, 0.1, 0.074, "square", 0.05);
+        return;
+      }
+
+      if (cue === "paper_shield_absorb") {
+        playTone(92, 0.2, 0.084, "sawtooth");
+        playTone(184, 0.16, 0.052, "triangle", 0.12);
+        return;
+      }
+
+      if (cue === "paper_sword_break") {
+        playNoise(0.13, 0.07);
+        playTone(740, 0.06, 0.052, "triangle");
+        playTone(185, 0.18, 0.056, "sine", 0.1);
+        return;
+      }
+
+      if (cue === "paper_scan_mark") {
+        playTone(523, 0.055, 0.048, "triangle");
+        playTone(659, 0.07, 0.04, "sine", 0.06);
+        return;
+      }
+
+      if (cue === "paper_scan_fail") {
+        playNoise(0.18, 0.084);
+        playTone(116, 0.12, 0.072, "square", 0.06);
+        return;
+      }
+
+      if (cue === "paper_repair") {
+        playTone(392, 0.09, 0.06, "triangle");
+        playTone(587, 0.16, 0.052, "sine", 0.12);
+        playTone(784, 0.26, 0.044, "sine", 0.28);
+        return;
+      }
+
+      if (cue === "fake_signal_mimic") {
+        playNoise(0.1, 0.065);
+        playTone(220, 0.06, 0.055, "square", 0.04);
+        playTone(221, 0.06, 0.045, "square", 0.12);
+        return;
+      }
+
+      if (cue === "fake_route_shift") {
+        playTone(146, 0.12, 0.075, "sawtooth");
+        playNoise(0.16, 0.07, 0.06);
+        return;
+      }
+
+      if (cue === "hengdeng_extinguish") {
+        playTone(330, 0.08, 0.07, "triangle");
+        playTone(196, 0.18, 0.058, "sine", 0.08);
+        playTone(82, 0.42, 0.07, "sine", 0.18);
+        return;
+      }
+
+      if (cue === "blackbox_counter") {
+        playTone(262, 0.07, 0.062, "triangle");
+        playTone(392, 0.09, 0.055, "triangle", 0.08);
+        playTone(587, 0.18, 0.046, "sine", 0.16);
+        return;
+      }
+
+      if (cue === "blackbox_crew_return") {
+        playNoise(0.08, 0.04);
+        playTone(294, 0.1, 0.072, "triangle");
+        playTone(440, 0.14, 0.066, "sine", 0.08);
+        playTone(660, 0.22, 0.052, "sine", 0.18);
+        return;
+      }
+
+      if (cue === "blackbox_crew_shield") {
+        playTone(98, 0.22, 0.1, "sawtooth");
+        playNoise(0.22, 0.09, 0.08);
+        playTone(196, 0.18, 0.065, "triangle", 0.18);
+        return;
+      }
+
+      if (cue === "blackbox_hengdeng_override") {
+        playNoise(0.18, 0.085);
+        playTone(124, 0.08, 0.072, "square");
+        playTone(247, 0.08, 0.062, "square", 0.1);
+        playTone(62, 0.34, 0.055, "sine", 0.2);
+        return;
+      }
+
+      if (cue === "longfire_choice") {
+        playTone(220, 0.16, 0.062, "triangle");
+        playTone(330, 0.2, 0.055, "sine", 0.12);
+        return;
+      }
+
+      if (cue === "longfire_ignite") {
+        playTone(196, 0.12, 0.075, "triangle");
+        playTone(330, 0.18, 0.07, "sine", 0.08);
+        playTone(523, 0.28, 0.065, "sine", 0.2);
+        playTone(784, 0.42, 0.05, "sine", 0.36);
+      }
+    },
+    [active, playNoise, playTone, soundEnabled]
+  );
+
   const primeAudio = useCallback(async () => {
     if (!active) return;
 
@@ -334,6 +546,20 @@ export function useChapterTwoFieldAudio({
     playTone(587, 0.16, 0.06, "sine", 0.1);
     lastExploredCountRef.current = exploredCount;
   }, [active, exploredCount, playTone]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFieldCue = (event: Event) => {
+      const detail = (event as CustomEvent<{ cue?: ChapterTwoFieldStinger }>).detail;
+      if (detail?.cue) {
+        playStinger(detail.cue);
+      }
+    };
+
+    window.addEventListener("chapter-two-field-cue", handleFieldCue);
+    return () => window.removeEventListener("chapter-two-field-cue", handleFieldCue);
+  }, [playStinger]);
 
   useEffect(() => {
     const graph = audioRef.current;

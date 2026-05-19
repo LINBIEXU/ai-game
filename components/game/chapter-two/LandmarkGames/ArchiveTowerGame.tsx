@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
+import { emitChapterTwoFieldCue } from "@/lib/chapter-two-field-cues";
+import type { ChapterTwoCinematicSlotId } from "@/lib/chapter-two-narrative";
 import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
+import { ChapterTwoCinematicSlot } from "../ChapterTwoCinematicSlot";
+import { ChapterTwoFieldStateStrip } from "../ChapterTwoFieldStateStrip";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
 const archiveTowerRooms = [
@@ -19,7 +23,8 @@ const archiveTowerRooms = [
     ],
     clueTitle: "塔门原句",
     clueText: "言衡星负责保存和传递文明记录。",
-    hengdeng: "先别急着修它。进塔以后，看见的每句话都要问一句：它从哪里来。"
+    hengdeng: "先别急着修它。进塔以后，看见的每句话都要问一句：它从哪里来。",
+    cinematicSlotId: "archive-threshold"
   },
   {
     id: "names",
@@ -32,7 +37,8 @@ const archiveTowerRooms = [
     ],
     clueTitle: "档案官便签",
     clueText: "名字不是事实，但它们会提醒我们为什么要保存事实。",
-    hengdeng: "这里的人很怕遗忘。也正因为怕，才更不能把猜的东西刻成真的。"
+    hengdeng: "这里的人很怕遗忘。也正因为怕，才更不能把猜的东西刻成真的。",
+    cinematicSlotId: "archive-names"
   },
   {
     id: "blank",
@@ -45,7 +51,8 @@ const archiveTowerRooms = [
     ],
     clueTitle: "塔底划痕",
     clueText: "逆熵打击的来源尚未确认。",
-    hengdeng: "空白不丢人。把空白说成答案，才会让后来的人迷路。"
+    hengdeng: "空白不丢人。把空白说成答案，才会让后来的人迷路。",
+    cinematicSlotId: "archive-blank"
   },
   {
     id: "margin",
@@ -58,7 +65,8 @@ const archiveTowerRooms = [
     ],
     clueTitle: "裂缝旁批注",
     clueText: "异常可能从一条未知深空信号开始扩散。",
-    hengdeng: "推测可以留下，但它只能站在旁边。站到正文里，就会挡住事实。"
+    hengdeng: "推测可以留下，但它只能站在旁边。站到正文里，就会挡住事实。",
+    cinematicSlotId: "archive-margin"
   },
   {
     id: "sealed",
@@ -71,9 +79,19 @@ const archiveTowerRooms = [
     ],
     clueTitle: "失序回声",
     clueText: "所有 AI 都背叛了前文明。",
-    hengdeng: "越省事的解释，越要慢一点。塔顶不会被一句漂亮结论打开。"
+    hengdeng: "越省事的解释，越要慢一点。塔顶不会被一句漂亮结论打开。",
+    cinematicSlotId: "archive-sealed"
   }
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  floor: string;
+  title: string;
+  scene: readonly string[];
+  clueTitle: string;
+  clueText: string;
+  hengdeng: string;
+  cinematicSlotId: ChapterTwoCinematicSlotId;
+}>;
 
 const archiveClassificationSlots = [
   { id: "confirmed", label: "已证实", hint: "能连回塔壁原句或残卷记录。" },
@@ -133,6 +151,9 @@ export function ArchiveTowerGame({
   const [unstableLayer, setUnstableLayer] = useState<ArchiveFacilityPulse | null>(null);
   const [recentPlacement, setRecentPlacement] = useState<ArchiveRecentPlacement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [archiveStrikeCount, setArchiveStrikeCount] = useState(0);
+  const [corruptedFragmentIds, setCorruptedFragmentIds] = useState<string[]>([]);
+  const [archiveLastEvent, setArchiveLastEvent] = useState<string | null>("塔门还没有承认任何结论。");
 
   const currentTowerRoom = archiveTowerRooms[towerRoomIndex] ?? archiveTowerRooms[0];
   const currentRoomRecorded = recordedRoomIds.includes(currentTowerRoom.id);
@@ -142,6 +163,17 @@ export function ArchiveTowerGame({
   const classificationReady = assignedCount === archiveFragments.length;
   const classificationStable = classificationScore === archiveFragments.length;
   const selectedFragment = archiveFragments.find((fragment) => fragment.id === selectedFragmentId) ?? null;
+  const archiveStability = Math.max(
+    0,
+    Math.min(
+      100,
+      (recordedRoomIds.length / archiveTowerRooms.length) * 28 +
+        (classificationScore / archiveFragments.length) * 62 +
+        (stage === "repair" ? 10 : 0) -
+        archiveStrikeCount * 12
+    )
+  );
+  const archivePressure = Math.min(100, disorderLevel * 8 + archiveStrikeCount * 24 + corruptedFragmentIds.length * 10 + (unstableLayer ? 18 : 0));
 
   useEffect(() => {
     if (!unstableLayer) {
@@ -176,6 +208,10 @@ export function ArchiveTowerGame({
   };
 
   const recordCurrentRoom = () => {
+    if (!currentRoomRecorded) {
+      emitChapterTwoFieldCue("archive_clue_record", 12);
+      setArchiveLastEvent(`${currentTowerRoom.clueTitle} 已写入随身记录。`);
+    }
     setRecordedRoomIds((current) => (current.includes(currentTowerRoom.id) ? current : [...current, currentTowerRoom.id]));
   };
 
@@ -200,7 +236,10 @@ export function ArchiveTowerGame({
     }
 
     setPlacements((current) => ({ ...current, [selectedFragmentId]: slotId }));
+    setCorruptedFragmentIds((current) => current.filter((fragmentId) => fragmentId !== selectedFragmentId));
     setRecentPlacement({ fragmentId: selectedFragmentId, slotId, tick: Date.now() });
+    emitChapterTwoFieldCue("archive_fragment_place", 10);
+    setArchiveLastEvent(`碎片送入「${archiveClassificationSlots.find((slot) => slot.id === slotId)?.label ?? "光槽"}」。`);
     setSelectedFragmentId(null);
     setFeedback(null);
   };
@@ -211,22 +250,47 @@ export function ArchiveTowerGame({
       return;
     }
 
+    if (corruptedFragmentIds.length > 0) {
+      emitChapterTwoFieldCue("archive_misfile", [16, 28]);
+      setFeedback("塔壁上还有墨斑封条。先擦亮被污染的碎片，确认它没有继续把无来源结论往正文里拖。");
+      setArchiveLastEvent("墨斑封条仍在塔壁上闪烁，归档闭合被暂缓。");
+      return;
+    }
+
     if (!classificationStable) {
       const disorderFeedback = raiseDisorder("archive-tower-four-slot", "档案塔四槽错位，污染墨斑沿塔壁扩散；仍可重新归档。");
       const firstWrongFragment = archiveFragments.find((fragment) => placements[fragment.id] !== fragment.answer);
       triggerUnstableLayer(firstWrongFragment ? placements[firstWrongFragment.id] ?? firstWrongFragment.answer : "unknown");
+      if (firstWrongFragment) {
+        setCorruptedFragmentIds((current) => (current.includes(firstWrongFragment.id) ? current : [...current, firstWrongFragment.id]));
+      }
+      setArchiveStrikeCount((current) => current + 1);
+      emitChapterTwoFieldCue("archive_misfile", [24, 36]);
+      setArchiveLastEvent("塔壁拒绝闭合：有一句话站错了层级。");
       setFeedback(`四槽归档未稳定：事实、推测、未知和禁写层仍有混线。${disorderFeedback}`);
       return;
     }
 
+    emitChapterTwoFieldCue("archive_repair", [18, 34, 18]);
+    setArchiveLastEvent("封顶门承认归档，污染墨斑被压回塔外。");
     setFeedback("四槽归档稳定：文字能延长记忆，但没有来源的断言没有进入正文。");
     setStage("repair");
+  };
+
+  const cleanseArchiveSeal = (fragmentId: string) => {
+    const fragment = archiveFragments.find((item) => item.id === fragmentId);
+    setCorruptedFragmentIds((current) => current.filter((item) => item !== fragmentId));
+    setSelectedFragmentId(fragmentId);
+    emitChapterTwoFieldCue("archive_clue_record", [10, 18]);
+    setArchiveLastEvent(`墨斑封条已擦亮：${fragment?.text ?? "档案碎片"}。`);
+    setFeedback("封条被擦亮了。重新看一眼这句话的来源，再把它送回正确层级。");
   };
 
   const returnInsideLabel = stage === "observe" ? `回到${currentTowerRoom.floor}` : stage === "operate" ? "回到封顶门" : "回到修复光束";
 
   const renderExteriorStage = () => (
     <div className="chapter-two-archive-immersive chapter-two-archive-immersive--exterior">
+      <ChapterTwoCinematicSlot slotId="archive-threshold" className="chapter-two-cinematic-slot--landmark" />
       <section className="chapter-two-archive-exterior-caption" aria-live="polite">
         <span>档案塔外 / 门前平台</span>
         <h2>冷风从塔缝里退出来</h2>
@@ -248,6 +312,7 @@ export function ArchiveTowerGame({
 
   const renderObserveStage = () => (
     <div className={`chapter-two-archive-immersive chapter-two-archive-immersive--observe chapter-two-archive-immersive--${currentTowerRoom.id}`}>
+      <ChapterTwoCinematicSlot slotId={currentTowerRoom.cinematicSlotId} className="chapter-two-cinematic-slot--landmark" />
       <div className="chapter-two-archive-scene-progress" aria-label="档案塔层级">
         {archiveTowerRooms.map((room, index) => (
           <span
@@ -311,6 +376,7 @@ export function ArchiveTowerGame({
 
   const renderOperateStage = () => (
     <div className={`chapter-two-archive-immersive chapter-two-archive-immersive--operate ${unstableLayer ? "has-unstable" : ""}`}>
+      <ChapterTwoCinematicSlot slotId="archive-operate" className="chapter-two-cinematic-slot--landmark" />
       <section className="chapter-two-archive-wall-note" aria-live="polite">
         <span>封顶门 / 四层光槽</span>
         <h2>{selectedFragment ? "把手中的碎片放入塔壁光槽" : classificationReady ? "四层都在等待闭合" : "塔壁散出六枚档案碎片"}</h2>
@@ -345,9 +411,11 @@ export function ArchiveTowerGame({
               }}
               className={`chapter-two-archive-floating-fragment chapter-two-archive-floating-fragment--${index + 1} ${
                 selectedFragmentId === fragment.id ? "is-selected" : ""
-              } ${placedSlot ? "is-placed" : ""} ${recentPlacement?.fragmentId === fragment.id ? "is-just-placed" : ""}`}
+              } ${placedSlot ? "is-placed" : ""} ${recentPlacement?.fragmentId === fragment.id ? "is-just-placed" : ""} ${
+                corruptedFragmentIds.includes(fragment.id) ? "is-corrupted" : ""
+              }`}
             >
-              <span>{placedSlot?.label ?? "悬浮碎片"}</span>
+              <span>{corruptedFragmentIds.includes(fragment.id) ? "墨斑封条" : placedSlot?.label ?? "悬浮碎片"}</span>
               <p>{fragment.text}</p>
             </button>
           );
@@ -387,6 +455,26 @@ export function ArchiveTowerGame({
         })}
       </div>
 
+      {corruptedFragmentIds.length > 0 ? (
+        <div className="chapter-two-field-hazard chapter-two-field-hazard--archive" aria-label="档案塔墨斑封条">
+          <div>
+            <span>现场后果</span>
+            <strong>墨斑封条正在拖拽错误结论</strong>
+            <p>错位归档不会只给一次红字提示。被污染的碎片会留在塔壁上，必须擦亮后重新判断。</p>
+          </div>
+          <div className="chapter-two-field-hazard__actions">
+            {corruptedFragmentIds.map((fragmentId) => {
+              const fragment = archiveFragments.find((item) => item.id === fragmentId);
+              return (
+                <button key={fragmentId} type="button" onClick={() => cleanseArchiveSeal(fragmentId)}>
+                  擦亮：{fragment?.text ?? "档案碎片"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {feedback && (
         <div className={`chapter-two-archive-scene-feedback ${classificationStable ? "is-stable" : "is-unstable"} ${unstableLayer ? "chapter-two-feedback-pulse--unstable" : ""}`}>
           {feedback}
@@ -410,6 +498,7 @@ export function ArchiveTowerGame({
 
   const renderRepairStage = () => (
     <div className="chapter-two-archive-immersive chapter-two-archive-immersive--repair">
+      <ChapterTwoCinematicSlot slotId="archive-repair" className="chapter-two-cinematic-slot--landmark" />
       <div className="chapter-two-archive-repair-beam" aria-hidden="true" />
       <div className="chapter-two-archive-wall-slots chapter-two-archive-wall-slots--repair" aria-label="档案塔四层完成光槽">
         {archiveClassificationSlots.map((slot) => (
@@ -449,6 +538,17 @@ export function ArchiveTowerGame({
 
   return (
     <div className={`chapter-two-landmark-game chapter-two-archive-loop chapter-two-archive-loop--${stage} chapter-two-archive-loop--immersive`}>
+      <ChapterTwoFieldStateStrip
+        tone="archive"
+        title="档案塔状态"
+        objective={stage === "observe" ? "读完塔身证据，再走向封顶门" : stage === "operate" ? "把每句话送回正确层级" : "塔光正在回流黑匣"}
+        stabilityLabel="归档稳定"
+        stabilityValue={archiveStability}
+        pressureLabel="墨斑压力"
+        pressureValue={archivePressure}
+        lastEvent={archiveLastEvent}
+        className="chapter-two-field-state-strip--archive-float"
+      />
       {towerView === "exterior" ? (
         renderExteriorStage()
       ) : (

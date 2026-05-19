@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 
 import type { ChapterTwoLocationNode } from "@/lib/chapter-two-exploration";
+import { emitChapterTwoFieldCue } from "@/lib/chapter-two-field-cues";
+import type { ChapterTwoCinematicSlotId } from "@/lib/chapter-two-narrative";
 import type { ChapterTwoCrewAbility, ChapterTwoCrewAssistRecord, ChapterTwoLocationCompletionPayload, CrewMember } from "@/types/game";
 
+import { ChapterTwoCinematicSlot } from "../ChapterTwoCinematicSlot";
+import { ChapterTwoFieldStateStrip } from "../ChapterTwoFieldStateStrip";
 import { CrewAssistHintButton } from "./CrewAbilityHint";
 import { reportLandmarkMistake, type LandmarkDisorderChange } from "./disorder";
 
@@ -22,7 +26,8 @@ const letterPortMoments = [
     artifactLines: ["发件地：第七档案塔", "时间：逆熵前夜", "收件人：栏位损坏"],
     unlockFieldIds: ["sender", "time", "receiver"],
     voice: "衡灯没有立刻说话，只把灯举低了一点，好让你看清纸面。",
-    action: "读下去"
+    action: "读下去",
+    cinematicSlotId: "letter-pile"
   },
   {
     id: "original",
@@ -37,7 +42,8 @@ const letterPortMoments = [
     artifactLines: ["发件地和时间可以确认", "收件人缺失", "情感来自写信的人，不来自整理系统"],
     unlockFieldIds: ["receipt"],
     voice: "衡灯轻声说：别急着替它完整，先听它缺了什么。",
-    action: "继续读"
+    action: "继续读",
+    cinematicSlotId: "letter-original"
   },
   {
     id: "slip",
@@ -52,7 +58,8 @@ const letterPortMoments = [
     artifactLines: ["轨道波形受到未知信号扰动", "写信人身份不可确认", "只能保留看见的片段"],
     unlockFieldIds: ["wave"],
     voice: "衡灯的声音隔着很远传来：抓住已知，别被光带走。",
-    action: "稳住信纸"
+    action: "稳住信纸",
+    cinematicSlotId: "letter-slip"
   },
   {
     id: "draft",
@@ -67,7 +74,8 @@ const letterPortMoments = [
     artifactLines: ["格式更完整", "缺失被当作内容补上", "顺滑不等于真实"],
     unlockFieldIds: ["fill-name"],
     voice: "衡灯说：这就是危险的地方。它很会整理，也很会让空白看起来不像空白。",
-    action: "回到港口"
+    action: "回到港口",
+    cinematicSlotId: "letter-draft"
   },
   {
     id: "return",
@@ -82,9 +90,21 @@ const letterPortMoments = [
     artifactLines: ["已知内容照录", "缺失未知保留", "允许整理与禁止补全分开"],
     unlockFieldIds: [],
     voice: "衡灯把灯芯贴近光轨：现在，让这封信按真实的重量走。",
-    action: "进入字段接线"
+    action: "进入字段接线",
+    cinematicSlotId: "letter-return"
   }
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  eyebrow: string;
+  title: string;
+  scene: readonly string[];
+  artifactTitle: string;
+  artifactLines: readonly string[];
+  unlockFieldIds: readonly string[];
+  voice: string;
+  action: string;
+  cinematicSlotId: ChapterTwoCinematicSlotId;
+}>;
 
 const letterTrackLanes = [
   { id: "known", label: "已知内容", hint: "照录残信里已经出现的字段。" },
@@ -145,6 +165,9 @@ export function LetterPortGame({
   const [unstableLane, setUnstableLane] = useState<LetterFacilityPulse | null>(null);
   const [recentConnection, setRecentConnection] = useState<LetterRecentConnection | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [trackStrikeCount, setTrackStrikeCount] = useState(0);
+  const [driftingFieldIds, setDriftingFieldIds] = useState<string[]>([]);
+  const [letterLastEvent, setLetterLastEvent] = useState<string | null>("信件港的光轨还在漂移。");
 
   const currentMoment = letterPortMoments[letterMomentIndex] ?? letterPortMoments[0];
   const isLastMoment = letterMomentIndex >= letterPortMoments.length - 1;
@@ -160,6 +183,17 @@ export function LetterPortGame({
   const tracksReady = connectedCount === activeLetterFields.length && activeLetterFields.length === letterFields.length;
   const tracksStable = trackScore === letterFields.length;
   const selectedField = activeLetterFields.find((field) => field.id === selectedFieldId) ?? null;
+  const letterStability = Math.max(
+    0,
+    Math.min(
+      100,
+      (recoveredMomentIds.length / letterPortMoments.length) * 30 +
+        (trackScore / letterFields.length) * 60 +
+        (stage === "repair" ? 10 : 0) -
+        trackStrikeCount * 10
+    )
+  );
+  const letterDrift = Math.min(100, disorderLevel * 7 + trackStrikeCount * 22 + driftingFieldIds.length * 10 + (unstableLane ? 18 : 0));
 
   useEffect(() => {
     if (!unstableLane) {
@@ -197,6 +231,8 @@ export function LetterPortGame({
   const advanceLetterMoment = () => {
     if (!currentMomentRecovered) {
       setRecoveredMomentIds((current) => (current.includes(currentMoment.id) ? current : [...current, currentMoment.id]));
+      emitChapterTwoFieldCue("letter_time_anchor", [10, 18]);
+      setLetterLastEvent(`${currentMoment.artifactTitle} 已封存，光轨新增 ${currentMoment.unlockFieldIds.length} 个字段。`);
       setFeedback(`时间锚封存：${currentMoment.artifactTitle}。现实光轨新增 ${currentMoment.unlockFieldIds.length} 个字段。`);
       return;
     }
@@ -218,7 +254,10 @@ export function LetterPortGame({
     }
 
     setConnections((current) => ({ ...current, [selectedFieldId]: laneId }));
+    setDriftingFieldIds((current) => current.filter((fieldId) => fieldId !== selectedFieldId));
     setRecentConnection({ fieldId: selectedFieldId, laneId, tick: Date.now() });
+    emitChapterTwoFieldCue("letter_route_connect", 10);
+    setLetterLastEvent(`字段接入「${letterTrackLanes.find((lane) => lane.id === laneId)?.label ?? "光轨"}」。`);
     setSelectedFieldId(null);
     setFeedback(null);
   };
@@ -229,16 +268,45 @@ export function LetterPortGame({
       return;
     }
 
+    if (driftingFieldIds.length > 0) {
+      emitChapterTwoFieldCue("letter_wrong_track", [18, 30]);
+      setFeedback("还有字段带着偏航尾迹。先把它拖回港口，再重新接入光轨。");
+      setLetterLastEvent("偏航尾迹仍在港口水面上拖着亮线。");
+      return;
+    }
+
     if (!tracksStable) {
       const disorderFeedback = raiseDisorder("letter-port-wiring", "漂浮信件港出现错轨，未证字段开始偏航；仍可重新接线。");
       const firstWrongField = letterFields.find((field) => connections[field.id] !== field.lane);
       triggerUnstableLane(firstWrongField ? connections[firstWrongField.id] ?? firstWrongField.lane : "missing");
+      if (firstWrongField) {
+        setDriftingFieldIds((current) => (current.includes(firstWrongField.id) ? current : [...current, firstWrongField.id]));
+      }
+      setTrackStrikeCount((current) => current + 1);
+      emitChapterTwoFieldCue("letter_wrong_track", [24, 42]);
+      setLetterLastEvent("光轨偏航：至少一个字段被接到了错误航道。");
       setFeedback(`轨道同步失败：缺失未知、允许整理和禁止补全被混到了一起。${disorderFeedback}`);
       return;
     }
 
+    emitChapterTwoFieldCue("letter_repair", [16, 28, 16]);
+    setLetterLastEvent("四条光轨同步，残信按真实重量继续传递。");
     setFeedback("四条光轨同步：残信可以被整理，但不会被强行补完整。");
     setStage("repair");
+  };
+
+  const pullBackDriftingField = (fieldId: string) => {
+    const field = letterFields.find((item) => item.id === fieldId);
+    setConnections((current) => {
+      const next = { ...current };
+      delete next[fieldId];
+      return next;
+    });
+    setDriftingFieldIds((current) => current.filter((item) => item !== fieldId));
+    setSelectedFieldId(fieldId);
+    emitChapterTwoFieldCue("letter_route_connect", [10, 18]);
+    setLetterLastEvent(`偏航字段已拖回港口：${field?.text ?? "残信字段"}。`);
+    setFeedback("偏航尾迹被拖回来了。不要急着补完整，重新选择它该去的轨道。");
   };
 
   const renderLetterFacility = () => (
@@ -278,6 +346,7 @@ export function LetterPortGame({
   const renderObserveStage = () => (
     <>
       <div className={`chapter-two-letter-story chapter-two-letter-story--${currentMoment.id}`} aria-label="漂浮信件港残信观测">
+        <ChapterTwoCinematicSlot slotId={currentMoment.cinematicSlotId} className="chapter-two-cinematic-slot--landmark" />
         <div className="chapter-two-letter-story__rail" aria-hidden="true">
           {letterPortMoments.map((moment, index) => (
             <span key={moment.id} className={`${index === letterMomentIndex ? "is-active" : ""} ${index < letterMomentIndex ? "is-read" : ""}`} />
@@ -324,6 +393,7 @@ export function LetterPortGame({
 
   const renderOperateStage = () => (
     <>
+      <ChapterTwoCinematicSlot slotId="letter-operate" className="chapter-two-cinematic-slot--landmark" />
       {renderLetterFacility()}
       <div className="chapter-two-operation-console chapter-two-operation-console--letter" aria-label="漂浮信件港操作链">
         <div className="chapter-two-operation-console__head">
@@ -357,9 +427,9 @@ export function LetterPortGame({
                 }}
                 className={`chapter-two-fragment-card ${selectedFieldId === field.id ? "is-selected" : ""} ${connectedLane ? "is-placed" : ""} ${
                   recentConnection?.fieldId === field.id ? "is-just-placed" : ""
-                }`}
+                } ${driftingFieldIds.includes(field.id) ? "is-drifting" : ""}`}
               >
-                <span>{connectedLane?.label ?? "未接轨"}</span>
+                <span>{driftingFieldIds.includes(field.id) ? "偏航尾迹" : connectedLane?.label ?? "未接轨"}</span>
                 <p>{field.text}</p>
               </button>
             );
@@ -390,7 +460,26 @@ export function LetterPortGame({
             );
           })}
         </div>
-      </div>
+	      </div>
+      {driftingFieldIds.length > 0 ? (
+        <div className="chapter-two-field-hazard chapter-two-field-hazard--letter" aria-label="信件港偏航字段">
+          <div>
+            <span>现场后果</span>
+            <strong>错轨字段正在拖出偏航尾迹</strong>
+            <p>字段接错后，光轨不会自动忘掉这次偏航。把它拖回港口，再重新送达。</p>
+          </div>
+          <div className="chapter-two-field-hazard__actions">
+            {driftingFieldIds.map((fieldId) => {
+              const field = letterFields.find((item) => item.id === fieldId);
+              return (
+                <button key={fieldId} type="button" onClick={() => pullBackDriftingField(fieldId)}>
+                  拖回：{field?.text ?? "残信字段"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {feedback && (
         <div className={`${tracksStable ? "chapter-two-soft-success" : "chapter-two-soft-warning"} ${unstableLane ? "chapter-two-feedback-pulse--unstable" : ""}`}>
           {feedback}
@@ -413,6 +502,7 @@ export function LetterPortGame({
 
   const renderRepairStage = () => (
     <>
+      <ChapterTwoCinematicSlot slotId="letter-repair" className="chapter-two-cinematic-slot--landmark" />
       {renderLetterFacility()}
       <div className="chapter-two-letter-receipt-stack">
         <div className="chapter-two-letter-receipt chapter-two-letter-receipt--wake">
@@ -467,6 +557,16 @@ export function LetterPortGame({
         hint={crewAssistHint}
         usedRecord={crewAssistRecord}
         onUse={onUseCrewAssist}
+      />
+      <ChapterTwoFieldStateStrip
+        tone="letter"
+        title="信件港状态"
+        objective={stage === "observe" ? "封存时间锚，找回可追踪字段" : stage === "operate" ? "把字段接入正确光轨" : "让残信按真实重量送达"}
+        stabilityLabel="送达稳定"
+        stabilityValue={letterStability}
+        pressureLabel="偏航压力"
+        pressureValue={letterDrift}
+        lastEvent={letterLastEvent}
       />
       {stage === "observe" && renderObserveStage()}
       {stage === "operate" && renderOperateStage()}
